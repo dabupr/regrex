@@ -1,0 +1,27 @@
+[package]
+name = "regrex-cli"
+version = "0.0.1"
+description = "Command-line interface for Regrex: find the formulas behind your data"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme = "../../README.md"
+keywords = ["symbolic-regression", "csv", "excel", "formula", "cli"]
+categories = ["command-line-utilities", "science"]
+
+[[bin]]
+name = "regrex"
+path = "src/main.rs"
+
+[dependencies]
+regrex-core = { path = "../regrex-core", version = "0.0.1" }
+calamine = "0.38"
+clap = { version = "4.5", features = ["derive"] }
+csv = "1.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+serde_json = "1"

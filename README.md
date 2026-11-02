@@ -17,7 +17,31 @@
 - **Built for AI**: MCP server and stable JSON output. The AI proposes, the engine verifies.
 - **Private by design**: in the browser, your data never leaves your computer.
 
-## Try it
+## Command line
+
+Find the columns of a spreadsheet that are computed from other columns, and the rows that break the rule:
+
+```console
+$ regrex scan examples/data/invoices.csv --ignore invoice
+examples/data/invoices.csv: 60 rows, 7 numeric columns
+Skipped (not numeric): product
+
+  price        = subtotal / quantity           60/60 rows
+  discount_pct = -100 * net / subtotal + 100   60/60 rows
+  subtotal     = price * quantity              60/60 rows
+  net          = total - vat                   59/60 rows   exceptions: row 17
+  vat          = 0.21 * net                    59/60 rows   exceptions: row 42
+  total        = net + vat                     59/60 rows   exceptions: row 17
+```
+
+- Reads CSV (comma, semicolon or tab; decimal point or comma) and spreadsheets (`.xlsx`, `.xls`, `.ods`, choose one with `--sheet`).
+- `--json` prints a stable, versioned JSON report for scripts and AI agents.
+- `--mermaid` prints the dependencies between columns as a diagram.
+- `regrex fit data.csv --target y` lists candidate formulas for a single column.
+
+Install from source with `cargo install --path crates/regrex-cli`.
+
+## Rust library
 
 The engine can already rediscover formulas from data (Rust library, phase 1 of the roadmap):
 

@@ -20,3 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - snapping of fitted constants to round values (`0.5`, `1.21`, `π`) using the BIC;
   - weighted complexity (including the digits of each constant) and a Pareto front of accuracy vs simplicity;
   - optional multithreading with the `parallel` feature (on by default).
+- Dataset scanning (phase 2):
+  - `regrex_core::scan` finds columns computed from other columns, robust to a few rows that break the rule, and reports those rows;
+  - the `regrex` command-line tool (`regrex-cli` crate) with `scan` and `fit`, CSV and spreadsheet input, text, JSON and Mermaid output;
+  - example data in `examples/data/invoices.csv`.
+
+### Changed
+
+- Minimum supported Rust version is now 1.88 (needed by the spreadsheet reader).
