@@ -5,6 +5,10 @@
 
 **Find the formula behind your data.** Regrex is an open-source symbolic regression engine written in Rust that runs in your browser (WebAssembly, no server), in Python and as a tool for AI agents.
 
+**[Try it in your browser →](https://dabupr.github.io/regrex/)** Nothing to install, and your data never leaves your computer.
+
+![Regrex finding the formulas of an invoices spreadsheet](docs/images/web-results.png)
+
 > Status: early development. The engine is being built in the open; see the [roadmap](docs/ROADMAP.md).
 
 ## What it will do
@@ -16,6 +20,10 @@
 - **Error diagnosis per row**: given the correct formula, explain what each wrong result did (forgot a square, used g = 10, swapped two parameters, cm vs m).
 - **Built for AI**: MCP server and stable JSON output. The AI proposes, the engine verifies.
 - **Private by design**: in the browser, your data never leaves your computer.
+
+## Web app
+
+Open [dabupr.github.io/regrex](https://dabupr.github.io/regrex/), drop a CSV or Excel file (or try the example), untick ID columns and press **Find derived columns**. The engine is the same Rust code as the command line, compiled to WebAssembly and run in a background thread, so files are never uploaded anywhere.
 
 ## Command line
 
@@ -29,9 +37,9 @@ Skipped (not numeric): product
   price        = subtotal / quantity           60/60 rows
   discount_pct = -100 * net / subtotal + 100   60/60 rows
   subtotal     = price * quantity              60/60 rows
-  net          = total - vat                   59/60 rows   exceptions: row 17
-  vat          = 0.21 * net                    59/60 rows   exceptions: row 42
-  total        = net + vat                     59/60 rows   exceptions: row 17
+  net          = total - vat                   59/60 rows   exception: row 17 is 73.8, formula gives 78.8
+  vat          = 0.21 * net                    59/60 rows   exception: row 42 is 29.97, formula gives 62.937
+  total        = net + vat                     59/60 rows   exception: row 17 is 94.3, formula gives 89.3
 ```
 
 - Reads CSV (comma, semicolon or tab; decimal point or comma) and spreadsheets (`.xlsx`, `.xls`, `.ods`, choose one with `--sheet`).

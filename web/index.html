@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Find the formulas behind your data. Upload a CSV or Excel file and Regrex tells you which columns are computed from others, and which rows break the rule. Runs entirely in your browser." />
+    <title>Regrex: find the formulas behind your data</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232b59c3'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='18' font-style='italic' fill='white' text-anchor='middle'%3Ef(x)%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap top-inner">
+        <a class="brand" href="./"><span class="logo" aria-hidden="true">f(x)</span> Regrex</a>
+        <a class="gh" href="https://github.com/dabupr/regrex">GitHub</a>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section id="start" class="hero">
+        <h1>Find the formulas behind your data</h1>
+        <p class="lead">
+          Drop a spreadsheet and Regrex tells you which columns are computed from
+          other columns, with which formula, and which rows break the rule.
+        </p>
+        <label id="drop" class="drop" tabindex="0">
+          <input id="file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.xlsb,.ods" hidden />
+          <strong>Drop a CSV or Excel file here</strong>
+          <span>or click to choose one</span>
+        </label>
+        <p class="alt">
+          No file at hand? <button id="example" class="link" type="button">Try an example with 60 invoices</button>
+        </p>
+        <p class="privacy">🔒 Your data never leaves your computer: everything runs in your browser.</p>
+      </section>
+
+      <p id="error" class="error" role="alert" hidden></p>
+
+      <section id="data" hidden>
+        <div class="bar">
+          <div>
+            <h2 id="file-name"></h2>
+            <p id="file-summary" class="muted"></p>
+          </div>
+          <div class="actions">
+            <label id="sheet-wrap" hidden>Sheet <select id="sheet"></select></label>
+            <button id="scan" class="primary" type="button">Find derived columns</button>
+          </div>
+        </div>
+        <p class="hint muted">Untick columns that are not data, such as IDs or invoice numbers.</p>
+        <div class="table-wrap"><table id="preview"></table></div>
+      </section>
+
+      <section id="progress" hidden>
+        <div class="meter"><div id="meter-fill"></div></div>
+        <p id="progress-text" class="muted"></p>
+      </section>
+
+      <section id="results" hidden>
+        <div class="bar">
+          <h2>Results</h2>
+          <button id="download" type="button">Download JSON</button>
+        </div>
+        <div id="cards"></div>
+        <p id="independent" class="muted"></p>
+      </section>
+    </main>
+
+    <footer class="wrap foot muted">
+      Regrex is open source (MIT). <a href="https://github.com/dabupr/regrex">Source, issues and roadmap</a>.
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

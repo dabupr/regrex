@@ -166,7 +166,9 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
 
     let (formula, matched) = best?;
     let ratio = matched.len() as f64 / rows.len() as f64;
-    if ratio < config.min_match || !formula.has_vars() {
+    // With few rows, a complicated formula can fit anything: require more
+    // matching rows than the formula has parts.
+    if ratio < config.min_match || !formula.has_vars() || matched.len() <= formula.complexity() {
         return None;
     }
     let matched_set: std::collections::HashSet<usize> = matched.iter().copied().collect();
@@ -404,6 +406,20 @@ mod tests {
             decimals: vec![Some(0), Some(0)],
         };
         assert!(scan(&table, &ScanConfig::default()).is_empty());
+    }
+
+    #[test]
+    fn complicated_formulas_need_enough_rows() {
+        // Six unrelated rows: some long formula may fit them, but it is not evidence.
+        let table = Table {
+            names: vec!["id".into(), "x".into()],
+            columns: vec![
+                vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+                vec![2.5, 1.25, 3.0, 10.0, 0.5, 7.0],
+            ],
+            decimals: vec![Some(0), Some(2)],
+        };
+        assert!(explain_column(&table, 0, &ScanConfig::default()).is_none());
     }
 
     #[test]

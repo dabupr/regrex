@@ -1,10 +1,8 @@
 //! `regrex`: find the formulas behind your data, from the command line.
 
-mod input;
-mod output;
-
 use clap::{Args, Parser, Subcommand};
 use regrex_core::{explain_column, scan, search, ScanConfig, SearchConfig};
+use regrex_io::report as output;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -78,8 +76,9 @@ fn main() -> ExitCode {
     }
 }
 
-fn load(file: &FileArgs) -> Result<input::Loaded, String> {
-    let mut loaded = input::load(&file.file, file.sheet.as_deref())?;
+fn load(file: &FileArgs) -> Result<regrex_io::Loaded, String> {
+    let mut loaded =
+        regrex_io::load_path(&file.file, file.sheet.as_deref()).map_err(|e| e.to_string())?;
     for name in &file.ignore {
         let index = column_index(&loaded.table, name)?;
         loaded.table.names.remove(index);
@@ -136,7 +135,8 @@ fn run(cli: Cli) -> Result<(), String> {
                 }
                 out
             };
-            let report = output::ScanReport::new(&file.file, &loaded, &derived);
+            let report =
+                output::ScanReport::new(&file.file.display().to_string(), &loaded, &derived);
             if file.json {
                 println!("{}", report.to_json());
             } else if mermaid {
