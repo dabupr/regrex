@@ -8,3 +8,7 @@ license = "MIT"
 rust-version = "1.80"
 authors = ["David Busoms"]
 repository = "https://github.com/dabupr/regrex"
+
+# The search is numeric and slow without optimisations; keep tests fast.
+[profile.test]
+opt-level = 3

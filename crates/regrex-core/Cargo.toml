@@ -11,4 +11,10 @@ readme = "../../README.md"
 keywords = ["symbolic-regression", "formula", "equation-discovery", "wasm"]
 categories = ["science", "mathematics", "algorithms"]
 
+[features]
+default = ["parallel"]
+## Use all CPU cores (disable for WebAssembly).
+parallel = ["dep:rayon"]
+
 [dependencies]
+rayon = { version = "1.10", optional = true }
