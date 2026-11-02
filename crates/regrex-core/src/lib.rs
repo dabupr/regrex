@@ -20,6 +20,9 @@
 //! assert_eq!(best.expr.display_with(&names).to_string(), "1.21 * price * quantity");
 //! ```
 //!
+//! To find which columns of a table are computed from the others, see
+//! [`scan`](crate::scan::scan).
+//!
 //! How it works:
 //!
 //! 1. [`enumerate`](crate::enumerate::enumerate) builds every distinct formula
@@ -35,9 +38,11 @@ pub mod enumerate;
 pub mod error;
 pub mod expr;
 pub mod fit;
+pub mod scan;
 pub mod search;
 pub mod simplify;
 
 pub use error::Error;
 pub use expr::{BinaryOp, Expr, UnaryOp};
+pub use scan::{explain_column, scan, DerivedColumn, ScanConfig, Table};
 pub use search::{search, Candidate, SearchConfig};

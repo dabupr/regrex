@@ -1,11 +1,11 @@
 [workspace]
-resolver = "2"
-members = ["crates/regrex-core"]
+resolver = "3"
+members = ["crates/regrex-core", "crates/regrex-cli"]
 
 [workspace.package]
 edition = "2021"
 license = "MIT"
-rust-version = "1.80"
+rust-version = "1.88"
 authors = ["David Busoms"]
 repository = "https://github.com/dabupr/regrex"
 

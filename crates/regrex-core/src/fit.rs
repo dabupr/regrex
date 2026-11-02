@@ -72,7 +72,7 @@ where
     let mut best: Option<(Vec<f64>, f64)> = None;
     for &start in &opts.starts {
         if let Some((p, s)) = levenberg_marquardt(&residuals, vec![start; m], opts.max_iterations) {
-            if best.as_ref().map_or(true, |(_, b)| s < *b) {
+            if best.as_ref().is_none_or(|(_, b)| s < *b) {
                 best = Some((p, s));
             }
             if s <= opts.good_enough {

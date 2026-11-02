@@ -1,0 +1,427 @@
+//! Dataset scanning: find which columns are computed from other columns.
+//!
+//! For every numeric column, the scanner searches for a formula over the
+//! other columns that reproduces it. Real exports often contain a few rows
+//! that do not follow the rule (manual edits, special cases, typos), so the
+//! scan is robust: it searches on several subsets of rows, keeps the formula
+//! that matches the most rows, and reports the rows that break it.
+
+use crate::expr::Expr;
+use crate::search::{search, SearchConfig};
+
+/// A table of numeric columns. Missing or non-numeric cells are `NaN`.
+#[derive(Debug, Clone, Default)]
+pub struct Table {
+    /// Column names, used in formulas.
+    pub names: Vec<String>,
+    /// Column values; all columns have the same length.
+    pub columns: Vec<Vec<f64>>,
+    /// Number of decimals each column is written with, when known (for
+    /// example from a CSV file). Used to tolerate rounding.
+    pub decimals: Vec<Option<u32>>,
+}
+
+impl Table {
+    /// Number of rows.
+    pub fn n_rows(&self) -> usize {
+        self.columns.first().map_or(0, Vec::len)
+    }
+}
+
+/// Settings for [`scan`] and [`explain_column`].
+#[derive(Debug, Clone)]
+pub struct ScanConfig {
+    /// Settings for each search. Scanning uses smaller formulas than a
+    /// single search by default, because it runs one search per column.
+    pub search: SearchConfig,
+    /// A column is reported as derived when its formula matches at least
+    /// this fraction of rows.
+    pub min_match: f64,
+    /// Relative tolerance for a row to match when the column's decimals are
+    /// unknown.
+    pub rel_tolerance: f64,
+    /// At most this many other columns are considered as inputs (the most
+    /// correlated ones).
+    pub max_inputs: usize,
+    /// Rows per subset when searching robustly.
+    pub subset_rows: usize,
+}
+
+impl Default for ScanConfig {
+    fn default() -> Self {
+        ScanConfig {
+            search: SearchConfig {
+                max_size: 5,
+                max_params: 1,
+                ..SearchConfig::default()
+            },
+            min_match: 0.9,
+            rel_tolerance: 1e-6,
+            max_inputs: 5,
+            subset_rows: 40,
+        }
+    }
+}
+
+/// A column explained by a formula over other columns.
+#[derive(Debug, Clone)]
+pub struct DerivedColumn {
+    /// Index of the derived column.
+    pub target: usize,
+    /// The formula; `Expr::Var(i)` refers to column `i` of the table.
+    pub formula: Expr,
+    /// The formula written with column names.
+    pub formula_text: String,
+    /// Columns used by the formula, in increasing order.
+    pub inputs: Vec<usize>,
+    /// Weighted complexity of the formula.
+    pub complexity: usize,
+    /// Rows where the formula reproduces the value.
+    pub matched: usize,
+    /// Rows that could be checked (no missing values).
+    pub checked: usize,
+    /// Rows that do not follow the formula, in increasing order.
+    pub exceptions: Vec<usize>,
+}
+
+impl DerivedColumn {
+    /// Fraction of checked rows that follow the formula.
+    pub fn match_ratio(&self) -> f64 {
+        if self.checked == 0 {
+            0.0
+        } else {
+            self.matched as f64 / self.checked as f64
+        }
+    }
+}
+
+/// Scans every column and returns those that can be computed from others.
+///
+/// Columns are scanned one by one; the result is ordered by column index.
+pub fn scan(table: &Table, config: &ScanConfig) -> Vec<DerivedColumn> {
+    (0..table.columns.len())
+        .filter_map(|t| explain_column(table, t, config))
+        .collect()
+}
+
+/// Looks for a formula that computes column `target` from the others.
+pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Option<DerivedColumn> {
+    let y_all = table.columns.get(target)?;
+    let candidates_cols = select_inputs(table, target, config.max_inputs);
+    if candidates_cols.is_empty() {
+        return None;
+    }
+    // Rows where the target and every candidate input are present.
+    let rows: Vec<usize> = (0..table.n_rows())
+        .filter(|&r| {
+            y_all[r].is_finite()
+                && candidates_cols
+                    .iter()
+                    .all(|&c| table.columns[c][r].is_finite())
+        })
+        .collect();
+    if rows.len() < 3 {
+        return None;
+    }
+    let tolerance = |r: usize| -> f64 {
+        let y = y_all[r];
+        let rounding = table
+            .decimals
+            .get(target)
+            .copied()
+            .flatten()
+            .map_or(0.0, |d| 0.5 * 10f64.powi(-(d as i32)) * 1.000_001);
+        rounding.max(config.rel_tolerance * y.abs()).max(1e-12)
+    };
+
+    // Search on a few disjoint-ish subsets, so a handful of bad rows cannot
+    // spoil every attempt; then once more on the rows the best formula fits.
+    let mut best: Option<(Expr, Vec<usize>)> = None;
+    let consider = |formula: Expr, best: &mut Option<(Expr, Vec<usize>)>| {
+        let matched = matching_rows(&formula, table, &rows, y_all, &tolerance);
+        let better = match best {
+            None => true,
+            Some((f, m)) => {
+                matched.len() > m.len()
+                    || matched.len() == m.len() && formula.complexity() < f.complexity()
+            }
+        };
+        if better {
+            *best = Some((formula, matched));
+        }
+    };
+
+    for subset in subsets(&rows, config.subset_rows, 3) {
+        for formula in search_rows(table, &candidates_cols, target, &subset, config) {
+            consider(formula, &mut best);
+        }
+    }
+    let (_, inliers) = best.clone()?;
+    if inliers.len() >= 3 && inliers.len() < rows.len() {
+        let refined = spread(&inliers, config.subset_rows);
+        for formula in search_rows(table, &candidates_cols, target, &refined, config) {
+            consider(formula, &mut best);
+        }
+    }
+
+    let (formula, matched) = best?;
+    let ratio = matched.len() as f64 / rows.len() as f64;
+    if ratio < config.min_match || !formula.has_vars() {
+        return None;
+    }
+    let matched_set: std::collections::HashSet<usize> = matched.iter().copied().collect();
+    let exceptions = rows
+        .iter()
+        .copied()
+        .filter(|r| !matched_set.contains(r))
+        .collect();
+    let mut inputs = Vec::new();
+    collect_vars(&formula, &mut inputs);
+    inputs.sort_unstable();
+    inputs.dedup();
+    Some(DerivedColumn {
+        target,
+        formula_text: formula.display_with(&table.names).to_string(),
+        complexity: formula.complexity(),
+        formula,
+        inputs,
+        matched: matched.len(),
+        checked: rows.len(),
+        exceptions,
+    })
+}
+
+/// Runs a search for `target` on the given rows. The returned formulas use
+/// table column indices.
+fn search_rows(
+    table: &Table,
+    inputs: &[usize],
+    target: usize,
+    rows: &[usize],
+    config: &ScanConfig,
+) -> Vec<Expr> {
+    let x: Vec<Vec<f64>> = inputs
+        .iter()
+        .map(|&c| rows.iter().map(|&r| table.columns[c][r]).collect())
+        .collect();
+    let y: Vec<f64> = rows.iter().map(|&r| table.columns[target][r]).collect();
+    let Ok(results) = search(&x, &y, &config.search) else {
+        return Vec::new();
+    };
+    results
+        .into_iter()
+        .map(|c| remap_vars(&c.expr, inputs))
+        .collect()
+}
+
+/// Rows (from `rows`) where `formula` reproduces `y` within tolerance.
+fn matching_rows(
+    formula: &Expr,
+    table: &Table,
+    rows: &[usize],
+    y: &[f64],
+    tolerance: &dyn Fn(usize) -> f64,
+) -> Vec<usize> {
+    let mut row_values = vec![0.0; table.columns.len()];
+    rows.iter()
+        .copied()
+        .filter(|&r| {
+            for (c, v) in row_values.iter_mut().enumerate() {
+                *v = table.columns[c][r];
+            }
+            let pred = formula.eval_row(&row_values, &[]);
+            pred.is_finite() && (pred - y[r]).abs() <= tolerance(r)
+        })
+        .collect()
+}
+
+/// Picks the columns most related to the target: by absolute correlation
+/// with the target, its logarithm or its square root, so products and
+/// powers are also caught.
+fn select_inputs(table: &Table, target: usize, max_inputs: usize) -> Vec<usize> {
+    let y = &table.columns[target];
+    let mut scored: Vec<(f64, usize)> = (0..table.columns.len())
+        .filter(|&c| c != target)
+        .filter(|&c| !is_constant(&table.columns[c]))
+        .map(|c| {
+            let x = &table.columns[c];
+            let s = [
+                correlation(x, y, |v| v),
+                correlation(x, y, |v| v.abs().ln()),
+                correlation(x, y, |v| v.abs().sqrt()),
+            ]
+            .into_iter()
+            .map(f64::abs)
+            .filter(|v| v.is_finite())
+            .fold(0.0, f64::max);
+            (s, c)
+        })
+        .collect();
+    scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let mut cols: Vec<usize> = scored
+        .into_iter()
+        .take(max_inputs)
+        .map(|(_, c)| c)
+        .collect();
+    cols.sort_unstable();
+    cols
+}
+
+fn is_constant(x: &[f64]) -> bool {
+    let mut finite = x.iter().filter(|v| v.is_finite());
+    match finite.next() {
+        None => true,
+        Some(first) => finite.all(|v| v == first),
+    }
+}
+
+/// Pearson correlation between `x` and `f(y)` over rows where both are finite.
+fn correlation(x: &[f64], y: &[f64], f: impl Fn(f64) -> f64) -> f64 {
+    let pairs: Vec<(f64, f64)> = x
+        .iter()
+        .zip(y)
+        .map(|(a, b)| (*a, f(*b)))
+        .filter(|(a, b)| a.is_finite() && b.is_finite())
+        .collect();
+    let n = pairs.len() as f64;
+    if n < 3.0 {
+        return 0.0;
+    }
+    let mx = pairs.iter().map(|p| p.0).sum::<f64>() / n;
+    let my = pairs.iter().map(|p| p.1).sum::<f64>() / n;
+    let (mut sxy, mut sxx, mut syy) = (0.0, 0.0, 0.0);
+    for (a, b) in &pairs {
+        sxy += (a - mx) * (b - my);
+        sxx += (a - mx) * (a - mx);
+        syy += (b - my) * (b - my);
+    }
+    sxy / (sxx * syy).sqrt()
+}
+
+/// `k` subsets of about `size` rows each, interleaved so they barely overlap.
+fn subsets(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
+    if rows.len() <= size {
+        return vec![rows.to_vec()];
+    }
+    (0..k)
+        .map(|offset| {
+            let step = (rows.len() / size).max(1);
+            rows.iter()
+                .skip(offset * step / k.max(1) + offset)
+                .step_by(step)
+                .take(size)
+                .copied()
+                .collect()
+        })
+        .collect()
+}
+
+/// At most `size` evenly spread rows.
+fn spread(rows: &[usize], size: usize) -> Vec<usize> {
+    if rows.len() <= size {
+        return rows.to_vec();
+    }
+    (0..size).map(|i| rows[i * rows.len() / size]).collect()
+}
+
+fn remap_vars(e: &Expr, map: &[usize]) -> Expr {
+    match e {
+        Expr::Var(i) => Expr::Var(map[*i]),
+        Expr::Const(_) | Expr::Param(_) => e.clone(),
+        Expr::Unary(op, a) => Expr::unary(*op, remap_vars(a, map)),
+        Expr::Binary(op, a, b) => Expr::binary(*op, remap_vars(a, map), remap_vars(b, map)),
+    }
+}
+
+fn collect_vars(e: &Expr, out: &mut Vec<usize>) {
+    match e {
+        Expr::Var(i) => out.push(*i),
+        Expr::Const(_) | Expr::Param(_) => {}
+        Expr::Unary(_, a) => collect_vars(a, out),
+        Expr::Binary(_, a, b) => {
+            collect_vars(a, out);
+            collect_vars(b, out);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn invoices() -> Table {
+        // price, quantity, subtotal = price * quantity, total = subtotal * 1.21
+        // rounded to 2 decimals; row 7 was edited by hand.
+        let price = [
+            10.0, 5.5, 3.2, 8.0, 1.25, 99.9, 12.3, 7.0, 0.99, 45.0, 2.5, 18.75,
+        ];
+        let quantity = [2.0, 4.0, 1.0, 3.0, 10.0, 1.0, 5.0, 6.0, 12.0, 2.0, 8.0, 3.0];
+        let subtotal: Vec<f64> = price.iter().zip(&quantity).map(|(p, q)| p * q).collect();
+        let mut total: Vec<f64> = subtotal
+            .iter()
+            .map(|s| (s * 1.21 * 100.0).round() / 100.0)
+            .collect();
+        total[7] = 50.0;
+        Table {
+            names: ["price", "quantity", "subtotal", "total"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            columns: vec![price.to_vec(), quantity.to_vec(), subtotal, total],
+            decimals: vec![Some(2), Some(0), Some(2), Some(2)],
+        }
+    }
+
+    #[test]
+    fn finds_derived_columns_and_exceptions() {
+        let table = invoices();
+        let found = scan(&table, &ScanConfig::default());
+        let total = found
+            .iter()
+            .find(|d| d.target == 3)
+            .expect("total is derived");
+        assert_eq!(total.formula_text, "1.21 * subtotal");
+        assert_eq!(total.exceptions, vec![7]);
+        assert_eq!(total.matched, 11);
+
+        let subtotal = found
+            .iter()
+            .find(|d| d.target == 2)
+            .expect("subtotal is derived");
+        assert_eq!(subtotal.formula_text, "price * quantity");
+        assert!(subtotal.exceptions.is_empty());
+        assert_eq!(subtotal.inputs, vec![0, 1]);
+    }
+
+    #[test]
+    fn independent_columns_are_not_reported() {
+        let table = Table {
+            names: vec!["a".into(), "b".into()],
+            columns: vec![
+                vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0, 2.0, 6.0],
+                vec![2.0, 7.0, 1.0, 8.0, 2.0, 8.0, 1.0, 8.0],
+            ],
+            decimals: vec![Some(0), Some(0)],
+        };
+        assert!(scan(&table, &ScanConfig::default()).is_empty());
+    }
+
+    #[test]
+    fn missing_values_are_skipped() {
+        let mut table = invoices();
+        table.columns[0][2] = f64::NAN;
+        let d = explain_column(&table, 2, &ScanConfig::default()).unwrap();
+        assert_eq!(d.formula_text, "price * quantity");
+        assert_eq!(d.checked, 11);
+    }
+
+    #[test]
+    fn subsets_cover_different_rows() {
+        let rows: Vec<usize> = (0..100).collect();
+        let s = subsets(&rows, 10, 3);
+        assert_eq!(s.len(), 3);
+        assert!(s.iter().all(|x| x.len() == 10));
+        assert_ne!(s[0], s[1]);
+        assert_eq!(subsets(&rows[..5], 10, 3), vec![rows[..5].to_vec()]);
+    }
+}
