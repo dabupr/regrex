@@ -1,0 +1,9 @@
+[package]
+name = "regrex-core"
+version = "0.0.1"
+description = "Symbolic regression core for Regrex"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
