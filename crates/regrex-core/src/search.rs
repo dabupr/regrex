@@ -104,7 +104,7 @@ pub fn search(
     validate(inputs, target)?;
     let ctx = Context::new(inputs, target, config);
 
-    let grammar = Grammar {
+    let mut grammar = Grammar {
         n_vars: inputs.len(),
         unary: config.unary_ops.clone(),
         binary: config.binary_ops.clone(),
@@ -118,7 +118,6 @@ pub fn search(
         .iter()
         .map(|c| c.iter().take(16).copied().collect())
         .collect();
-    let exprs = enumerate(&grammar, &fingerprint_inputs);
 
     let mut candidates = Vec::new();
     let mut front = Front::new(config.exact_tolerance);
@@ -126,6 +125,29 @@ pub fn search(
     let mean = target.iter().sum::<f64>() / target.len() as f64;
     let constant = ctx.snap(mean, |v| ctx.sse_of(&vec![v; target.len()]));
     candidates.extend(ctx.candidate(Expr::Const(constant)));
+
+    // A product of powers (`n * T / V`, `q / r^2`) is found directly by a
+    // linear fit in log space, however many inputs it uses.
+    if let Some(g) = power_law(&ctx.fit_inputs, &ctx.fit_target).map(|g| canonicalize(&g)) {
+        if config.input_dims.is_none()
+            || crate::units::dimension_of(&g, config.input_dims.as_deref().unwrap_or(&[]))
+                != crate::units::Dimension::Invalid
+        {
+            candidates.extend(ctx.affine_variants(&g, &mut front));
+        }
+    }
+
+    // An exact formula found already bounds the size of anything better:
+    // every node adds to the complexity.
+    if let Some(best) = candidates
+        .iter()
+        .filter(|c| c.exact)
+        .map(|c| c.expr.size())
+        .min()
+    {
+        grammar.max_size = grammar.max_size.min(best);
+    }
+    let exprs = enumerate(&grammar, &fingerprint_inputs);
 
     // Formulas without inner constants are cheap: try them all first, so that
     // an exact one found among them lets us skip expensive fits below.
@@ -153,6 +175,90 @@ pub fn search(
     });
     front.truncate(config.max_results);
     Ok(front)
+}
+
+/// Looks for `y = c · Π x_i^a_i` with simple exponents (±1/2, ±1, ±3/2, ±2,
+/// ±3), by least squares on `ln |y| = ln c + Σ a_i ln x_i`. Returns the
+/// product without the constant, for the affine fit to scale; `None` if the
+/// data has zeros or mixed signs, or does not follow a power law closely.
+fn power_law(inputs: &[Vec<f64>], target: &[f64]) -> Option<Expr> {
+    let n = target.len();
+    let k = inputs.len();
+    if k < 2 || n < 2 * (k + 1) {
+        return None;
+    }
+    let same_sign = |v: &[f64]| v.iter().all(|&x| x > 0.0) || v.iter().all(|&x| x < 0.0);
+    if !same_sign(target) || !inputs.iter().all(|c| same_sign(c)) {
+        return None;
+    }
+    // Design matrix: [1, ln|x_1|, …, ln|x_k|].
+    let logs: Vec<Vec<f64>> = inputs
+        .iter()
+        .map(|c| c.iter().map(|x| x.abs().ln()).collect())
+        .collect();
+    let ly: Vec<f64> = target.iter().map(|y| y.abs().ln()).collect();
+    let column = |j: usize, r: usize| if j == 0 { 1.0 } else { logs[j - 1][r] };
+    // Additive noise of size σ moves ln|y| by about σ/|y|, so rows are
+    // weighted by y² to make small values count less.
+    let max_y2 = target.iter().map(|y| y * y).fold(0.0, f64::max);
+    let w: Vec<f64> = target.iter().map(|y| y * y / max_y2).collect();
+    let mut ata = vec![vec![0.0; k + 1]; k + 1];
+    let mut aty = vec![0.0; k + 1];
+    for r in 0..n {
+        for i in 0..=k {
+            aty[i] += w[r] * column(i, r) * ly[r];
+            for j in 0..=k {
+                ata[i][j] += w[r] * column(i, r) * column(j, r);
+            }
+        }
+    }
+    let coef = crate::fit::solve(ata, aty)?;
+    // Require a near-perfect fit in log space; the affine fit checks the rest.
+    let wsum: f64 = w.iter().sum();
+    let mean = (0..n).map(|r| w[r] * ly[r]).sum::<f64>() / wsum;
+    let total: f64 = (0..n).map(|r| w[r] * (ly[r] - mean).powi(2)).sum();
+    let residual: f64 = (0..n)
+        .map(|r| {
+            let pred: f64 = (0..=k).map(|j| coef[j] * column(j, r)).sum();
+            w[r] * (ly[r] - pred).powi(2)
+        })
+        .sum();
+    if total <= 0.0 || residual > 1e-3 * total {
+        return None;
+    }
+    let mut numerator = Vec::new();
+    let mut denominator = Vec::new();
+    for (i, &a) in coef[1..].iter().enumerate() {
+        let snapped = (a * 2.0).round() / 2.0;
+        if (a - snapped).abs() > 0.1 || snapped.abs() > 3.0 {
+            return None;
+        }
+        let power = |p: f64| {
+            let x = Expr::Var(i);
+            match p {
+                1.0 => x,
+                2.0 => Expr::unary(UnaryOp::Square, x),
+                0.5 => Expr::unary(UnaryOp::Sqrt, x),
+                _ => Expr::binary(BinaryOp::Pow, x, Expr::Const(p)),
+            }
+        };
+        if snapped > 0.0 {
+            numerator.push(power(snapped));
+        } else if snapped < 0.0 {
+            denominator.push(power(-snapped));
+        }
+    }
+    let product = |factors: Vec<Expr>| {
+        factors
+            .into_iter()
+            .reduce(|a, b| Expr::binary(BinaryOp::Mul, a, b))
+    };
+    match (product(numerator), product(denominator)) {
+        (Some(num), Some(den)) => Some(Expr::binary(BinaryOp::Div, num, den)),
+        (Some(num), None) => Some(num),
+        (None, Some(den)) => Some(Expr::binary(BinaryOp::Div, Expr::Const(1.0), den)),
+        (None, None) => None,
+    }
 }
 
 /// Fits the inner constants of every expression, in parallel when the

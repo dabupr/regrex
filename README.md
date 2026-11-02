@@ -34,12 +34,12 @@ $ regrex scan examples/data/invoices.csv --ignore invoice
 examples/data/invoices.csv: 60 rows, 7 numeric columns
 Skipped (not numeric): product
 
-  price        = subtotal / quantity           60/60 rows
-  discount_pct = -100 * net / subtotal + 100   60/60 rows
-  subtotal     = price * quantity              60/60 rows
-  net          = total - vat                   59/60 rows   exception: row 17 is 73.8, formula gives 78.8 (the total in this row looks wrong, it breaks its own formula too)
-  vat          = 0.21 * net                    59/60 rows   exception: row 42 is 29.97, formula gives 62.937 (used 0.1 instead of 0.21)
-  total        = net + vat                     59/60 rows   exception: row 17 is 94.3, formula gives 89.3
+  price        = subtotal / quantity          60/60 rows
+  discount_pct = 100 - 100 * net / subtotal   60/60 rows
+  subtotal     = price * quantity             60/60 rows
+  net          = total - vat                  59/60 rows   exception: row 17 is 73.8, formula gives 78.8 (the total in this row looks wrong, it breaks its own formula too)
+  vat          = 0.21 * net                   59/60 rows   exception: row 42 is 29.97, formula gives 62.937 (used 0.1 instead of 0.21)
+  total        = net + vat                    59/60 rows   exception: row 17 is 94.3, formula gives 89.3
 ```
 
 - Explains each exception when a simple mistake reproduces it exactly: a wrong constant (VAT at 10%, `g = 10`), a mistyped digit, a unit or percentage factor, a forgotten square, swapped or wrong columns, a missing term, or another wrong cell in the same row.
@@ -92,7 +92,7 @@ let names = ["m".to_string(), "v".to_string()];
 println!("{}", results[0].expr.display_with(&names)); // 0.5 * m * v^2
 ```
 
-Or run the example: `cargo run --release --example basic`.
+Or run the example: `cargo run --release --example basic`. On 24 equations from the Feynman Lectures it recovers 21 without noise and 20 with 1% noise; see [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ## Development
 
