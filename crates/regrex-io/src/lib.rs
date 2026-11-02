@@ -232,12 +232,15 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
             skipped.push(name.clone());
             continue;
         }
-        let name = if name.trim().is_empty() {
+        // `speed (m/s)` is the column `speed`, in metres per second.
+        let (name, unit) = regrex_core::units::split_header(name);
+        let name = if name.is_empty() {
             format!("column{}", c + 1)
         } else {
-            name.clone()
+            name
         };
         table.names.push(name);
+        table.units.push(unit);
         table.columns.push(
             parsed
                 .iter()
@@ -299,6 +302,16 @@ mod tests {
         assert_eq!(loaded.table.names, vec!["price", "qty", "total"]);
         assert_eq!(loaded.table.columns[0], vec![1.5, 2.25, 10.0]);
         assert_eq!(loaded.table.decimals[0], Some(2));
+    }
+
+    #[test]
+    fn units_are_read_from_headers() {
+        let (header, rows) = parse_csv("time (s),distance [m],note\n1,4.9,a\n2,19.6,b\n").unwrap();
+        let loaded = build_table(header, rows, Vec::new());
+        assert_eq!(loaded.table.names, vec!["time", "distance"]);
+        let s = regrex_core::units::parse_unit("s").unwrap();
+        assert_eq!(loaded.table.units[0], Some(s));
+        assert_eq!(loaded.header[0], "time (s)");
     }
 
     #[test]

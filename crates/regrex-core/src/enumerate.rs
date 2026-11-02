@@ -2,6 +2,7 @@
 
 use crate::expr::{BinaryOp, Expr, UnaryOp};
 use crate::simplify::{canonicalize, structural_key};
+use crate::units::{dimension_of, Dim, Dimension};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
@@ -21,6 +22,9 @@ pub struct Grammar {
     pub max_params: usize,
     /// Stop after producing this many expressions.
     pub max_expressions: usize,
+    /// Dimension of each variable, if known. Expressions that mix
+    /// incompatible dimensions are skipped.
+    pub var_dims: Option<Vec<Dim>>,
 }
 
 /// Values given to free parameters when fingerprinting. They are arbitrary
@@ -47,6 +51,11 @@ pub fn enumerate(grammar: &Grammar, sample: &[Vec<f64>]) -> Vec<Expr> {
         let e = canonicalize(&e);
         if e.size() != size || e.num_params() > grammar.max_params || !e.has_vars() && size > 1 {
             return;
+        }
+        if let Some(dims) = &grammar.var_dims {
+            if dimension_of(&e, dims) == Dimension::Invalid {
+                return;
+            }
         }
         if !seen_keys.insert(structural_key(&e)) {
             return;
@@ -170,6 +179,7 @@ mod tests {
             max_size,
             max_params: 1,
             max_expressions: 100_000,
+            var_dims: None,
         }
     }
 
@@ -207,6 +217,23 @@ mod tests {
             .filter(|e| matches!(e.to_string().as_str(), "x0^2" | "x0 * x0"))
             .count();
         assert_eq!(squares, 1);
+    }
+
+    #[test]
+    fn units_prune_impossible_expressions() {
+        use crate::units::parse_unit;
+        let free = enumerate(&grammar(4), &sample());
+        let g = Grammar {
+            var_dims: Some(vec![
+                parse_unit("m").unwrap().dim,
+                parse_unit("s").unwrap().dim,
+            ]),
+            ..grammar(4)
+        };
+        let typed = enumerate(&g, &sample());
+        assert!(typed.len() < free.len());
+        assert!(!typed.iter().any(|e| e.to_string() == "x0 + x1"));
+        assert!(typed.iter().any(|e| e.to_string() == "x0 / x1"));
     }
 
     #[test]

@@ -38,9 +38,11 @@ pub mod enumerate;
 pub mod error;
 pub mod expr;
 pub mod fit;
+pub mod parse;
 pub mod scan;
 pub mod search;
 pub mod simplify;
+pub mod units;
 
 pub use error::Error;
 pub use expr::{BinaryOp, Expr, UnaryOp};
