@@ -5,7 +5,7 @@
 
 use crate::Loaded;
 use regrex_core::expr::format_number;
-use regrex_core::{Candidate, DerivedColumn, Table};
+use regrex_core::{diagnose_exception, Candidate, DerivedColumn, ScanConfig, Table};
 use serde::Serialize;
 use std::fmt::Write;
 
@@ -61,6 +61,23 @@ pub struct ExceptionJson {
     pub actual: f64,
     /// The value the formula gives.
     pub expected: f64,
+    /// The most likely mistake that gives the value in the file, if a simple
+    /// one does.
+    pub diagnosis: Option<DiagnosisJson>,
+}
+
+/// A mistake that explains an exception, see [`regrex_core::diagnose`].
+#[derive(Debug, Clone, Serialize)]
+pub struct DiagnosisJson {
+    /// Kind of mistake: `rounding`, `typo`, `sign`, `factor`,
+    /// `wrong_constant`, `wrong_variable`, `swapped_variables`,
+    /// `missing_operation`, `missing_term`, `wrong_operation` or
+    /// `swapped_operands`.
+    pub kind: String,
+    /// What went wrong, such as `used 0.1 instead of 0.21`.
+    pub description: String,
+    /// The formula the row follows instead, when the mistake is in the formula.
+    pub formula: Option<String>,
 }
 
 /// At most this many exceptions are detailed in a report.
@@ -69,6 +86,12 @@ pub const MAX_EXCEPTION_DETAILS: usize = 100;
 impl DerivedJson {
     /// Converts a [`DerivedColumn`] found in `table`.
     pub fn new(table: &Table, d: &DerivedColumn) -> Self {
+        Self::with_context(table, d, &[])
+    }
+
+    /// Like [`DerivedJson::new`], with every column found in the same scan,
+    /// so a wrong cell that breaks several formulas is blamed only once.
+    pub fn with_context(table: &Table, d: &DerivedColumn, all: &[DerivedColumn]) -> Self {
         let names = &table.names;
         let exceptions = d
             .exceptions
@@ -76,10 +99,19 @@ impl DerivedJson {
             .take(MAX_EXCEPTION_DETAILS)
             .map(|&r| {
                 let row: Vec<f64> = table.columns.iter().map(|c| c[r]).collect();
+                let diagnosis = diagnose_exception(table, d, all, r, &ScanConfig::default())
+                    .into_iter()
+                    .next()
+                    .map(|m| DiagnosisJson {
+                        kind: m.kind.id().to_string(),
+                        description: m.description,
+                        formula: m.formula.map(|f| f.display_with(names).to_string()),
+                    });
                 ExceptionJson {
                     row: r + 1,
                     actual: table.columns[d.target][r],
                     expected: d.formula.eval_row(&row, &[]),
+                    diagnosis,
                 }
             })
             .collect();
@@ -109,7 +141,7 @@ impl ScanReport {
             skipped_columns: loaded.skipped.clone(),
             derived: derived
                 .iter()
-                .map(|d| DerivedJson::new(&loaded.table, d))
+                .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
                 .collect(),
         }
     }
@@ -180,13 +212,20 @@ impl ScanReport {
                 "  {:<width$} = {:<fwidth$}   {}/{} rows",
                 d.column, d.formula, d.matched_rows, d.checked_rows
             );
+            let why = |x: &ExceptionJson| {
+                x.diagnosis
+                    .as_ref()
+                    .map(|m| format!(" ({})", m.description))
+                    .unwrap_or_default()
+            };
             if let [only] = d.exceptions.as_slice() {
                 let _ = writeln!(
                     s,
-                    "   exception: row {} is {}, formula gives {}",
+                    "   exception: row {} is {}, formula gives {}{}",
                     only.row,
                     format_number(only.actual),
-                    format_number(only.expected)
+                    format_number(only.expected),
+                    why(only)
                 );
                 continue;
             }
@@ -201,6 +240,22 @@ impl ScanReport {
                 let _ = write!(s, "   exceptions: row {}", shown.join(", "));
                 if more > 0 {
                     let _ = write!(s, " and {more} more");
+                }
+                // Explain the first few, when there is something to say.
+                for x in d
+                    .exceptions
+                    .iter()
+                    .take(5)
+                    .filter(|x| x.diagnosis.is_some())
+                {
+                    let _ = write!(
+                        s,
+                        "\n      row {}: {} instead of {}{}",
+                        x.row,
+                        format_number(x.actual),
+                        format_number(x.expected),
+                        why(x)
+                    );
                 }
             }
             let _ = writeln!(s);

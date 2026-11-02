@@ -159,7 +159,14 @@ function renderResults(columns: string[]) {
     );
     if (exceptions > 0) {
       const rows = d.exceptions.map((x) =>
-        el("tr", {}, el("td", {}, String(x.row)), el("td", {}, fmt(x.actual)), el("td", {}, fmt(x.expected))),
+        el(
+          "tr",
+          {},
+          el("td", {}, String(x.row)),
+          el("td", {}, fmt(x.actual)),
+          el("td", {}, fmt(x.expected)),
+          el("td", { class: "muted" }, x.diagnosis ? x.diagnosis.description : ""),
+        ),
       );
       const more = exceptions > d.exceptions.length ? ` (first ${d.exceptions.length} shown)` : "";
       card.append(
@@ -170,7 +177,7 @@ function renderResults(columns: string[]) {
           el(
             "table",
             {},
-            el("thead", {}, el("tr", {}, el("th", {}, "Row"), el("th", {}, "In the file"), el("th", {}, "Formula gives"))),
+            el("thead", {}, el("tr", {}, el("th", {}, "Row"), el("th", {}, "In the file"), el("th", {}, "Formula gives"), el("th", {}, "Likely mistake"))),
             el("tbody", {}, ...rows),
           ),
         ),

@@ -34,6 +34,7 @@
 
 #![warn(missing_docs)]
 
+pub mod diagnose;
 pub mod enumerate;
 pub mod error;
 pub mod expr;
@@ -46,5 +47,7 @@ pub mod units;
 
 pub use error::Error;
 pub use expr::{BinaryOp, Expr, UnaryOp};
-pub use scan::{check_formula, explain_column, scan, DerivedColumn, ScanConfig, Table};
+pub use scan::{
+    check_formula, diagnose_exception, explain_column, scan, DerivedColumn, ScanConfig, Table,
+};
 pub use search::{search, Candidate, SearchConfig};

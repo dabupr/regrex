@@ -19,6 +19,13 @@ export interface ExceptionDetail {
   row: number;
   actual: number;
   expected: number;
+  diagnosis: Diagnosis | null;
+}
+
+export interface Diagnosis {
+  kind: string;
+  description: string;
+  formula: string | null;
 }
 
 export interface Derived {

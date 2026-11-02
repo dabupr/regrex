@@ -25,7 +25,18 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
       "checked_rows": 60,
       "match_ratio": 0.9833333333333333,
       "exception_rows": [42],
-      "exceptions": [{ "row": 42, "actual": 29.97, "expected": 62.937 }]
+      "exceptions": [
+        {
+          "row": 42,
+          "actual": 29.97,
+          "expected": 62.937,
+          "diagnosis": {
+            "kind": "wrong_constant",
+            "description": "used 0.1 instead of 0.21",
+            "formula": "0.1 * net"
+          }
+        }
+      ]
     }
   ]
 }
@@ -46,6 +57,12 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `derived[].match_ratio` | `matched_rows / checked_rows`. |
 | `derived[].exception_rows` | Every row that breaks the formula. |
 | `derived[].exceptions` | Value in the file and value the formula gives, for the first 100 exceptions. |
+| `derived[].exceptions[].diagnosis` | The most likely mistake, or `null` when no simple mistake reproduces the value. |
+| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`. New kinds may be added. |
+| `….diagnosis.description` | What went wrong, in English. |
+| `….diagnosis.formula` | The formula the row follows instead, when the mistake is in the formula. |
+
+A diagnosis is never a guess: Regrex recomputes the row with the mistake and only reports it when it gives the value in the file, within the rounding of the column. `other_cell` means the value is fine but another cell of the row is wrong, for example a wrong total that also breaks `net = total - vat`.
 
 The `check_formula` MCP tool returns one `derived` entry for the formula it was given, even when few rows match.
 

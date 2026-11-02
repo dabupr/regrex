@@ -226,6 +226,89 @@ pub fn check_formula(
     derived(table, target, formula.clone(), &rows, &matched)
 }
 
+/// Explains why `row` breaks the formula of `derived`: see
+/// [`crate::diagnose::diagnose`]. Mistakes are checked with the same
+/// tolerance as the scan.
+///
+/// `all` are the derived columns of the whole scan (it may be empty). When
+/// the row breaks several of them because of one wrong cell, the other
+/// columns are diagnosed as [`MistakeKind::OtherCell`]: a wrong total also
+/// breaks `net = total - vat`, but only the total needs fixing.
+///
+/// [`MistakeKind::OtherCell`]: crate::diagnose::MistakeKind::OtherCell
+pub fn diagnose_exception(
+    table: &Table,
+    derived: &DerivedColumn,
+    all: &[DerivedColumn],
+    row: usize,
+    config: &ScanConfig,
+) -> Vec<crate::diagnose::Diagnosis> {
+    use crate::diagnose::{Diagnosis, MistakeKind};
+    let values: Vec<f64> = table.columns.iter().map(|c| c[row]).collect();
+    let broken: Vec<&DerivedColumn> = all
+        .iter()
+        .filter(|d| d.exceptions.binary_search(&row).is_ok())
+        .collect();
+    if broken.len() >= 2 {
+        if let Some(culprit) = culprit(table, &broken, all, &values, row, config) {
+            if culprit != derived.target {
+                return vec![Diagnosis {
+                    kind: MistakeKind::OtherCell,
+                    description: format!(
+                        "the {} in this row looks wrong, it breaks its own formula too",
+                        table.names[culprit]
+                    ),
+                    formula: None,
+                }];
+            }
+        }
+    }
+    let tolerance = row_tolerance(table, derived.target, config)(row);
+    let decimals = table.decimals.get(derived.target).copied().flatten();
+    crate::diagnose::diagnose(
+        &derived.formula,
+        &table.names,
+        &values,
+        values[derived.target],
+        tolerance,
+        decimals,
+    )
+}
+
+/// The one cell of `row` that, set to the value its own formula gives,
+/// makes every formula in `all` hold again (or at least those that held, and
+/// those in `broken`).
+fn culprit(
+    table: &Table,
+    broken: &[&DerivedColumn],
+    all: &[DerivedColumn],
+    values: &[f64],
+    row: usize,
+    config: &ScanConfig,
+) -> Option<usize> {
+    let mut found = None;
+    for candidate in broken {
+        let mut fixed = values.to_vec();
+        fixed[candidate.target] = candidate.formula.eval_row(values, &[]);
+        let holds = |d: &DerivedColumn, row_values: &[f64]| {
+            let v = d.formula.eval_row(row_values, &[]);
+            (v - row_values[d.target]).abs() <= row_tolerance(table, d.target, config)(row)
+        };
+        // Formulas with missing values in this row are not checked.
+        let all_hold = all
+            .iter()
+            .filter(|d| holds(d, values) || broken.iter().any(|b| b.target == d.target))
+            .all(|d| holds(d, &fixed));
+        if all_hold {
+            if found.is_some() {
+                return None; // ambiguous
+            }
+            found = Some(candidate.target);
+        }
+    }
+    found
+}
+
 /// How far a row of column `target` may be from a formula's value and still
 /// match: half a unit in the last written decimal, or a small relative error.
 fn row_tolerance<'a>(

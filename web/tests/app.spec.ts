@@ -14,7 +14,7 @@ test("finds derived columns in the example invoices", async ({ page }) => {
   await expect(vat).toContainText("vat = 0.21 * net", { timeout: 45_000 });
   await expect(vat).toContainText("59 of 60 rows");
   await vat.getByText("1 row breaks the rule").click();
-  await expect(vat.locator("tbody tr")).toHaveText(["4229.9762.937"]);
+  await expect(vat.locator("tbody tr")).toHaveText(["4229.9762.937used 0.1 instead of 0.21"]);
 
   await expect(page.locator('article[data-column="subtotal"]')).toContainText("✓ all 60 rows");
   await expect(page.locator("tr.bad")).toHaveCount(1); // row 17 is in the preview, row 42 is not
