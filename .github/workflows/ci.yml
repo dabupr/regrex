@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # Every branch, so work is checked before a pull request is opened.
   push:
-    branches: [main]
+    branches: ["**"]
+  # Pull requests from forks (branches of this repository run on push).
   pull_request:
 
 permissions:
