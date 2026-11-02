@@ -5,5 +5,10 @@ description = "Symbolic regression core for Regrex"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme = "../../README.md"
+keywords = ["symbolic-regression", "formula", "equation-discovery", "wasm"]
+categories = ["science", "mathematics", "algorithms"]
 
 [dependencies]

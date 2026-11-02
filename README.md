@@ -1,5 +1,8 @@
 # Regrex
 
+[![CI](https://github.com/dabupr/regrex/actions/workflows/ci.yml/badge.svg)](https://github.com/dabupr/regrex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Find the formula behind your data.** Regrex is an open-source symbolic regression engine written in Rust that runs in your browser (WebAssembly, no server), in Python and as a tool for AI agents.
 
 > Status: early development. The engine is being built in the open; see the [roadmap](docs/ROADMAP.md).
@@ -17,8 +20,12 @@
 ## Development
 
 ```sh
-cargo test
+cargo test --workspace
 ```
+
+## Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started and the [Code of Conduct](CODE_OF_CONDUCT.md) before taking part. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

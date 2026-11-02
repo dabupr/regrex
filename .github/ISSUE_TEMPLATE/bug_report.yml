@@ -1,0 +1,29 @@
+name: Bug report
+description: Something does not work as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Minimal data (a few rows of CSV are perfect) and the command or code you ran.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Regrex version
+      placeholder: "0.1.0, or a commit hash"
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options: ["Rust library", "CLI", "Web app", "Python", "MCP server", "Other"]

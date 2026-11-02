@@ -1,0 +1,32 @@
+name: Add a known formula
+description: Propose a formula for the known-formula library
+labels: ["formula-library"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      placeholder: "Kinetic energy"
+    validations:
+      required: true
+  - type: input
+    id: formula
+    attributes:
+      label: Formula
+      placeholder: "E = 0.5 * m * v^2"
+    validations:
+      required: true
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      options: ["Physics", "Maths", "Signals", "Computing", "Finance", "Other"]
+  - type: input
+    id: units
+    attributes:
+      label: Units of each variable
+      placeholder: "m: kg, v: m/s, E: J"
+  - type: input
+    id: source
+    attributes:
+      label: Reference
