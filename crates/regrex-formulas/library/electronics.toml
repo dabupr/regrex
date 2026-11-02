@@ -1,0 +1,444 @@
+# Electronics and signals: circuits, components, AC, filters, signal
+# levels and sampling.
+
+id = "electronics"
+name = "Electronics and signals"
+description = "DC and AC circuits, passive components, filters, decibels, noise and sampling."
+
+# --- DC circuits -------------------------------------------------------------
+
+[[formula]]
+id = "ohm_law"
+name = "Ohm's law"
+expr = "I * R"
+output = { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage"] }
+variables = [
+  { symbol = "I", name = "current", unit = "A", aliases = ["current"] },
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance"] },
+]
+tags = ["circuits", "dc"]
+source = { title = "Ohm's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ohm%27s_law" }
+checks = [{ inputs = [0.5, 100], output = 50 }]
+
+[[formula]]
+id = "electric_power"
+name = "Electric power"
+expr = "V * I"
+output = { symbol = "P", name = "power", unit = "W", aliases = ["power"] }
+variables = [
+  { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage"] },
+  { symbol = "I", name = "current", unit = "A", aliases = ["current"] },
+]
+tags = ["circuits", "power"]
+source = { title = "Electric power (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_power" }
+checks = [{ inputs = [230, 2], output = 460 }]
+
+[[formula]]
+id = "joule_heating"
+name = "Power dissipated in a resistor (Joule heating)"
+expr = "I^2 * R"
+output = { symbol = "P", name = "power", unit = "W" }
+variables = [
+  { symbol = "I", name = "current", unit = "A" },
+  { symbol = "R", name = "resistance", unit = "ohm" },
+]
+tags = ["circuits", "power"]
+source = { title = "Joule heating (Wikipedia)", url = "https://en.wikipedia.org/wiki/Joule_heating" }
+checks = [{ inputs = [2, 10], output = 40 }]
+
+[[formula]]
+id = "power_from_voltage"
+name = "Power in a resistor from voltage"
+expr = "V^2 / R"
+output = { symbol = "P", name = "power", unit = "W" }
+variables = [
+  { symbol = "V", name = "voltage", unit = "V" },
+  { symbol = "R", name = "resistance", unit = "ohm" },
+]
+tags = ["circuits", "power"]
+source = { title = "Electric power: resistive circuits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_power" }
+checks = [{ inputs = [10, 5], output = 20 }]
+
+[[formula]]
+id = "electric_energy"
+name = "Electric energy"
+expr = "P * t"
+output = { symbol = "E", name = "energy", unit = "J" }
+variables = [
+  { symbol = "P", name = "power", unit = "W" },
+  { symbol = "t", name = "time", unit = "s" },
+]
+tags = ["circuits", "power"]
+source = { title = "Electrical energy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electrical_energy" }
+checks = [{ inputs = [100, 60], output = 6000 }]
+
+[[formula]]
+id = "charge_from_current"
+name = "Charge moved by a constant current"
+expr = "I * t"
+output = { symbol = "Q", name = "charge", unit = "C" }
+variables = [
+  { symbol = "I", name = "current", unit = "A" },
+  { symbol = "t", name = "time", unit = "s" },
+]
+tags = ["circuits", "dc"]
+source = { title = "Electric current (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_current" }
+checks = [{ inputs = [2, 3600], output = 7200 }]
+
+[[formula]]
+id = "resistors_in_series"
+name = "Two resistors in series"
+expr = "R1 + R2"
+output = { symbol = "R", name = "equivalent resistance", unit = "ohm" }
+variables = [
+  { symbol = "R1", name = "first resistance", unit = "ohm" },
+  { symbol = "R2", name = "second resistance", unit = "ohm" },
+]
+tags = ["circuits", "dc"]
+source = { title = "Series and parallel circuits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_circuits" }
+checks = [{ inputs = [100, 220], output = 320 }]
+
+[[formula]]
+id = "resistors_in_parallel"
+name = "Two resistors in parallel"
+expr = "R1 * R2 / (R1 + R2)"
+output = { symbol = "R", name = "equivalent resistance", unit = "ohm" }
+variables = [
+  { symbol = "R1", name = "first resistance", unit = "ohm" },
+  { symbol = "R2", name = "second resistance", unit = "ohm" },
+]
+tags = ["circuits", "dc"]
+source = { title = "Series and parallel circuits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_circuits" }
+checks = [{ inputs = [100, 100], output = 50 }]
+
+[[formula]]
+id = "voltage_divider"
+name = "Voltage divider"
+expr = "V_in * R2 / (R1 + R2)"
+output = { symbol = "V_out", name = "output voltage", unit = "V" }
+variables = [
+  { symbol = "V_in", name = "input voltage", unit = "V" },
+  { symbol = "R1", name = "upper resistance", unit = "ohm" },
+  { symbol = "R2", name = "lower resistance", unit = "ohm" },
+]
+tags = ["circuits", "dc"]
+source = { title = "Voltage divider (Wikipedia)", url = "https://en.wikipedia.org/wiki/Voltage_divider" }
+checks = [{ inputs = [12, 1000, 2000], output = 8 }]
+
+[[formula]]
+id = "wire_resistance"
+name = "Resistance of a wire"
+expr = "ρ * L / A"
+output = { symbol = "R", name = "resistance", unit = "ohm" }
+variables = [
+  { symbol = "ρ", name = "resistivity", unit = "ohm m" },
+  { symbol = "L", name = "length", unit = "m" },
+  { symbol = "A", name = "cross-section area", unit = "m^2" },
+]
+tags = ["circuits", "materials"]
+source = { title = "Electrical resistivity and conductivity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electrical_resistivity_and_conductivity" }
+checks = [{ inputs = [1.68e-8, 100, 1e-6], output = 1.68 }]
+
+# --- Capacitors and inductors ------------------------------------------------
+
+[[formula]]
+id = "capacitor_charge"
+name = "Charge stored in a capacitor"
+expr = "C * V"
+output = { symbol = "Q", name = "charge", unit = "C" }
+variables = [
+  { symbol = "C", name = "capacitance", unit = "F" },
+  { symbol = "V", name = "voltage", unit = "V" },
+]
+tags = ["components", "capacitors"]
+source = { title = "Capacitance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capacitance" }
+checks = [{ inputs = [1e-6, 5], output = 5e-6 }]
+
+[[formula]]
+id = "capacitor_energy"
+name = "Energy stored in a capacitor"
+expr = "C * V^2 / 2"
+output = { symbol = "E", name = "energy", unit = "J" }
+variables = [
+  { symbol = "C", name = "capacitance", unit = "F" },
+  { symbol = "V", name = "voltage", unit = "V" },
+]
+tags = ["components", "capacitors", "energy"]
+source = { title = "Capacitor: energy stored (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capacitor" }
+checks = [{ inputs = [2, 3], output = 9 }]
+
+[[formula]]
+id = "inductor_energy"
+name = "Energy stored in an inductor"
+expr = "L * I^2 / 2"
+output = { symbol = "E", name = "energy", unit = "J" }
+variables = [
+  { symbol = "L", name = "inductance", unit = "H" },
+  { symbol = "I", name = "current", unit = "A" },
+]
+tags = ["components", "inductors", "energy"]
+source = { title = "Inductor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Inductor" }
+checks = [{ inputs = [2, 3], output = 9 }]
+
+[[formula]]
+id = "parallel_plate_capacitance"
+name = "Parallel-plate capacitor"
+expr = "epsilon_0 * ε_r * A / d"
+output = { symbol = "C", name = "capacitance", unit = "F" }
+variables = [
+  { symbol = "ε_r", name = "relative permittivity", unit = "1" },
+  { symbol = "A", name = "plate area", unit = "m^2" },
+  { symbol = "d", name = "plate separation", unit = "m" },
+]
+tags = ["components", "capacitors"]
+source = { title = "Capacitance: parallel-plate capacitor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capacitance" }
+checks = [{ inputs = [1, 1, 1], output = 8.8541878188e-12 }]
+
+[[formula]]
+id = "capacitors_in_series"
+name = "Two capacitors in series"
+expr = "C1 * C2 / (C1 + C2)"
+output = { symbol = "C", name = "equivalent capacitance", unit = "F" }
+variables = [
+  { symbol = "C1", name = "first capacitance", unit = "F" },
+  { symbol = "C2", name = "second capacitance", unit = "F" },
+]
+tags = ["components", "capacitors"]
+source = { title = "Series and parallel circuits: capacitors (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_circuits" }
+checks = [{ inputs = [2e-6, 2e-6], output = 1e-6 }]
+
+[[formula]]
+id = "rc_time_constant"
+name = "RC time constant"
+expr = "R * C"
+output = { symbol = "τ", name = "time constant", unit = "s" }
+variables = [
+  { symbol = "R", name = "resistance", unit = "ohm" },
+  { symbol = "C", name = "capacitance", unit = "F" },
+]
+tags = ["circuits", "transients"]
+source = { title = "RC time constant (Wikipedia)", url = "https://en.wikipedia.org/wiki/RC_time_constant" }
+checks = [{ inputs = [1000, 1e-3], output = 1 }]
+
+[[formula]]
+id = "rc_charging"
+name = "Capacitor voltage while charging through a resistor"
+expr = "V0 * (1 - exp(-t / (R * C)))"
+output = { symbol = "V", name = "capacitor voltage", unit = "V" }
+variables = [
+  { symbol = "V0", name = "supply voltage", unit = "V" },
+  { symbol = "t", name = "time", unit = "s" },
+  { symbol = "R", name = "resistance", unit = "ohm" },
+  { symbol = "C", name = "capacitance", unit = "F" },
+]
+tags = ["circuits", "transients"]
+source = { title = "RC circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/RC_circuit" }
+checks = [{ inputs = [10, 1, 1000, 1e-3], output = 6.321205588285577 }]
+
+[[formula]]
+id = "rc_discharging"
+name = "Capacitor voltage while discharging through a resistor"
+expr = "V0 * exp(-t / (R * C))"
+output = { symbol = "V", name = "capacitor voltage", unit = "V" }
+variables = [
+  { symbol = "V0", name = "initial voltage", unit = "V" },
+  { symbol = "t", name = "time", unit = "s" },
+  { symbol = "R", name = "resistance", unit = "ohm" },
+  { symbol = "C", name = "capacitance", unit = "F" },
+]
+tags = ["circuits", "transients"]
+source = { title = "RC circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/RC_circuit" }
+checks = [{ inputs = [10, 1, 1000, 1e-3], output = 3.6787944117144233 }]
+
+# --- AC circuits and filters -------------------------------------------------
+
+[[formula]]
+id = "capacitive_reactance"
+name = "Capacitive reactance"
+expr = "1 / (2 * pi * f * C)"
+output = { symbol = "X_C", name = "reactance", unit = "ohm" }
+variables = [
+  { symbol = "f", name = "frequency", unit = "Hz" },
+  { symbol = "C", name = "capacitance", unit = "F" },
+]
+tags = ["ac", "components"]
+source = { title = "Electrical reactance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electrical_reactance" }
+checks = [{ inputs = [1, 0.15915494309189535], output = 1 }]
+
+[[formula]]
+id = "inductive_reactance"
+name = "Inductive reactance"
+expr = "2 * pi * f * L"
+output = { symbol = "X_L", name = "reactance", unit = "ohm" }
+variables = [
+  { symbol = "f", name = "frequency", unit = "Hz" },
+  { symbol = "L", name = "inductance", unit = "H" },
+]
+tags = ["ac", "components"]
+source = { title = "Electrical reactance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electrical_reactance" }
+checks = [{ inputs = [1, 1], output = 6.283185307179586 }]
+
+[[formula]]
+id = "series_rlc_impedance"
+name = "Impedance magnitude of a series RLC circuit"
+expr = "sqrt(R^2 + (X_L - X_C)^2)"
+output = { symbol = "Z", name = "impedance", unit = "ohm" }
+variables = [
+  { symbol = "R", name = "resistance", unit = "ohm" },
+  { symbol = "X_L", name = "inductive reactance", unit = "ohm" },
+  { symbol = "X_C", name = "capacitive reactance", unit = "ohm" },
+]
+tags = ["ac"]
+source = { title = "RLC circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/RLC_circuit" }
+checks = [{ inputs = [3, 10, 6], output = 5 }]
+
+[[formula]]
+id = "rc_cutoff_frequency"
+name = "Cutoff frequency of an RC filter"
+expr = "1 / (2 * pi * R * C)"
+output = { symbol = "f_c", name = "cutoff frequency", unit = "Hz" }
+variables = [
+  { symbol = "R", name = "resistance", unit = "ohm" },
+  { symbol = "C", name = "capacitance", unit = "F" },
+]
+tags = ["filters", "signals"]
+source = { title = "RC circuit: frequency domain (Wikipedia)", url = "https://en.wikipedia.org/wiki/RC_circuit" }
+checks = [{ inputs = [1000, 1.5915494309189535e-7], output = 1000 }]
+
+[[formula]]
+id = "lc_resonance"
+name = "Resonant frequency of an LC circuit"
+expr = "1 / (2 * pi * sqrt(L * C))"
+output = { symbol = "f_0", name = "resonant frequency", unit = "Hz" }
+variables = [
+  { symbol = "L", name = "inductance", unit = "H" },
+  { symbol = "C", name = "capacitance", unit = "F" },
+]
+tags = ["ac", "filters"]
+source = { title = "LC circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/LC_circuit" }
+checks = [{ inputs = [1, 0.025330295910584444], output = 1 }]
+
+[[formula]]
+id = "rms_of_sine"
+name = "RMS value of a sine wave"
+expr = "V_peak / sqrt(2)"
+output = { symbol = "V_rms", name = "RMS voltage", unit = "V" }
+variables = [{ symbol = "V_peak", name = "peak voltage", unit = "V" }]
+tags = ["ac", "signals"]
+source = { title = "Root mean square: sine wave (Wikipedia)", url = "https://en.wikipedia.org/wiki/Root_mean_square" }
+checks = [{ inputs = [325.2691193458119], output = 230 }]
+
+[[formula]]
+id = "ac_real_power"
+name = "Real power in an AC circuit"
+expr = "V_rms * I_rms * cos(φ)"
+output = { symbol = "P", name = "real power", unit = "W" }
+variables = [
+  { symbol = "V_rms", name = "RMS voltage", unit = "V" },
+  { symbol = "I_rms", name = "RMS current", unit = "A" },
+  { symbol = "φ", name = "phase angle", unit = "rad" },
+]
+tags = ["ac", "power"]
+source = { title = "AC power (Wikipedia)", url = "https://en.wikipedia.org/wiki/AC_power" }
+checks = [{ inputs = [230, 2, 0], output = 460 }]
+
+# --- Signals -----------------------------------------------------------------
+
+[[formula]]
+id = "sine_wave"
+name = "Sine wave"
+expr = "A * sin(2 * pi * f * t + φ)"
+output = { symbol = "y", name = "signal value", unit = "1" }
+variables = [
+  { symbol = "A", name = "amplitude", unit = "1" },
+  { symbol = "f", name = "frequency", unit = "Hz" },
+  { symbol = "t", name = "time", unit = "s" },
+  { symbol = "φ", name = "phase", unit = "rad" },
+]
+tags = ["signals"]
+source = { title = "Sine wave (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sine_wave" }
+checks = [{ inputs = [2, 1, 0.25, 0], output = 2 }]
+
+[[formula]]
+id = "decibel_power_ratio"
+name = "Power ratio in decibels"
+expr = "10 * log10(P / P_ref)"
+output = { symbol = "L", name = "level", unit = "1" }
+variables = [
+  { symbol = "P", name = "power", unit = "W" },
+  { symbol = "P_ref", name = "reference power", unit = "W" },
+]
+tags = ["signals", "decibels"]
+source = { title = "Decibel (Wikipedia)", url = "https://en.wikipedia.org/wiki/Decibel" }
+checks = [{ inputs = [100, 1], output = 20 }]
+
+[[formula]]
+id = "decibel_amplitude_ratio"
+name = "Amplitude ratio in decibels"
+expr = "20 * log10(V / V_ref)"
+output = { symbol = "L", name = "level", unit = "1" }
+variables = [
+  { symbol = "V", name = "amplitude", unit = "V" },
+  { symbol = "V_ref", name = "reference amplitude", unit = "V" },
+]
+tags = ["signals", "decibels"]
+source = { title = "Decibel: root-power quantities (Wikipedia)", url = "https://en.wikipedia.org/wiki/Decibel" }
+checks = [{ inputs = [10, 1], output = 20 }]
+
+[[formula]]
+id = "dbm_from_watts"
+name = "Power in dBm"
+description = "Logarithms need a plain number, so P is the power expressed in watts."
+expr = "10 * log10(P) + 30"
+output = { symbol = "L", name = "power level in dBm", unit = "1" }
+variables = [{ symbol = "P", name = "power, numerical value in W", unit = "1" }]
+tags = ["signals", "decibels"]
+source = { title = "DBm (Wikipedia)", url = "https://en.wikipedia.org/wiki/DBm" }
+checks = [{ inputs = [1], output = 30 }]
+
+[[formula]]
+id = "nyquist_rate"
+name = "Nyquist rate"
+expr = "2 * f_max"
+output = { symbol = "f_s", name = "minimum sampling rate", unit = "Hz" }
+variables = [{ symbol = "f_max", name = "highest frequency in the signal", unit = "Hz" }]
+tags = ["signals", "sampling"]
+source = { title = "Nyquist rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Nyquist_rate" }
+checks = [{ inputs = [20000], output = 40000 }]
+
+[[formula]]
+id = "shannon_hartley"
+name = "Shannon–Hartley theorem (channel capacity)"
+expr = "B * log2(1 + S / N)"
+output = { symbol = "C", name = "channel capacity", unit = "bit/s" }
+variables = [
+  { symbol = "B", name = "bandwidth", unit = "Hz" },
+  { symbol = "S", name = "signal power", unit = "W" },
+  { symbol = "N", name = "noise power", unit = "W" },
+]
+tags = ["signals", "communications"]
+source = { title = "Shannon–Hartley theorem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Shannon%E2%80%93Hartley_theorem" }
+checks = [{ inputs = [1000, 3, 1], output = 2000 }]
+
+[[formula]]
+id = "radio_wavelength"
+name = "Wavelength of an electromagnetic wave"
+expr = "c / f"
+output = { symbol = "λ", name = "wavelength", unit = "m" }
+variables = [{ symbol = "f", name = "frequency", unit = "Hz" }]
+tags = ["signals", "communications"]
+source = { title = "Wavelength (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wavelength" }
+checks = [{ inputs = [299792458], output = 1 }]
+
+[[formula]]
+id = "thermal_noise_voltage"
+name = "Johnson–Nyquist noise voltage"
+expr = "sqrt(4 * k_B * T * R * Δf)"
+output = { symbol = "v_n", name = "RMS noise voltage", unit = "V" }
+variables = [
+  { symbol = "T", name = "temperature", unit = "K" },
+  { symbol = "R", name = "resistance", unit = "ohm" },
+  { symbol = "Δf", name = "bandwidth", unit = "Hz" },
+]
+tags = ["signals", "noise"]
+source = { title = "Johnson–Nyquist noise (Wikipedia)", url = "https://en.wikipedia.org/wiki/Johnson%E2%80%93Nyquist_noise" }

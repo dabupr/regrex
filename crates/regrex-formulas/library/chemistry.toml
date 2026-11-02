@@ -1,0 +1,354 @@
+# Chemistry: amounts, solutions, gases, kinetics, equilibrium and
+# electrochemistry.
+#
+# Constants are the CODATA 2022 recommended values published by NIST.
+# Concentrations in mol/L and masses in g are fine here because these
+# formulas do not mix them with constants stored in SI units.
+
+id = "chemistry"
+name = "Chemistry"
+description = "Amount of substance, solutions, gases, kinetics, equilibrium and electrochemistry."
+
+# --- Constants ---------------------------------------------------------------
+
+[[constant]]
+id = "N_A"
+symbol = "N_A"
+name = "Avogadro constant"
+value = 6.02214076e23
+unit = "1/mol"
+exact = true
+source = { title = "CODATA 2022: Avogadro constant (NIST)", url = "https://physics.nist.gov/cgi-bin/cuu/Value?na" }
+
+[[constant]]
+id = "R"
+symbol = "R"
+name = "molar gas constant"
+value = 8.314462618
+unit = "J/(mol K)"
+exact = true
+source = { title = "CODATA 2022: molar gas constant (NIST)", url = "https://physics.nist.gov/cgi-bin/cuu/Value?r" }
+
+[[constant]]
+id = "F"
+symbol = "F"
+name = "Faraday constant"
+value = 96485.33212
+unit = "C/mol"
+exact = true
+source = { title = "CODATA 2022: Faraday constant (NIST)", url = "https://physics.nist.gov/cgi-bin/cuu/Value?f" }
+
+[[constant]]
+id = "m_u"
+symbol = "m_u"
+name = "atomic mass constant (one dalton)"
+value = 1.66053906892e-27
+unit = "kg"
+uncertainty = 5.2e-37
+source = { title = "CODATA 2022: atomic mass constant (NIST)", url = "https://physics.nist.gov/cgi-bin/cuu/Value?ukg" }
+
+[[constant]]
+id = "T_0"
+symbol = "T_0"
+name = "zero of the Celsius scale (273.15 K)"
+value = 273.15
+unit = "K"
+exact = true
+source = { title = "Celsius (Wikipedia)", url = "https://en.wikipedia.org/wiki/Celsius" }
+
+# --- Amount of substance and solutions ---------------------------------------
+
+[[formula]]
+id = "amount_from_mass"
+name = "Amount of substance from mass"
+expr = "m / M"
+output = { symbol = "n", name = "amount of substance", unit = "mol", aliases = ["moles"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "g", aliases = ["mass"] },
+  { symbol = "M", name = "molar mass", unit = "g/mol", aliases = ["molar_mass"] },
+]
+tags = ["stoichiometry"]
+source = { title = "Molar mass (Wikipedia)", url = "https://en.wikipedia.org/wiki/Molar_mass" }
+checks = [{ inputs = [36, 18], output = 2 }]
+
+[[formula]]
+id = "number_of_particles"
+name = "Number of particles"
+expr = "n * N_A"
+output = { symbol = "N", name = "number of particles", unit = "1" }
+variables = [{ symbol = "n", name = "amount of substance", unit = "mol" }]
+tags = ["stoichiometry"]
+source = { title = "Avogadro constant (Wikipedia)", url = "https://en.wikipedia.org/wiki/Avogadro_constant" }
+checks = [{ inputs = [2], output = 1.204428152e24 }]
+
+[[formula]]
+id = "molarity"
+name = "Molar concentration"
+expr = "n / V"
+output = { symbol = "c", name = "concentration", unit = "mol/L", aliases = ["concentration", "molarity"] }
+variables = [
+  { symbol = "n", name = "amount of solute", unit = "mol" },
+  { symbol = "V", name = "volume of solution", unit = "L" },
+]
+tags = ["solutions"]
+source = { title = "Molar concentration (Wikipedia)", url = "https://en.wikipedia.org/wiki/Molar_concentration" }
+checks = [{ inputs = [0.5, 2], output = 0.25 }]
+
+[[formula]]
+id = "dilution"
+name = "Dilution (c1 V1 = c2 V2)"
+expr = "c1 * V1 / V2"
+output = { symbol = "c2", name = "final concentration", unit = "mol/L" }
+variables = [
+  { symbol = "c1", name = "initial concentration", unit = "mol/L" },
+  { symbol = "V1", name = "initial volume", unit = "L" },
+  { symbol = "V2", name = "final volume", unit = "L" },
+]
+tags = ["solutions"]
+source = { title = "Dilution (equation) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dilution_(equation)" }
+checks = [{ inputs = [2, 0.1, 0.5], output = 0.4 }]
+
+[[formula]]
+id = "mass_fraction_percent"
+name = "Mass percentage of a solution"
+expr = "m_solute / m_solution * 100"
+output = { symbol = "w", name = "mass percent", unit = "1" }
+variables = [
+  { symbol = "m_solute", name = "mass of solute", unit = "g" },
+  { symbol = "m_solution", name = "mass of solution", unit = "g" },
+]
+tags = ["solutions"]
+source = { title = "Mass fraction (chemistry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mass_fraction_(chemistry)" }
+checks = [{ inputs = [5, 200], output = 2.5 }]
+
+[[formula]]
+id = "ph"
+name = "pH from hydrogen ion concentration"
+expr = "-log10(c_H)"
+output = { symbol = "pH", name = "pH", unit = "1", aliases = ["ph"] }
+variables = [{ symbol = "c_H", name = "H⁺ concentration, numerical value in mol/L", unit = "1" }]
+tags = ["acid_base"]
+source = { title = "pH (Wikipedia)", url = "https://en.wikipedia.org/wiki/PH" }
+checks = [{ inputs = [1e-7], output = 7 }]
+
+[[formula]]
+id = "poh_from_ph"
+name = "pOH from pH (water at 25 °C)"
+expr = "14 - pH"
+output = { symbol = "pOH", name = "pOH", unit = "1" }
+variables = [{ symbol = "pH", name = "pH", unit = "1" }]
+tags = ["acid_base"]
+source = { title = "pH: pOH (Wikipedia)", url = "https://en.wikipedia.org/wiki/PH" }
+checks = [{ inputs = [3], output = 11 }]
+
+[[formula]]
+id = "henderson_hasselbalch"
+name = "Henderson–Hasselbalch equation"
+expr = "pKa + log10(c_A / c_HA)"
+output = { symbol = "pH", name = "pH of the buffer", unit = "1" }
+variables = [
+  { symbol = "pKa", name = "acid dissociation constant (−log10 Ka)", unit = "1" },
+  { symbol = "c_A", name = "concentration of the conjugate base", unit = "mol/L" },
+  { symbol = "c_HA", name = "concentration of the acid", unit = "mol/L" },
+]
+tags = ["acid_base"]
+source = { title = "Henderson–Hasselbalch equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Henderson%E2%80%93Hasselbalch_equation" }
+checks = [{ inputs = [4.76, 1, 1], output = 4.76 }]
+
+# --- Gases -------------------------------------------------------------------
+
+[[formula]]
+id = "ideal_gas_amount"
+name = "Ideal gas law (amount of gas)"
+expr = "p * V / (R * T)"
+output = { symbol = "n", name = "amount of substance", unit = "mol" }
+variables = [
+  { symbol = "p", name = "pressure", unit = "Pa" },
+  { symbol = "V", name = "volume", unit = "m^3" },
+  { symbol = "T", name = "temperature", unit = "K" },
+]
+tags = ["gases"]
+source = { title = "Ideal gas law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ideal_gas_law" }
+checks = [{ inputs = [101325, 0.022413969545014137, 273.15], output = 1 }]
+
+[[formula]]
+id = "boyle_law"
+name = "Boyle's law"
+expr = "p1 * V1 / V2"
+output = { symbol = "p2", name = "final pressure", unit = "Pa" }
+variables = [
+  { symbol = "p1", name = "initial pressure", unit = "Pa" },
+  { symbol = "V1", name = "initial volume", unit = "m^3" },
+  { symbol = "V2", name = "final volume", unit = "m^3" },
+]
+tags = ["gases"]
+source = { title = "Boyle's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Boyle%27s_law" }
+checks = [{ inputs = [100000, 2, 1], output = 200000 }]
+
+[[formula]]
+id = "charles_law"
+name = "Charles's law"
+expr = "V1 * T2 / T1"
+output = { symbol = "V2", name = "final volume", unit = "m^3" }
+variables = [
+  { symbol = "V1", name = "initial volume", unit = "m^3" },
+  { symbol = "T1", name = "initial temperature", unit = "K" },
+  { symbol = "T2", name = "final temperature", unit = "K" },
+]
+tags = ["gases"]
+source = { title = "Charles's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Charles%27s_law" }
+checks = [{ inputs = [1, 300, 600], output = 2 }]
+
+[[formula]]
+id = "combined_gas_law"
+name = "Combined gas law"
+expr = "p1 * V1 * T2 / (T1 * V2)"
+output = { symbol = "p2", name = "final pressure", unit = "Pa" }
+variables = [
+  { symbol = "p1", name = "initial pressure", unit = "Pa" },
+  { symbol = "V1", name = "initial volume", unit = "m^3" },
+  { symbol = "T1", name = "initial temperature", unit = "K" },
+  { symbol = "V2", name = "final volume", unit = "m^3" },
+  { symbol = "T2", name = "final temperature", unit = "K" },
+]
+tags = ["gases"]
+source = { title = "Combined gas law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Combined_gas_law" }
+checks = [{ inputs = [100000, 1, 300, 2, 600], output = 100000 }]
+
+[[formula]]
+id = "graham_law"
+name = "Graham's law of effusion"
+expr = "sqrt(M2 / M1)"
+output = { symbol = "r", name = "rate of gas 1 / rate of gas 2", unit = "1" }
+variables = [
+  { symbol = "M1", name = "molar mass of gas 1", unit = "g/mol" },
+  { symbol = "M2", name = "molar mass of gas 2", unit = "g/mol" },
+]
+tags = ["gases"]
+source = { title = "Graham's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Graham%27s_law" }
+checks = [{ inputs = [2, 32], output = 4 }]
+
+[[formula]]
+id = "osmotic_pressure"
+name = "Van 't Hoff equation for osmotic pressure"
+expr = "i * c * R * T"
+output = { symbol = "Π", name = "osmotic pressure", unit = "Pa" }
+variables = [
+  { symbol = "i", name = "van 't Hoff factor", unit = "1" },
+  { symbol = "c", name = "molar concentration", unit = "mol/m^3" },
+  { symbol = "T", name = "temperature", unit = "K" },
+]
+tags = ["solutions", "gases"]
+source = { title = "Osmotic pressure (Wikipedia)", url = "https://en.wikipedia.org/wiki/Osmotic_pressure" }
+
+# --- Kinetics and thermochemistry --------------------------------------------
+
+[[formula]]
+id = "arrhenius"
+name = "Arrhenius equation"
+expr = "A * exp(-E_a / (R * T))"
+output = { symbol = "k", name = "rate constant", unit = "1/s" }
+variables = [
+  { symbol = "A", name = "pre-exponential factor", unit = "1/s" },
+  { symbol = "E_a", name = "activation energy", unit = "J/mol" },
+  { symbol = "T", name = "temperature", unit = "K" },
+]
+tags = ["kinetics"]
+source = { title = "Arrhenius equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Arrhenius_equation" }
+checks = [{ inputs = [5, 0, 300], output = 5 }]
+
+[[formula]]
+id = "first_order_kinetics"
+name = "First-order reaction"
+expr = "c0 * exp(-k * t)"
+output = { symbol = "c", name = "concentration", unit = "mol/L" }
+variables = [
+  { symbol = "c0", name = "initial concentration", unit = "mol/L" },
+  { symbol = "k", name = "rate constant", unit = "1/s" },
+  { symbol = "t", name = "time", unit = "s" },
+]
+tags = ["kinetics"]
+source = { title = "Rate equation: first-order reactions (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rate_equation" }
+checks = [{ inputs = [1, 0, 10], output = 1 }]
+
+[[formula]]
+id = "first_order_half_life"
+name = "Half-life of a first-order reaction"
+expr = "log(2) / k"
+output = { symbol = "t_half", name = "half-life", unit = "s" }
+variables = [{ symbol = "k", name = "rate constant", unit = "1/s" }]
+tags = ["kinetics"]
+source = { title = "Half-life: first-order kinetics (Wikipedia)", url = "https://en.wikipedia.org/wiki/Half-life" }
+checks = [{ inputs = [0.6931471805599453], output = 1 }]
+
+[[formula]]
+id = "gibbs_free_energy"
+name = "Gibbs free energy change"
+expr = "ΔH - T * ΔS"
+output = { symbol = "ΔG", name = "Gibbs free energy change", unit = "J/mol" }
+variables = [
+  { symbol = "ΔH", name = "enthalpy change", unit = "J/mol" },
+  { symbol = "T", name = "temperature", unit = "K" },
+  { symbol = "ΔS", name = "entropy change", unit = "J/(mol K)" },
+]
+tags = ["thermochemistry"]
+source = { title = "Gibbs free energy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gibbs_free_energy" }
+checks = [{ inputs = [-100000, 300, -200], output = -40000 }]
+
+[[formula]]
+id = "gibbs_equilibrium"
+name = "Standard Gibbs energy from the equilibrium constant"
+expr = "-R * T * log(K)"
+output = { symbol = "ΔG0", name = "standard Gibbs energy change", unit = "J/mol" }
+variables = [
+  { symbol = "T", name = "temperature", unit = "K" },
+  { symbol = "K", name = "equilibrium constant", unit = "1" },
+]
+tags = ["thermochemistry", "equilibrium"]
+source = { title = "Gibbs free energy: standard Gibbs energy change (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gibbs_free_energy" }
+checks = [{ inputs = [298.15, 1], output = 0 }]
+
+# --- Electrochemistry and spectroscopy ---------------------------------------
+
+[[formula]]
+id = "nernst"
+name = "Nernst equation"
+expr = "E0 - R * T / (z * F) * log(Q)"
+output = { symbol = "E", name = "cell potential", unit = "V" }
+variables = [
+  { symbol = "E0", name = "standard cell potential", unit = "V" },
+  { symbol = "T", name = "temperature", unit = "K" },
+  { symbol = "z", name = "electrons transferred", unit = "1" },
+  { symbol = "Q", name = "reaction quotient", unit = "1" },
+]
+tags = ["electrochemistry"]
+source = { title = "Nernst equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Nernst_equation" }
+checks = [{ inputs = [1.1, 298.15, 2, 1], output = 1.1 }]
+
+[[formula]]
+id = "faraday_electrolysis"
+name = "Faraday's law of electrolysis"
+expr = "Q * M / (z * F)"
+output = { symbol = "m", name = "mass deposited", unit = "kg" }
+variables = [
+  { symbol = "Q", name = "electric charge", unit = "C" },
+  { symbol = "M", name = "molar mass", unit = "kg/mol" },
+  { symbol = "z", name = "valence of the ions", unit = "1" },
+]
+tags = ["electrochemistry"]
+source = { title = "Faraday's laws of electrolysis (Wikipedia)", url = "https://en.wikipedia.org/wiki/Faraday%27s_laws_of_electrolysis" }
+checks = [{ inputs = [96485.33212, 0.06355, 2], output = 0.031775 }]
+
+[[formula]]
+id = "beer_lambert"
+name = "Beer–Lambert law"
+expr = "ε * l * c"
+output = { symbol = "A", name = "absorbance", unit = "1" }
+variables = [
+  { symbol = "ε", name = "molar absorption coefficient", unit = "L/(mol m)" },
+  { symbol = "l", name = "path length", unit = "m" },
+  { symbol = "c", name = "concentration", unit = "mol/L" },
+]
+tags = ["spectroscopy"]
+source = { title = "Beer–Lambert law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law" }
+checks = [{ inputs = [10000, 0.01, 0.001], output = 0.1 }]

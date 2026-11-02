@@ -1,0 +1,17 @@
+[package]
+name = "regrex-formulas"
+version = "0.0.1"
+description = "Library of well-known formulas and constants, by domain, for Regrex"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["formula", "physics", "units", "constants", "symbolic-regression"]
+categories = ["science", "mathematics"]
+include = ["src/**", "library/*.toml", "tests/**", "README.md"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = { version = "0.8", default-features = false, features = ["parse"] }
