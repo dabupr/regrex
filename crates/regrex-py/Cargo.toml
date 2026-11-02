@@ -1,0 +1,22 @@
+[package]
+name = "regrex-py"
+version = "0.0.1"
+description = "Python bindings for Regrex"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+# Tested from Python with pytest (see tests/).
+test = false
+doctest = false
+
+[dependencies]
+regrex-core = { path = "../regrex-core", version = "0.0.1" }
+regrex-io = { path = "../regrex-io", version = "0.0.1" }
+pyo3 = { version = "0.30", features = ["extension-module", "abi3-py39"] }
