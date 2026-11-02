@@ -117,3 +117,45 @@ fn scan_mermaid_diagram() {
         "{stdout}"
     );
 }
+
+#[test]
+fn mcp_server_over_stdio() {
+    use std::io::Write;
+    use std::process::Stdio;
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_regrex"))
+        .arg("mcp")
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("binary runs");
+    let requests = [
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}"#,
+        r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
+        r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"scan_dataset","arguments":{"path":"tests/invoices.csv","ignore":["invoice"],"columns":["vat"]}}}"#,
+        r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"check_formula","arguments":{"path":"tests/invoices.csv","target":"vat","formula":"0.21 * net"}}}"#,
+    ];
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        for r in requests {
+            writeln!(stdin, "{r}").unwrap();
+        }
+    }
+    let out = child.wait_with_output().unwrap();
+    assert!(out.status.success());
+    let responses: Vec<serde_json::Value> = String::from_utf8(out.stdout)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).expect("one JSON message per line"))
+        .collect();
+    assert_eq!(responses.len(), 3, "the notification gets no response");
+    assert_eq!(responses[0]["result"]["protocolVersion"], "2025-06-18");
+
+    let scan = &responses[1]["result"]["structuredContent"];
+    assert_eq!(derived(scan, "vat")["formula"], "0.21 * net");
+
+    let check = &responses[2]["result"]["structuredContent"];
+    assert_eq!(check["exception_rows"], serde_json::json!([42]));
+    assert_eq!(check["checked_rows"], 60);
+}

@@ -501,6 +501,7 @@ dependencies = [
  "clap",
  "regrex-core",
  "regrex-io",
+ "serde",
  "serde_json",
 ]
 
