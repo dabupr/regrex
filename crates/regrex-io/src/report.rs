@@ -3,63 +3,118 @@
 //! The JSON output is versioned with `schema_version` and is meant to be
 //! stable: fields may be added, but existing ones keep their meaning.
 
-use crate::input::Loaded;
-use regrex_core::{Candidate, DerivedColumn};
+use crate::Loaded;
+use regrex_core::expr::format_number;
+use regrex_core::{Candidate, DerivedColumn, Table};
 use serde::Serialize;
 use std::fmt::Write;
-use std::path::Path;
 
 /// Version of the JSON output format.
 pub const SCHEMA_VERSION: u32 = 1;
 
-#[derive(Serialize)]
+/// Result of scanning a file, see [`regrex_core::scan()`].
+#[derive(Debug, Clone, Serialize)]
 pub struct ScanReport {
-    schema_version: u32,
-    file: String,
-    rows: usize,
-    columns: Vec<String>,
-    skipped_columns: Vec<String>,
-    derived: Vec<DerivedJson>,
+    /// Version of this format, see [`SCHEMA_VERSION`].
+    pub schema_version: u32,
+    /// The file that was scanned.
+    pub file: String,
+    /// Number of data rows.
+    pub rows: usize,
+    /// Numeric columns.
+    pub columns: Vec<String>,
+    /// Columns that were not numeric.
+    pub skipped_columns: Vec<String>,
+    /// Columns computed from others.
+    pub derived: Vec<DerivedJson>,
 }
 
-#[derive(Serialize)]
-struct DerivedJson {
-    column: String,
-    formula: String,
-    inputs: Vec<String>,
-    complexity: usize,
-    matched_rows: usize,
-    checked_rows: usize,
-    match_ratio: f64,
+/// One derived column in a [`ScanReport`].
+#[derive(Debug, Clone, Serialize)]
+pub struct DerivedJson {
+    /// The derived column.
+    pub column: String,
+    /// Its formula, using column names.
+    pub formula: String,
+    /// Columns the formula uses.
+    pub inputs: Vec<String>,
+    /// Weighted complexity of the formula.
+    pub complexity: usize,
+    /// Rows that follow the formula.
+    pub matched_rows: usize,
+    /// Rows that could be checked (no missing values).
+    pub checked_rows: usize,
+    /// `matched_rows / checked_rows`.
+    pub match_ratio: f64,
     /// Data rows (1 = first row after the header) that break the formula.
-    exception_rows: Vec<usize>,
+    pub exception_rows: Vec<usize>,
+    /// Details of the first [`MAX_EXCEPTION_DETAILS`] exceptions.
+    pub exceptions: Vec<ExceptionJson>,
+}
+
+/// A row that does not follow the formula of its column.
+#[derive(Debug, Clone, Serialize)]
+pub struct ExceptionJson {
+    /// Data row (1 = first row after the header).
+    pub row: usize,
+    /// The value in the file.
+    pub actual: f64,
+    /// The value the formula gives.
+    pub expected: f64,
+}
+
+/// At most this many exceptions are detailed in a report.
+pub const MAX_EXCEPTION_DETAILS: usize = 100;
+
+impl DerivedJson {
+    /// Converts a [`DerivedColumn`] found in `table`.
+    pub fn new(table: &Table, d: &DerivedColumn) -> Self {
+        let names = &table.names;
+        let exceptions = d
+            .exceptions
+            .iter()
+            .take(MAX_EXCEPTION_DETAILS)
+            .map(|&r| {
+                let row: Vec<f64> = table.columns.iter().map(|c| c[r]).collect();
+                ExceptionJson {
+                    row: r + 1,
+                    actual: table.columns[d.target][r],
+                    expected: d.formula.eval_row(&row, &[]),
+                }
+            })
+            .collect();
+        DerivedJson {
+            column: names[d.target].clone(),
+            formula: d.formula_text.clone(),
+            inputs: d.inputs.iter().map(|&i| names[i].clone()).collect(),
+            complexity: d.complexity,
+            matched_rows: d.matched,
+            checked_rows: d.checked,
+            match_ratio: d.match_ratio(),
+            exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
+            exceptions,
+        }
+    }
 }
 
 impl ScanReport {
-    pub fn new(path: &Path, loaded: &Loaded, derived: &[DerivedColumn]) -> Self {
+    /// Builds the report for `derived` columns found in `loaded`.
+    pub fn new(file: &str, loaded: &Loaded, derived: &[DerivedColumn]) -> Self {
         let names = &loaded.table.names;
         ScanReport {
             schema_version: SCHEMA_VERSION,
-            file: path.display().to_string(),
+            file: file.to_string(),
             rows: loaded.table.n_rows(),
             columns: names.clone(),
             skipped_columns: loaded.skipped.clone(),
             derived: derived
                 .iter()
-                .map(|d| DerivedJson {
-                    column: names[d.target].clone(),
-                    formula: d.formula_text.clone(),
-                    inputs: d.inputs.iter().map(|&i| names[i].clone()).collect(),
-                    complexity: d.complexity,
-                    matched_rows: d.matched,
-                    checked_rows: d.checked,
-                    match_ratio: d.match_ratio(),
-                    exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
-                })
+                .map(|d| DerivedJson::new(&loaded.table, d))
                 .collect(),
         }
     }
 
+    /// Pretty-printed JSON.
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(self).expect("report is serializable")
     }
@@ -85,6 +140,7 @@ impl ScanReport {
         s
     }
 
+    /// Plain-text table for terminals.
     pub fn to_text(&self) -> String {
         let mut s = String::new();
         let _ = writeln!(
@@ -124,6 +180,16 @@ impl ScanReport {
                 "  {:<width$} = {:<fwidth$}   {}/{} rows",
                 d.column, d.formula, d.matched_rows, d.checked_rows
             );
+            if let [only] = d.exceptions.as_slice() {
+                let _ = writeln!(
+                    s,
+                    "   exception: row {} is {}, formula gives {}",
+                    only.row,
+                    format_number(only.actual),
+                    format_number(only.expected)
+                );
+                continue;
+            }
             if !d.exception_rows.is_empty() {
                 let shown: Vec<String> = d
                     .exception_rows
@@ -143,26 +209,40 @@ impl ScanReport {
     }
 }
 
-#[derive(Serialize)]
+/// Candidate formulas for one column, see [`regrex_core::search()`].
+#[derive(Debug, Clone, Serialize)]
 pub struct FitReport {
-    schema_version: u32,
-    target: String,
-    inputs: Vec<String>,
-    rows: usize,
-    candidates: Vec<CandidateJson>,
+    /// Version of this format, see [`SCHEMA_VERSION`].
+    pub schema_version: u32,
+    /// The column explained.
+    pub target: String,
+    /// Columns used as inputs.
+    pub inputs: Vec<String>,
+    /// Rows used (rows with missing values are left out).
+    pub rows: usize,
+    /// Formulas, best first.
+    pub candidates: Vec<CandidateJson>,
 }
 
-#[derive(Serialize)]
-struct CandidateJson {
-    formula: String,
-    complexity: usize,
-    mse: f64,
-    r2: f64,
-    max_abs_error: f64,
-    exact: bool,
+/// One formula in a [`FitReport`].
+#[derive(Debug, Clone, Serialize)]
+pub struct CandidateJson {
+    /// The formula, using column names.
+    pub formula: String,
+    /// Weighted complexity.
+    pub complexity: usize,
+    /// Mean squared error.
+    pub mse: f64,
+    /// Coefficient of determination.
+    pub r2: f64,
+    /// Largest absolute error.
+    pub max_abs_error: f64,
+    /// Whether the formula is exact (up to floating point error).
+    pub exact: bool,
 }
 
 impl FitReport {
+    /// Builds the report for candidate formulas of `target`.
     pub fn new(target: &str, inputs: &[String], rows: usize, found: &[Candidate]) -> Self {
         FitReport {
             schema_version: SCHEMA_VERSION,
@@ -183,10 +263,12 @@ impl FitReport {
         }
     }
 
+    /// Pretty-printed JSON.
     pub fn to_json(&self) -> String {
         serde_json::to_string_pretty(self).expect("report is serializable")
     }
 
+    /// Plain-text table for terminals.
     pub fn to_text(&self) -> String {
         let mut s = String::new();
         let _ = writeln!(

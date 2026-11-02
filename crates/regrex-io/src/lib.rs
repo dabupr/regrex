@@ -1,39 +1,93 @@
-//! Loading CSV and spreadsheet files into a [`Table`].
+//! # regrex-io
+//!
+//! Reads CSV files and spreadsheets (`.xlsx`, `.xls`, `.ods`) into a
+//! [`regrex_core::Table`], working out number formats on the way: decimal
+//! points or commas, thousands separators, percentages and currency symbols.
+//!
+//! Works on native targets and in WebAssembly ([`load_bytes`] needs no file
+//! system).
 
-use calamine::{open_workbook_auto, Data, Reader};
+#![warn(missing_docs)]
+
+pub mod report;
+
+use calamine::{open_workbook_auto_from_rs, Data, Reader, Sheets};
 use regrex_core::Table;
-use std::path::Path;
+use std::fmt;
+use std::io::Cursor;
 
-/// A loaded file: numeric columns plus the names of skipped text columns.
+/// A loaded file.
+#[derive(Debug, Clone)]
 pub struct Loaded {
+    /// The numeric columns.
     pub table: Table,
+    /// Names of the columns that were not numeric.
     pub skipped: Vec<String>,
+    /// Every column name, numeric or not, in file order.
+    pub header: Vec<String>,
+    /// The first rows as text, for previews.
+    pub preview: Vec<Vec<String>>,
+    /// Sheet names, for spreadsheets.
+    pub sheets: Vec<String>,
 }
 
-/// Loads a `.csv`/`.tsv`/`.txt` file or a spreadsheet (`.xlsx`, `.xls`,
-/// `.ods`). The first row must hold the column names.
-pub fn load(path: &Path, sheet: Option<&str>) -> Result<Loaded, String> {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
+/// Number of rows kept in [`Loaded::preview`].
+pub const PREVIEW_ROWS: usize = 20;
+
+/// Why a file could not be loaded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LoadError(pub String);
+
+impl fmt::Display for LoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for LoadError {}
+
+fn err(message: impl Into<String>) -> LoadError {
+    LoadError(message.into())
+}
+
+/// Whether a file name looks like a spreadsheet rather than CSV text.
+pub fn is_spreadsheet(file_name: &str) -> bool {
+    let ext = file_name
+        .rsplit('.')
+        .next()
         .unwrap_or("")
         .to_ascii_lowercase();
-    let (header, rows) = match ext.as_str() {
-        "xlsx" | "xlsm" | "xls" | "xlsb" | "ods" => read_spreadsheet(path, sheet)?,
-        _ => read_csv(path)?,
-    };
-    Ok(build_table(header, rows))
+    matches!(ext.as_str(), "xlsx" | "xlsm" | "xls" | "xlsb" | "ods")
 }
 
-fn read_csv(path: &Path) -> Result<(Vec<String>, Vec<Vec<String>>), String> {
-    let text = std::fs::read_to_string(path)
-        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
-    parse_csv(&text)
+/// Loads a file from disk. The first row must hold the column names.
+pub fn load_path(path: &std::path::Path, sheet: Option<&str>) -> Result<Loaded, LoadError> {
+    let bytes =
+        std::fs::read(path).map_err(|e| err(format!("cannot read {}: {e}", path.display())))?;
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    load_bytes(name, &bytes, sheet)
+}
+
+/// Loads a file from its bytes; `file_name` is only used to tell CSV from
+/// spreadsheets. The first row must hold the column names.
+pub fn load_bytes(file_name: &str, bytes: &[u8], sheet: Option<&str>) -> Result<Loaded, LoadError> {
+    let (header, rows, sheets) = if is_spreadsheet(file_name) {
+        read_spreadsheet(bytes, sheet)?
+    } else {
+        let text = String::from_utf8_lossy(bytes);
+        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+        let (header, rows) = parse_csv(text)?;
+        (header, rows, Vec::new())
+    };
+    if header.is_empty() {
+        return Err(err("the file is empty"));
+    }
+    Ok(build_table(header, rows, sheets))
 }
 
 /// Parses CSV text, guessing the delimiter (`,`, `;` or tab) from the
-/// header line.
-pub fn parse_csv(text: &str) -> Result<(Vec<String>, Vec<Vec<String>>), String> {
+/// header line. Returns the header and the rows as text.
+pub fn parse_csv(text: &str) -> Result<(Vec<String>, Vec<Vec<String>>), LoadError> {
     let first_line = text.lines().next().unwrap_or("");
     let delimiter = b";\t,"
         .iter()
@@ -47,40 +101,39 @@ pub fn parse_csv(text: &str) -> Result<(Vec<String>, Vec<Vec<String>>), String> 
         .from_reader(text.as_bytes());
     let header: Vec<String> = reader
         .headers()
-        .map_err(|e| format!("invalid CSV header: {e}"))?
+        .map_err(|e| err(format!("invalid CSV header: {e}")))?
         .iter()
         .map(str::to_string)
         .collect();
     let mut rows = Vec::new();
     for record in reader.records() {
-        let record = record.map_err(|e| format!("invalid CSV: {e}"))?;
+        let record = record.map_err(|e| err(format!("invalid CSV: {e}")))?;
         rows.push(record.iter().map(str::to_string).collect());
     }
     Ok((header, rows))
 }
 
-fn read_spreadsheet(
-    path: &Path,
-    sheet: Option<&str>,
-) -> Result<(Vec<String>, Vec<Vec<String>>), String> {
-    let mut workbook =
-        open_workbook_auto(path).map_err(|e| format!("cannot open {}: {e}", path.display()))?;
+type Parsed = (Vec<String>, Vec<Vec<String>>, Vec<String>);
+
+fn read_spreadsheet(bytes: &[u8], sheet: Option<&str>) -> Result<Parsed, LoadError> {
+    let mut workbook: Sheets<_> = open_workbook_auto_from_rs(Cursor::new(bytes))
+        .map_err(|e| err(format!("cannot open the spreadsheet: {e}")))?;
+    let sheets = workbook.sheet_names().to_vec();
     let name = match sheet {
         Some(s) => s.to_string(),
-        None => workbook
-            .sheet_names()
+        None => sheets
             .first()
             .cloned()
-            .ok_or("the workbook has no sheets")?,
+            .ok_or_else(|| err("the workbook has no sheets"))?,
     };
     let range = workbook
         .worksheet_range(&name)
-        .map_err(|e| format!("cannot read sheet {name:?}: {e}"))?;
+        .map_err(|e| err(format!("cannot read sheet {name:?}: {e}")))?;
     let mut rows = range
         .rows()
         .map(|r| r.iter().map(cell_text).collect::<Vec<String>>());
-    let header = rows.next().ok_or("the sheet is empty")?;
-    Ok((header, rows.collect()))
+    let header = rows.next().ok_or_else(|| err("the sheet is empty"))?;
+    Ok((header, rows.collect(), sheets))
 }
 
 fn cell_text(c: &Data) -> String {
@@ -159,7 +212,7 @@ fn clearly_decimal_comma(s: &str) -> bool {
 }
 
 /// Keeps columns where most non-empty cells are numbers.
-fn build_table(header: Vec<String>, rows: Vec<Vec<String>>) -> Loaded {
+fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>) -> Loaded {
     let mut table = Table::default();
     let mut skipped = Vec::new();
     // If any cell in the file clearly uses a decimal comma, they all do.
@@ -195,7 +248,13 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>) -> Loaded {
             .decimals
             .push(parsed.iter().flatten().map(|(_, d)| *d).max());
     }
-    Loaded { table, skipped }
+    Loaded {
+        table,
+        skipped,
+        preview: rows.iter().take(PREVIEW_ROWS).cloned().collect(),
+        header,
+        sheets,
+    }
 }
 
 #[cfg(test)]
@@ -227,7 +286,7 @@ mod tests {
     #[test]
     fn decimal_comma_is_detected_for_the_whole_file() {
         let (header, rows) = parse_csv("x;y\n1,5;1,234\n2,25;2,000\n").unwrap();
-        let loaded = build_table(header, rows);
+        let loaded = build_table(header, rows, Vec::new());
         assert_eq!(loaded.table.columns[1], vec![1.234, 2.0]);
     }
 
@@ -235,7 +294,7 @@ mod tests {
     fn csv_with_semicolons_and_text_columns() {
         let text = "name;price;qty;total\nA;1,50;2;3,00\nB;2,25;4;9,00\nC;10;1;10\n";
         let (header, rows) = parse_csv(text).unwrap();
-        let loaded = build_table(header, rows);
+        let loaded = build_table(header, rows, Vec::new());
         assert_eq!(loaded.skipped, vec!["name".to_string()]);
         assert_eq!(loaded.table.names, vec!["price", "qty", "total"]);
         assert_eq!(loaded.table.columns[0], vec![1.5, 2.25, 10.0]);
@@ -245,7 +304,7 @@ mod tests {
     #[test]
     fn missing_cells_become_nan() {
         let (header, rows) = parse_csv("a,b\n1,2\n,4\n5,6\n").unwrap();
-        let loaded = build_table(header, rows);
+        let loaded = build_table(header, rows, Vec::new());
         assert!(loaded.table.columns[0][1].is_nan());
         assert_eq!(loaded.table.columns[1], vec![2.0, 4.0, 6.0]);
     }

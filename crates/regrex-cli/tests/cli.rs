@@ -44,6 +44,7 @@ fn scan_csv_finds_formulas_and_exceptions() {
     let vat = derived(&report, "vat");
     assert_eq!(vat["formula"], "0.21 * net");
     assert_eq!(vat["exception_rows"], serde_json::json!([42]));
+    assert_eq!(vat["exceptions"][0]["actual"], 29.97);
 
     let total = derived(&report, "total");
     assert_eq!(total["formula"], "net + vat");
@@ -63,7 +64,10 @@ fn scan_text_output_is_readable() {
     assert!(ok);
     assert!(stdout.contains("vat = 0.21 * net"), "{stdout}");
     assert!(stdout.contains("59/60 rows"), "{stdout}");
-    assert!(stdout.contains("exceptions: row 42"), "{stdout}");
+    assert!(
+        stdout.contains("exception: row 42 is 29.97, formula gives 62.937"),
+        "{stdout}"
+    );
 }
 
 #[test]

@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - the `regrex` command-line tool (`regrex-cli` crate) with `scan` and `fit`, CSV and spreadsheet input, text, JSON and Mermaid output;
   - example data in `examples/data/invoices.csv`.
 
+- Web app (phase 3) in `web/`, deployed to GitHub Pages:
+  - drop a CSV or Excel file, preview it, untick ID columns and find derived columns, all in the browser;
+  - rows that break a formula are listed with the value in the file and the value the formula gives;
+  - JSON download, light and dark themes, end-to-end tests with Playwright.
+- `regrex-io` crate: file reading and JSON reports shared by the CLI and the web app; reports now detail each exception (`exceptions`: row, actual and expected value).
+
 ### Changed
 
 - Minimum supported Rust version is now 1.88 (needed by the spreadsheet reader).
+- Scanning only reports a formula when more rows match it than it has parts, so tiny tables do not produce made-up formulas.

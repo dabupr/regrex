@@ -429,11 +429,9 @@ dependencies = [
 name = "regrex-cli"
 version = "0.0.1"
 dependencies = [
- "calamine",
  "clap",
- "csv",
  "regrex-core",
- "serde",
+ "regrex-io",
  "serde_json",
 ]
 
@@ -442,6 +440,28 @@ name = "regrex-core"
 version = "0.0.1"
 dependencies = [
  "rayon",
+]
+
+[[package]]
+name = "regrex-io"
+version = "0.0.1"
+dependencies = [
+ "calamine",
+ "csv",
+ "regrex-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "regrex-wasm"
+version = "0.0.1"
+dependencies = [
+ "regrex-core",
+ "regrex-io",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]

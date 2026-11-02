@@ -1,0 +1,19 @@
+[package]
+name = "regrex-io"
+version = "0.0.1"
+description = "Read CSV files and spreadsheets into Regrex tables"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+readme = "../../README.md"
+keywords = ["csv", "excel", "spreadsheet", "symbolic-regression"]
+categories = ["parser-implementations", "science"]
+
+[dependencies]
+regrex-core = { path = "../regrex-core", version = "0.0.1", default-features = false }
+calamine = "0.38"
+csv = "1.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
