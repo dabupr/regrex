@@ -1,0 +1,124 @@
+//! End-to-end tests: the search must rediscover well-known formulas.
+
+use regrex_core::{search, Candidate, SearchConfig};
+
+/// Deterministic pseudo-random numbers in `[lo, hi)` (xorshift), so the tests
+/// do not need a random-number crate and are reproducible.
+fn uniform(n: usize, lo: f64, hi: f64, seed: u64) -> Vec<f64> {
+    let mut s = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+    (0..n)
+        .map(|_| {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            lo + (hi - lo) * ((s >> 11) as f64 / (1u64 << 53) as f64)
+        })
+        .collect()
+}
+
+fn names(list: &[&str]) -> Vec<String> {
+    list.iter().map(|s| s.to_string()).collect()
+}
+
+fn best(inputs: &[Vec<f64>], target: &[f64], max_size: usize) -> Candidate {
+    let config = SearchConfig {
+        max_size,
+        ..SearchConfig::default()
+    };
+    let results = search(inputs, target, &config).expect("valid data");
+    results.into_iter().next().expect("at least one candidate")
+}
+
+#[test]
+fn kinetic_energy() {
+    let m = uniform(50, 0.5, 10.0, 1);
+    let v = uniform(50, 0.1, 30.0, 2);
+    let e: Vec<f64> = m.iter().zip(&v).map(|(m, v)| 0.5 * m * v * v).collect();
+    let b = best(&[m, v], &e, 6);
+    assert!(b.exact, "{b:?}");
+    assert_eq!(
+        b.expr.display_with(&names(&["m", "v"])).to_string(),
+        "0.5 * m * v^2"
+    );
+}
+
+#[test]
+fn ohms_law() {
+    let i = uniform(40, 0.01, 2.0, 3);
+    let r = uniform(40, 10.0, 1000.0, 4);
+    let v: Vec<f64> = i.iter().zip(&r).map(|(i, r)| i * r).collect();
+    let b = best(&[i, r], &v, 5);
+    assert!(b.exact);
+    assert_eq!(
+        b.expr.display_with(&names(&["I", "R"])).to_string(),
+        "I * R"
+    );
+}
+
+#[test]
+fn pendulum_period() {
+    // T = 2π·sqrt(L / g), with g = 9.81 fixed: T = 2.00607 * sqrt(L)
+    let l = uniform(40, 0.1, 5.0, 5);
+    let t: Vec<f64> = l
+        .iter()
+        .map(|l| 2.0 * std::f64::consts::PI * (l / 9.81).sqrt())
+        .collect();
+    let b = best(&[l], &t, 5);
+    assert!(b.exact, "{b:?}");
+    assert_eq!(b.expr.to_string(), "2.00607 * sqrt(x0)");
+}
+
+#[test]
+fn exponential_decay() {
+    let t = uniform(40, 0.0, 5.0, 6);
+    let y: Vec<f64> = t.iter().map(|t| 3.0 * (-0.5 * t).exp()).collect();
+    let b = best(&[t], &y, 6);
+    assert!(b.exact, "{b:?}");
+    assert_eq!(b.expr.to_string(), "3 * exp(-0.5 * x0)");
+}
+
+#[test]
+fn ideal_gas_with_three_variables() {
+    // P = n R T / V, R = 8.314
+    let n = uniform(40, 0.5, 3.0, 7);
+    let t = uniform(40, 250.0, 400.0, 8);
+    let v = uniform(40, 0.01, 0.1, 9);
+    let p: Vec<f64> = (0..40).map(|i| n[i] * 8.314 * t[i] / v[i]).collect();
+    let b = best(&[n, t, v], &p, 7);
+    assert!(b.exact, "{b:?}");
+    assert_eq!(
+        b.expr.display_with(&names(&["n", "T", "V"])).to_string(),
+        "8.314 * n * T / V"
+    );
+}
+
+#[test]
+fn noisy_data_still_finds_the_law() {
+    let x = uniform(200, 0.0, 10.0, 10);
+    let noise = uniform(200, -0.05, 0.05, 11);
+    let y: Vec<f64> = x
+        .iter()
+        .zip(&noise)
+        .map(|(x, e)| 2.0 * x + 1.0 + e)
+        .collect();
+    let b = best(&[x], &y, 5);
+    assert!(!b.exact);
+    assert!(b.r2 > 0.999);
+    assert_eq!(b.expr.to_string(), "2 * x0 + 1");
+}
+
+#[test]
+fn results_are_a_pareto_front() {
+    let x = uniform(30, 0.0, 3.0, 12);
+    let y: Vec<f64> = x.iter().map(|x| x * x * x + x).collect();
+    let config = SearchConfig {
+        max_size: 6,
+        ..SearchConfig::default()
+    };
+    let mut results = search(&[x], &y, &config).unwrap();
+    results.sort_by_key(|c| c.complexity);
+    for pair in results.windows(2) {
+        assert!(pair[1].complexity > pair[0].complexity);
+        assert!(pair[1].nmse < pair[0].nmse);
+    }
+}

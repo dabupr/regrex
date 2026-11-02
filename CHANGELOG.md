@@ -12,3 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Project skeleton: Cargo workspace, `regrex-core` with an expression tree, evaluation and MSE.
 - Community files: contributing guide, code of conduct, security policy, issue and PR templates.
 - CI: formatting, clippy, tests on Linux, macOS and Windows, docs, MSRV check and dependency audit.
+- Search engine in `regrex-core` (phase 1):
+  - expression trees with `+ - * / ^`, `-x`, `x^2`, `sqrt`, `exp`, `log`, `sin`, `cos` and readable display;
+  - canonical forms (sorted sums and products, folded constants, `x * x` → `x^2`) to skip duplicates;
+  - bottom-up enumeration of distinct formulas, deduplicated by structure and by value;
+  - Levenberg–Marquardt fitting of inner constants, closed-form outer scale and offset (`a·f + b`);
+  - snapping of fitted constants to round values (`0.5`, `1.21`, `π`) using the BIC;
+  - weighted complexity (including the digits of each constant) and a Pareto front of accuracy vs simplicity;
+  - optional multithreading with the `parallel` feature (on by default).

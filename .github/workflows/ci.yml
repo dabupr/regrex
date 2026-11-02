@@ -1,8 +1,10 @@
 name: CI
 
 on:
+  # Every branch, so work is checked before a pull request is opened.
   push:
-    branches: [main]
+    branches: ["**"]
+  # Pull requests from forks (branches of this repository run on push).
   pull_request:
 
 permissions:
@@ -52,7 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.80
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.80"
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
 

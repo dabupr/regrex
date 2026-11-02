@@ -1,67 +1,43 @@
-//! Regrex core: expressions and their evaluation over data columns.
+//! # regrex-core
 //!
-//! This is the starting point of the engine. Search, scoring, units and
-//! known-formula detection are planned in `docs/ROADMAP.md`.
+//! The engine behind [Regrex](https://github.com/dabupr/regrex): given input
+//! columns and a target column, find readable formulas that explain the
+//! target, ranked by accuracy and simplicity.
+//!
+//! ```
+//! use regrex_core::{search, SearchConfig};
+//!
+//! // Total = Price * Quantity * 1.21
+//! let price = vec![10.0, 5.5, 3.2, 8.0, 1.25];
+//! let quantity = vec![2.0, 4.0, 1.0, 3.0, 10.0];
+//! let total: Vec<f64> = price.iter().zip(&quantity).map(|(p, q)| p * q * 1.21).collect();
+//!
+//! let config = SearchConfig { max_size: 5, ..SearchConfig::default() };
+//! let results = search(&[price, quantity], &total, &config).unwrap();
+//! let names = ["price".to_string(), "quantity".to_string()];
+//! let best = &results[0];
+//! assert!(best.exact);
+//! assert_eq!(best.expr.display_with(&names).to_string(), "1.21 * price * quantity");
+//! ```
+//!
+//! How it works:
+//!
+//! 1. [`enumerate`](crate::enumerate::enumerate) builds every distinct formula
+//!    up to a size limit, skipping duplicates by canonical form and by value.
+//! 2. Free constants are fitted with Levenberg–Marquardt and snapped to nice
+//!    values (`0.5`, `π`, `1.21`) when that does not hurt accuracy.
+//! 3. Candidates are scored by error and complexity and the Pareto front is
+//!    returned.
 
-/// A symbolic expression over input variables and constants.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
-    Var(usize),
-    Const(f64),
-    Add(Box<Expr>, Box<Expr>),
-    Sub(Box<Expr>, Box<Expr>),
-    Mul(Box<Expr>, Box<Expr>),
-    Div(Box<Expr>, Box<Expr>),
-}
+#![warn(missing_docs)]
 
-impl Expr {
-    /// Evaluates the expression for one row of input values.
-    pub fn eval(&self, row: &[f64]) -> f64 {
-        match self {
-            Expr::Var(i) => row[*i],
-            Expr::Const(c) => *c,
-            Expr::Add(a, b) => a.eval(row) + b.eval(row),
-            Expr::Sub(a, b) => a.eval(row) - b.eval(row),
-            Expr::Mul(a, b) => a.eval(row) * b.eval(row),
-            Expr::Div(a, b) => a.eval(row) / b.eval(row),
-        }
-    }
+pub mod enumerate;
+pub mod error;
+pub mod expr;
+pub mod fit;
+pub mod search;
+pub mod simplify;
 
-    /// Number of nodes, used as a first complexity measure.
-    pub fn size(&self) -> usize {
-        match self {
-            Expr::Var(_) | Expr::Const(_) => 1,
-            Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Mul(a, b) | Expr::Div(a, b) => {
-                1 + a.size() + b.size()
-            }
-        }
-    }
-}
-
-/// Mean squared error of `expr` against `target` over `rows`.
-pub fn mse(expr: &Expr, rows: &[Vec<f64>], target: &[f64]) -> f64 {
-    let n = rows.len().max(1) as f64;
-    rows.iter()
-        .zip(target)
-        .map(|(row, y)| (expr.eval(row) - y).powi(2))
-        .sum::<f64>()
-        / n
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn total_with_vat() {
-        // Total = Price * Quantity * 1.21
-        let expr = Expr::Mul(
-            Box::new(Expr::Mul(Box::new(Expr::Var(0)), Box::new(Expr::Var(1)))),
-            Box::new(Expr::Const(1.21)),
-        );
-        let rows = vec![vec![10.0, 2.0], vec![5.5, 4.0]];
-        let target = vec![24.2, 26.62];
-        assert!(mse(&expr, &rows, &target) < 1e-9);
-        assert_eq!(expr.size(), 5);
-    }
-}
+pub use error::Error;
+pub use expr::{BinaryOp, Expr, UnaryOp};
+pub use search::{search, Candidate, SearchConfig};

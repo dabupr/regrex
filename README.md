@@ -17,6 +17,24 @@
 - **Built for AI**: MCP server and stable JSON output. The AI proposes, the engine verifies.
 - **Private by design**: in the browser, your data never leaves your computer.
 
+## Try it
+
+The engine can already rediscover formulas from data (Rust library, phase 1 of the roadmap):
+
+```rust
+use regrex_core::{search, SearchConfig};
+
+let mass = vec![1.0, 2.5, 4.0, 0.8, 7.2, 3.3];
+let speed = vec![3.0, 1.2, 7.5, 12.0, 0.6, 4.4];
+let energy: Vec<f64> = mass.iter().zip(&speed).map(|(m, v)| 0.5 * m * v * v).collect();
+
+let results = search(&[mass, speed], &energy, &SearchConfig::default()).unwrap();
+let names = ["m".to_string(), "v".to_string()];
+println!("{}", results[0].expr.display_with(&names)); // 0.5 * m * v^2
+```
+
+Or run the example: `cargo run --release --example basic`.
+
 ## Development
 
 ```sh
