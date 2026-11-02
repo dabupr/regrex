@@ -205,10 +205,11 @@ fn power_law(inputs: &[Vec<f64>], target: &[f64]) -> Option<Expr> {
     let mut ata = vec![vec![0.0; k + 1]; k + 1];
     let mut aty = vec![0.0; k + 1];
     for r in 0..n {
-        for i in 0..=k {
-            aty[i] += w[r] * column(i, r) * ly[r];
-            for j in 0..=k {
-                ata[i][j] += w[r] * column(i, r) * column(j, r);
+        for (i, (row, rhs)) in ata.iter_mut().zip(aty.iter_mut()).enumerate() {
+            let wi = w[r] * column(i, r);
+            *rhs += wi * ly[r];
+            for (j, cell) in row.iter_mut().enumerate() {
+                *cell += wi * column(j, r);
             }
         }
     }
