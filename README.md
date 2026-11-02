@@ -44,11 +44,36 @@ Skipped (not numeric): product
 
 - Reads CSV (comma, semicolon or tab; decimal point or comma) and spreadsheets (`.xlsx`, `.xls`, `.ods`, choose one with `--sheet`).
 - Put units in the headers (`time (s)`, `distance [m]`) and Regrex skips formulas that mix incompatible units, which is faster and avoids nonsense like adding seconds to metres.
-- `--json` prints a stable, versioned JSON report for scripts and AI agents.
+- `--json` prints a stable, versioned JSON report for scripts and AI agents ([format](docs/json-output.md)).
 - `--mermaid` prints the dependencies between columns as a diagram.
 - `regrex fit data.csv --target y` lists candidate formulas for a single column.
 
 Install from source with `cargo install --path crates/regrex-cli`.
+
+## Python
+
+```python
+import regrex
+
+report = regrex.scan_file("examples/data/invoices.csv", ignore=["invoice"])
+for d in report["derived"]:
+    print(d["column"], "=", d["formula"], d["exception_rows"])
+
+best = regrex.search({"m": m, "v": v}, energy)[0]   # also takes pandas DataFrames
+print(best["formula"])                                # 0.5 * m * v^2
+```
+
+Install from source with `pip install ./crates/regrex-py` (needs a Rust toolchain). See the [Python README](crates/regrex-py/README.md).
+
+## AI assistants (MCP)
+
+`regrex mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server, so Claude, Cursor, VS Code and other assistants can scan your files, fit formulas and check units with a real engine instead of guessing. With Claude Code:
+
+```sh
+claude mcp add regrex -- regrex mcp
+```
+
+See [docs/mcp.md](docs/mcp.md) for other clients and the list of tools, and [docs/json-output.md](docs/json-output.md) for the output format.
 
 ## Rust library
 
@@ -72,6 +97,13 @@ Or run the example: `cargo run --release --example basic`.
 
 ```sh
 cargo test --workspace
+
+# Python bindings
+pip install maturin pytest
+cd crates/regrex-py && maturin develop && pytest
+
+# Web app
+cd web && npm ci && npm run build && npm test
 ```
 
 ## Contributing

@@ -1,0 +1,26 @@
+# Regrex
+
+> Regrex finds the formulas behind tabular data. Give it a CSV or spreadsheet and it reports which columns are computed from other columns (for example `vat = 0.21 * net`), and which rows break each formula. It also finds formulas for one target from inputs (symbolic regression), with fitted constants, unit checks and a Pareto front of simplicity vs accuracy. Written in Rust; MIT licensed.
+
+Regrex runs in the browser (WebAssembly, data never leaves the device), as a command-line tool, as a Python package, as a Rust library, and as an MCP server for AI assistants. All of them return the same versioned JSON.
+
+## Docs
+
+- [README](https://github.com/dabupr/regrex/blob/main/README.md): what Regrex does, install and quick examples
+- [JSON output](https://github.com/dabupr/regrex/blob/main/docs/json-output.md): fields of scan and fit reports, formula syntax
+- [MCP server](https://github.com/dabupr/regrex/blob/main/docs/mcp.md): `regrex mcp` setup for Claude, Cursor and VS Code, and its tools
+- [Python package](https://github.com/dabupr/regrex/blob/main/crates/regrex-py/README.md): `regrex.search`, `regrex.scan`, `regrex.scan_file`
+- [Roadmap](https://github.com/dabupr/regrex/blob/main/docs/ROADMAP.md): planned phases
+
+## Usage
+
+- `regrex scan FILE --ignore id --json`: computed columns and exception rows
+- `regrex fit FILE --target COLUMN --json`: candidate formulas for one column
+- `regrex mcp`: MCP server on stdio with tools `scan_dataset`, `fit_formula`, `fit_values`, `check_formula`, `check_units`
+- Units in headers, such as `time (s)` or `distance [m]`, rule out formulas that mix incompatible units
+
+## Optional
+
+- [Web app](https://dabupr.github.io/regrex/): try it with a file in the browser
+- [Contributing](https://github.com/dabupr/regrex/blob/main/CONTRIBUTING.md)
+- [Changelog](https://github.com/dabupr/regrex/blob/main/CHANGELOG.md)
