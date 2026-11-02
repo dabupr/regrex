@@ -49,7 +49,7 @@ Skipped (not numeric): product
 - `--mermaid` prints the dependencies between columns as a diagram.
 - `regrex fit data.csv --target y` lists candidate formulas for a single column.
 
-Install from source with `cargo install --path crates/regrex-cli`.
+Install from source with `cargo install --path crates/regrex-cli`. From the first release on, prebuilt binaries are attached to each [GitHub release](https://github.com/dabupr/regrex/releases) and `cargo install regrex-cli` works too.
 
 ## Python
 
@@ -64,7 +64,7 @@ best = regrex.search({"m": m, "v": v}, energy)[0]   # also takes pandas DataFram
 print(best["formula"])                                # 0.5 * m * v^2
 ```
 
-Install from source with `pip install ./crates/regrex-py` (needs a Rust toolchain). See the [Python README](crates/regrex-py/README.md).
+Install from source with `pip install ./crates/regrex-py` (needs a Rust toolchain); from the first release on, `pip install pyregrex`. See the [Python README](crates/regrex-py/README.md).
 
 ## AI assistants (MCP)
 
@@ -110,6 +110,10 @@ cd web && npm ci && npm run build && npm test
 ## Contributing
 
 Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started and the [Code of Conduct](CODE_OF_CONDUCT.md) before taking part. Report security issues privately as described in [SECURITY.md](SECURITY.md).
+
+## Citing
+
+If you use Regrex in research, please cite it using [CITATION.cff](CITATION.cff) (GitHub shows a "Cite this repository" button).
 
 ## License
 

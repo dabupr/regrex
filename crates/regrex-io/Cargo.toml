@@ -1,6 +1,6 @@
 [package]
 name = "regrex-io"
-version = "0.0.1"
+version.workspace = true
 description = "Read CSV files and spreadsheets into Regrex tables"
 edition.workspace = true
 license.workspace = true
@@ -8,6 +8,8 @@ repository.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 readme = "../../README.md"
+homepage = "https://dabupr.github.io/regrex/"
+documentation = "https://docs.rs/regrex-io"
 keywords = ["csv", "excel", "spreadsheet", "symbolic-regression"]
 categories = ["parser-implementations", "science"]
 

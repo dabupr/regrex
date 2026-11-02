@@ -1,6 +1,6 @@
 [package]
 name = "regrex-py"
-version = "0.0.1"
+version.workspace = true
 description = "Python bindings for Regrex"
 edition.workspace = true
 license.workspace = true

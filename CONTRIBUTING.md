@@ -66,7 +66,7 @@ Use short, imperative subjects (`Add constant fitting`, `Fix division by zero in
 
 ## Versioning and releases
 
-Regrex follows [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are always listed in the changelog.
+Regrex follows [Semantic Versioning](https://semver.org/). Until 1.0, minor versions may contain breaking changes; they are always listed in the changelog. How releases are made is described in [docs/RELEASING.md](docs/RELEASING.md).
 
 ## License
 

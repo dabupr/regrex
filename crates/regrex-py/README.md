@@ -2,6 +2,10 @@
 
 Find the formulas behind your data. Python bindings for [Regrex](https://github.com/dabupr/regrex), a symbolic regression engine written in Rust.
 
+```sh
+pip install pyregrex
+```
+
 ```python
 import regrex
 

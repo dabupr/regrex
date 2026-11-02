@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use Regrex in your research, please cite it as below."
+title: "Regrex: find the formulas behind your data"
+type: software
+authors:
+  - family-names: Busoms
+    given-names: David
+repository-code: "https://github.com/dabupr/regrex"
+url: "https://dabupr.github.io/regrex/"
+license: MIT
+keywords:
+  - symbolic regression
+  - equation discovery
+  - data validation
+  - rust
+  - webassembly

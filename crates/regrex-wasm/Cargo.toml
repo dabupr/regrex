@@ -1,6 +1,6 @@
 [package]
 name = "regrex-wasm"
-version = "0.0.1"
+version.workspace = true
 description = "WebAssembly bindings for Regrex, used by the web app"
 edition.workspace = true
 license.workspace = true

@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation of the JSON output (`docs/json-output.md`), MCP setup (`docs/mcp.md`) and an `llms.txt` file.
 - Error diagnosis (phase 6): `regrex_core::diagnose` explains a row that breaks a formula with a mistake that reproduces it exactly (wrong constant, mistyped digit, rounding, sign, unit or percentage factor, wrong or swapped columns, forgotten operation or term), and blames a single wrong cell when it breaks several formulas. Scan reports, the CLI and the web app show the most likely mistake of each exception.
 - Benchmark (phase 7): `cargo run --release -p regrex-core --example feynman` measures recovery on 24 Feynman equations, with and without noise; results in `docs/BENCHMARKS.md`.
+- Release automation (phase 8): pushing a version tag builds the CLI for Linux, macOS and Windows, Python wheels and a source distribution, creates the GitHub release and publishes to PyPI (as `pyregrex`) and crates.io. See `docs/RELEASING.md`.
+- `CITATION.cff` for citing Regrex in research.
 - The search finds products of powers with any number of inputs (`n * kb * T / V`) with a weighted fit in log space, and stops enumerating larger formulas once an exact one is known.
 
 ### Changed

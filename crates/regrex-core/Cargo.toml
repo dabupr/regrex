@@ -1,13 +1,15 @@
 [package]
 name = "regrex-core"
-version = "0.0.1"
-description = "Symbolic regression core for Regrex"
+version.workspace = true
+description = "Symbolic regression engine of Regrex: find the formulas behind tabular data"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 readme = "../../README.md"
+homepage = "https://dabupr.github.io/regrex/"
+documentation = "https://docs.rs/regrex-core"
 keywords = ["symbolic-regression", "formula", "equation-discovery", "wasm"]
 categories = ["science", "mathematics", "algorithms"]
 
