@@ -115,6 +115,15 @@ export interface ExplainOptions {
   rel_tolerance?: number;
   max_inputs?: number;
   deepen_to?: number;
+  library_only?: boolean;
+  domain?: string;
+}
+
+/** A domain of the built-in formula library. */
+export interface Domain {
+  id: string;
+  name: string;
+  description: string;
 }
 
 export type Request =
@@ -123,6 +132,7 @@ export type Request =
   | { kind: "formula"; column: string; text: string }
   | { kind: "fit"; target: string; options: { inputs: string[] } }
   | { kind: "rows"; rows: number[] }
+  | { kind: "domains" }
   | { kind: "review"; options: { ignore: string[] } };
 
 export type Response =

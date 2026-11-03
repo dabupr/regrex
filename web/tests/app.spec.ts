@@ -171,3 +171,29 @@ test("a long search can be stopped and run again", async ({ page }) => {
   await expect(page.locator('article[data-column="subtotal"]')).toContainText("subtotal = price * quantity", { timeout: 45_000 });
   await expect(page.locator("#independent")).toHaveText("");
 });
+
+test("searches only the formulas of the library, by domain", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await expect(page.locator("#domain")).toBeDisabled();
+  await page.getByLabel(/Only known formulas/).check();
+  await expect(page.getByText("How hard to search")).toBeHidden();
+  await page.locator("#domain").selectOption("finance");
+  await expect(page.locator("#settings-summary")).toHaveText("(Library: Finance and business)");
+
+  await page.locator("#only").selectOption("subtotal");
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  const subtotal = page.locator('article[data-column="subtotal"]');
+  await expect(subtotal).toContainText("subtotal = price * quantity", { timeout: 45_000 });
+  await expect(subtotal).toContainText("Known formula");
+
+  // Kept after a reload, and the defaults go back to the open search.
+  await page.reload();
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await expect(page.locator("#domain")).toHaveValue("finance");
+  await page.getByRole("button", { name: "Reset to the defaults" }).click();
+  await expect(page.getByLabel(/Any formula/)).toBeChecked();
+  await expect(page.getByText("How hard to search")).toBeVisible();
+});

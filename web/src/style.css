@@ -165,3 +165,4 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .field .default { white-space: nowrap; }
 .progress-line { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .panel #reset { display: inline-block; margin-top: 14px; }
+.panel [hidden] { display: none; }
