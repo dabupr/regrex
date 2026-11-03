@@ -577,6 +577,14 @@ ui.example.addEventListener("click", async () => {
   const res = await fetch(`${import.meta.env.BASE_URL}invoices.csv`);
   await openFile("invoices.csv", await res.arrayBuffer());
 });
+// Cells copied from a spreadsheet arrive as tab-separated text.
+document.addEventListener("paste", (e) => {
+  if (e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]")) return;
+  const text = e.clipboardData?.getData("text/plain") ?? "";
+  if (!text.trim()) return;
+  e.preventDefault();
+  void openFile("pasted cells", new TextEncoder().encode(text).buffer as ArrayBuffer);
+});
 ui.sheet.addEventListener("change", () => {
   if (state) void openFile(state.name, state.bytes, ui.sheet.value);
 });
