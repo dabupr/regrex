@@ -6,7 +6,7 @@
 //! scan is robust: it searches on several subsets of rows, keeps the formula
 //! that matches the most rows, and reports the rows that break it.
 
-use crate::expr::Expr;
+use crate::expr::{BinaryOp, Expr};
 use crate::search::{search, SearchConfig};
 use crate::units::Unit;
 
@@ -108,6 +108,66 @@ pub struct DerivedColumn {
     pub checked: usize,
     /// Rows that do not follow the formula, in increasing order.
     pub exceptions: Vec<usize>,
+    /// A second formula followed by many of the exceptions, when the column
+    /// mixes two kinds of rows (two tax rates, two price lists).
+    pub other: Option<OtherFormula>,
+}
+
+/// A second formula for some rows of a derived column.
+#[derive(Debug, Clone)]
+pub struct OtherFormula {
+    /// The formula; `Expr::Var(i)` refers to column `i` of the table.
+    pub formula: Expr,
+    /// The formula written with column names.
+    pub formula_text: String,
+    /// Rows that follow it (all of them exceptions of the main formula).
+    pub rows: Vec<usize>,
+    /// A rule on another column that tells these rows apart, if one exists.
+    pub split: Option<Split>,
+}
+
+/// A rule on one column that separates the rows of the second formula from
+/// those of the main one, such as `year >= 2024` or `region = 3`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Split {
+    /// The column the rule is about.
+    pub column: usize,
+    /// The condition the rows of the second formula meet.
+    pub condition: Condition,
+    /// Fraction of the rows of both formulas the rule classifies correctly.
+    pub accuracy: f64,
+}
+
+/// A condition on the values of one column.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Condition {
+    /// The value is at most this.
+    AtMost(f64),
+    /// The value is at least this.
+    AtLeast(f64),
+    /// The value is one of these (for columns with few different values).
+    OneOf(Vec<f64>),
+}
+
+impl Split {
+    /// The rule written with column names, such as `year >= 2024`.
+    pub fn text(&self, names: &[String]) -> String {
+        let name = &names[self.column];
+        match &self.condition {
+            Condition::AtMost(v) => format!("{name} <= {}", crate::expr::format_number(*v)),
+            Condition::AtLeast(v) => format!("{name} >= {}", crate::expr::format_number(*v)),
+            Condition::OneOf(values) if values.len() == 1 => {
+                format!("{name} = {}", crate::expr::format_number(values[0]))
+            }
+            Condition::OneOf(values) => {
+                let list: Vec<String> = values
+                    .iter()
+                    .map(|v| crate::expr::format_number(*v))
+                    .collect();
+                format!("{name} in {{{}}}", list.join(", "))
+            }
+        }
+    }
 }
 
 impl DerivedColumn {
@@ -149,12 +209,85 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     if rows.len() < 3 {
         return None;
     }
+    let (formula, matched) = best_formula(table, &candidates_cols, target, &rows, config)?;
+    let ratio = matched.len() as f64 / rows.len() as f64;
+    let enough = |f: &Expr, m: &[usize]| f.has_vars() && m.len() > f.complexity();
+    if !enough(&formula, &matched) {
+        return None;
+    }
+    let mut found = derived(table, target, formula, &rows, &matched);
+    // Rows that break the formula may follow another one: a second tax rate,
+    // another product. Look for it when there are enough of them.
+    if found.exceptions.len() >= MIN_OTHER_ROWS {
+        if let Some((other, other_rows)) =
+            best_formula(table, &candidates_cols, target, &found.exceptions, config)
+        {
+            let split = split_rule(table, target, &matched, &other_rows);
+            // Without a rule that tells the rows apart, only a formula as
+            // simple as the main one is believable.
+            let plausible = split.is_some() || other.complexity() <= found.complexity;
+            if enough(&other, &other_rows)
+                && other_rows.len() * 2 >= found.exceptions.len()
+                && plausible
+            {
+                found.other = Some(OtherFormula {
+                    formula_text: other.display_with(&table.names).to_string(),
+                    formula: other,
+                    rows: other_rows,
+                    split,
+                });
+            }
+        }
+    }
+    let covered = found.matched + found.other.as_ref().map_or(0, |o| o.rows.len());
+    // With few rows, a complicated formula can fit anything: require more
+    // matching rows than the formula has parts. Two formulas together must
+    // cover as many rows as one would, the main one a fair share of them,
+    // and a rule on another column must tell their rows apart.
+    let segmented =
+        found.other.as_ref().is_some_and(|o| o.split.is_some()) && ratio >= MIN_SEGMENT_SHARE;
+    if ratio >= config.min_match
+        || segmented && covered as f64 >= config.min_match * rows.len() as f64
+    {
+        Some(found)
+    } else {
+        None
+    }
+}
+
+/// Rows needed to look for a second formula among the rows that break the
+/// first one.
+const MIN_OTHER_ROWS: usize = 4;
+
+/// Share of rows the main formula must match when two formulas share a
+/// column.
+const MIN_SEGMENT_SHARE: f64 = 0.25;
+
+/// The formula that matches most of `rows`, searched robustly, with the
+/// rows (among `rows`) it matches.
+fn best_formula(
+    table: &Table,
+    candidates_cols: &[usize],
+    target: usize,
+    rows: &[usize],
+    config: &ScanConfig,
+) -> Option<(Expr, Vec<usize>)> {
+    let y_all = &table.columns[target];
+    let rows = rows.to_vec();
     let tolerance = row_tolerance(table, target, config);
 
     // Search on a few disjoint-ish subsets, so a handful of bad rows cannot
     // spoil every attempt; then once more on the rows the best formula fits.
     let mut best: Option<(Expr, Vec<usize>)> = None;
+    let shapes = std::cell::RefCell::new(Vec::<Expr>::new());
     let consider = |formula: Expr, best: &mut Option<(Expr, Vec<usize>)>| {
+        let shape = parametrize(&formula);
+        if (1..=MAX_SHAPE_PARAMS).contains(&shape.num_params()) {
+            let mut shapes = shapes.borrow_mut();
+            if !shapes.contains(&shape) {
+                shapes.push(shape);
+            }
+        }
         let matched = matching_rows(&formula, table, &rows, y_all, &tolerance);
         let better = match best {
             None => true,
@@ -169,7 +302,7 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     };
 
     for subset in subsets(&rows, config.subset_rows, 3) {
-        for formula in search_rows(table, &candidates_cols, target, &subset, config) {
+        for formula in search_rows(table, candidates_cols, target, &subset, config) {
             consider(formula, &mut best);
         }
     }
@@ -181,7 +314,25 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
         && rows.len() >= 2 * SMALL_SUBSET
     {
         for subset in samples(&rows, SMALL_SUBSET, config.small_samples) {
-            for formula in search_rows(table, &candidates_cols, target, &subset, config) {
+            for formula in search_rows(table, candidates_cols, target, &subset, config) {
+                consider(formula, &mut best);
+            }
+        }
+    }
+    // Rows of two kinds (two tax rates) spoil every sample of a few rows, but
+    // the shapes found still fit: refit their constants on tiny samples.
+    if best
+        .as_ref()
+        .is_none_or(|(_, m)| (m.len() as f64) < config.min_match * rows.len() as f64)
+    {
+        let mut shapes = shapes.take();
+        shapes.sort_by_key(Expr::complexity);
+        shapes.truncate(MAX_SHAPES);
+        for shape in &shapes {
+            let size = shape.num_params() + 1;
+            if let Some((formula, _)) =
+                robust_constants(table, target, shape, &rows, &tolerance, size, TINY_SAMPLES)
+            {
                 consider(formula, &mut best);
             }
         }
@@ -189,19 +340,35 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     let (_, inliers) = best.clone()?;
     if inliers.len() >= 3 && inliers.len() < rows.len() {
         let refined = spread(&inliers, config.subset_rows);
-        for formula in search_rows(table, &candidates_cols, target, &refined, config) {
+        for formula in search_rows(table, candidates_cols, target, &refined, config) {
             consider(formula, &mut best);
         }
     }
 
-    let (formula, matched) = best?;
-    let ratio = matched.len() as f64 / rows.len() as f64;
-    // With few rows, a complicated formula can fit anything: require more
-    // matching rows than the formula has parts.
-    if ratio < config.min_match || !formula.has_vars() || matched.len() <= formula.complexity() {
-        return None;
+    best
+}
+
+/// Shapes (formulas with their constants as parameters) refitted on tiny
+/// samples when no formula matches enough rows.
+const MAX_SHAPES: usize = 12;
+/// Shapes with more constants than this are not refitted.
+const MAX_SHAPE_PARAMS: usize = 3;
+/// Tiny samples tried for each shape.
+const TINY_SAMPLES: usize = 24;
+
+/// The formula with its constants turned into parameters, except exponents
+/// and small whole numbers (`x^2`, `2 * pi`), which define the shape.
+fn parametrize(e: &Expr) -> Expr {
+    fn go(e: &Expr) -> Expr {
+        match e {
+            Expr::Const(c) if c.fract() != 0.0 || c.abs() > 10.0 => Expr::Param(0),
+            Expr::Var(_) | Expr::Const(_) | Expr::Param(_) => e.clone(),
+            Expr::Unary(op, a) => Expr::unary(*op, go(a)),
+            Expr::Binary(BinaryOp::Pow, a, b) => Expr::binary(BinaryOp::Pow, go(a), (**b).clone()),
+            Expr::Binary(op, a, b) => Expr::binary(*op, go(a), go(b)),
+        }
     }
-    Some(derived(table, target, formula, &rows, &matched))
+    go(e).number_params()
 }
 
 /// Checks how well a given formula computes column `target`.
@@ -289,6 +456,34 @@ pub fn fit_shape(
         return None;
     }
     let tolerance = row_tolerance(table, target, config);
+    let sample_size = SMALL_SUBSET.max(2 * n_params + 2);
+    let (formula, matched_rows) = robust_constants(
+        table,
+        target,
+        shape,
+        &rows,
+        &tolerance,
+        sample_size,
+        config.small_samples.max(4),
+    )?;
+    Some(derived(table, target, formula, &rows, &matched_rows))
+}
+
+/// Fits the parameters of `shape` to `rows` robustly: on all of them and on
+/// `n_samples` random samples of `sample_size` rows; the fit that matches
+/// most rows wins, is refined on the rows it matches and has its constants
+/// rounded to simple values when that matches as many rows.
+fn robust_constants(
+    table: &Table,
+    target: usize,
+    shape: &Expr,
+    rows: &[usize],
+    tolerance: &dyn Fn(usize) -> f64,
+    sample_size: usize,
+    n_samples: usize,
+) -> Option<(Expr, Vec<usize>)> {
+    let n_params = shape.num_params();
+    let y_all = &table.columns[target];
     let opts = crate::fit::FitOptions::default();
     let fit_on = |subset: &[usize]| -> Option<Vec<f64>> {
         let columns: Vec<Vec<f64>> = table
@@ -303,17 +498,16 @@ pub fn fit_shape(
         matching_rows(
             &shape.substitute_params(params),
             table,
-            &rows,
+            rows,
             y_all,
             &tolerance,
         )
         .len()
     };
 
-    let sample_size = SMALL_SUBSET.max(2 * n_params + 2);
-    let mut attempts = vec![spread(&rows, 400)];
+    let mut attempts = vec![spread(rows, 400)];
     if rows.len() >= 2 * sample_size {
-        attempts.extend(samples(&rows, sample_size, config.small_samples.max(4)));
+        attempts.extend(samples(rows, sample_size, n_samples));
     }
     let mut best: Option<(Vec<f64>, usize)> = None;
     for subset in &attempts {
@@ -329,7 +523,7 @@ pub fn fit_shape(
     let inliers = matching_rows(
         &shape.substitute_params(&params),
         table,
-        &rows,
+        rows,
         y_all,
         &tolerance,
     );
@@ -354,8 +548,8 @@ pub fn fit_shape(
         }
     }
     let formula = shape.substitute_params(&params);
-    let matched_rows = matching_rows(&formula, table, &rows, y_all, &tolerance);
-    Some(derived(table, target, formula, &rows, &matched_rows))
+    let matched_rows = matching_rows(&formula, table, rows, y_all, tolerance);
+    Some((formula, matched_rows))
 }
 
 /// Explains why `row` breaks the formula of `derived`: see
@@ -486,7 +680,99 @@ fn derived(
         matched: matched.len(),
         checked: rows.len(),
         exceptions,
+        other: None,
     }
+}
+
+/// Minimum share of rows a split rule must classify correctly.
+const MIN_SPLIT_ACCURACY: f64 = 0.95;
+
+/// The simplest rule on a column other than `target` that tells the rows of
+/// `other` apart from the rows of `main`.
+fn split_rule(table: &Table, target: usize, main: &[usize], other: &[usize]) -> Option<Split> {
+    let total = (main.len() + other.len()) as f64;
+    let mut best: Option<Split> = None;
+    let mut consider = |split: Split| {
+        if split.accuracy >= MIN_SPLIT_ACCURACY
+            && best.as_ref().is_none_or(|b| split.accuracy > b.accuracy)
+        {
+            best = Some(split);
+        }
+    };
+    for (c, values) in table.columns.iter().enumerate() {
+        if c == target {
+            continue;
+        }
+        let a: Vec<f64> = main
+            .iter()
+            .map(|&r| values[r])
+            .filter(|v| v.is_finite())
+            .collect();
+        let b: Vec<f64> = other
+            .iter()
+            .map(|&r| values[r])
+            .filter(|v| v.is_finite())
+            .collect();
+        if a.is_empty() || b.is_empty() {
+            continue;
+        }
+        let correct = |is_other: &dyn Fn(f64) -> bool| {
+            let hits = a.iter().filter(|&&v| !is_other(v)).count()
+                + b.iter().filter(|&&v| is_other(v)).count();
+            hits as f64 / total
+        };
+        // Thresholds: between the largest and smallest values of the groups.
+        let (a_min, a_max) = min_max(&a);
+        let (b_min, b_max) = min_max(&b);
+        if b_max < a_min {
+            consider(Split {
+                column: c,
+                condition: Condition::AtMost(b_max),
+                accuracy: correct(&|v| v <= b_max),
+            });
+        } else if b_min > a_max {
+            consider(Split {
+                column: c,
+                condition: Condition::AtLeast(b_min),
+                accuracy: correct(&|v| v >= b_min),
+            });
+        } else {
+            // Overlapping ranges: the best cut among the values of `other`.
+            for &t in &b {
+                consider(Split {
+                    column: c,
+                    condition: Condition::AtMost(t),
+                    accuracy: correct(&|v| v <= t),
+                });
+                consider(Split {
+                    column: c,
+                    condition: Condition::AtLeast(t),
+                    accuracy: correct(&|v| v >= t),
+                });
+            }
+        }
+        // Categories: the values of `other`, when there are few of them.
+        let mut cats: Vec<f64> = b.clone();
+        cats.sort_by(f64::total_cmp);
+        cats.dedup();
+        if cats.len() <= 3 && cats.len() < b.len() {
+            let accuracy = correct(&|v| cats.contains(&v));
+            consider(Split {
+                column: c,
+                condition: Condition::OneOf(cats),
+                accuracy,
+            });
+        }
+    }
+    best
+}
+
+fn min_max(values: &[f64]) -> (f64, f64) {
+    values
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+            (lo.min(v), hi.max(v))
+        })
 }
 
 /// Runs a search for `target` on the given rows. The returned formulas use
@@ -725,6 +1011,52 @@ mod tests {
         assert_eq!(subtotal.formula_text, "price * quantity");
         assert!(subtotal.exceptions.is_empty());
         assert_eq!(subtotal.inputs, vec![0, 1]);
+    }
+
+    /// `vat` is 21% of `net` until 2022 and 10% from 2023 (a made-up tax
+    /// change). `year_of` gives the year of each row.
+    fn two_rates(year_of: &dyn Fn(usize) -> f64) -> Table {
+        let n = 60;
+        let net: Vec<f64> = (0..n).map(|i| 20.0 + ((i * 37) % 101) as f64).collect();
+        let year: Vec<f64> = (0..n).map(year_of).collect();
+        let vat: Vec<f64> = (0..n)
+            .map(|i| {
+                let rate = if year[i] >= 2023.0 { 0.1 } else { 0.21 };
+                (net[i] * rate * 100.0).round() / 100.0
+            })
+            .collect();
+        Table {
+            names: vec!["net".into(), "year".into(), "vat".into()],
+            columns: vec![net, year, vat],
+            decimals: vec![Some(0), Some(0), Some(2)],
+            units: vec![None; 3],
+        }
+    }
+
+    #[test]
+    fn two_formulas_and_the_rule_that_splits_them() {
+        for (name, year_of) in [
+            // Sorted by year, 12 rows a year from 2020 to 2024.
+            (
+                "sorted",
+                &(|i: usize| 2020.0 + (i / 12) as f64) as &dyn Fn(usize) -> f64,
+            ),
+            ("mixed", &|i: usize| 2020.0 + (i % 5) as f64),
+        ] {
+            let table = two_rates(year_of);
+            let found = explain_column(&table, 2, &ScanConfig::default())
+                .unwrap_or_else(|| panic!("{name}: vat is derived"));
+            assert_eq!(found.formula_text, "0.21 * net", "{name}");
+            let other = found
+                .other
+                .as_ref()
+                .unwrap_or_else(|| panic!("{name}: two rates"));
+            assert_eq!(other.formula_text, "0.1 * net", "{name}");
+            assert_eq!(other.rows.len(), 24, "{name}");
+            let split = other.split.as_ref().expect("the year splits them");
+            assert_eq!(split.text(&table.names), "year >= 2023", "{name}");
+            assert_eq!(split.accuracy, 1.0);
+        }
     }
 
     #[test]

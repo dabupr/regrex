@@ -1,6 +1,7 @@
 //! # regrex-io
 //!
-//! Reads CSV files and spreadsheets (`.xlsx`, `.xls`, `.ods`) into a
+//! Reads CSV files, spreadsheets (`.xlsx`, `.xls`, `.ods`) and JSON
+//! (`.json`, `.ndjson`, `.jsonl`) into a
 //! [`regrex_core::Table`], working out number formats on the way: decimal
 //! points or commas, thousands separators, percentages and currency symbols.
 //!
@@ -9,6 +10,7 @@
 
 #![warn(missing_docs)]
 
+mod json;
 pub mod report;
 
 use calamine::{open_workbook_auto_from_rs, Data, Reader, Sheets};
@@ -66,11 +68,28 @@ pub fn load_path(path: &std::path::Path, sheet: Option<&str>) -> Result<Loaded, 
     load_bytes(name, &bytes, sheet)
 }
 
+/// Whether a file name looks like JSON (`.json`) or JSON lines (`.ndjson`,
+/// `.jsonl`).
+pub fn is_json(file_name: &str) -> bool {
+    let ext = file_name
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    matches!(ext.as_str(), "json" | "ndjson" | "jsonl")
+}
+
 /// Loads a file from its bytes; `file_name` is only used to tell CSV from
-/// spreadsheets. The first row must hold the column names.
+/// spreadsheets and JSON. The first row of CSV and spreadsheets must hold
+/// the column names.
 pub fn load_bytes(file_name: &str, bytes: &[u8], sheet: Option<&str>) -> Result<Loaded, LoadError> {
     let (header, rows, sheets) = if is_spreadsheet(file_name) {
         read_spreadsheet(bytes, sheet)?
+    } else if is_json(file_name) {
+        let text = String::from_utf8_lossy(bytes);
+        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+        let (header, rows) = json::parse(text)?;
+        (header, rows, Vec::new())
     } else {
         let text = String::from_utf8_lossy(bytes);
         let text = text.strip_prefix('\u{feff}').unwrap_or(&text);

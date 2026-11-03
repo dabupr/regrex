@@ -171,3 +171,33 @@ test("a long search can be stopped and run again", async ({ page }) => {
   await expect(page.locator('article[data-column="subtotal"]')).toContainText("subtotal = price * quantity", { timeout: 45_000 });
   await expect(page.locator("#independent")).toHaveText("");
 });
+
+test("finds a second formula and the column that tells the rows apart", async ({ page }) => {
+  const { readFile } = await import("node:fs/promises");
+  const csv = await readFile(new URL("../../examples/data/tax_change.csv", import.meta.url));
+  await page.goto("./");
+  await page.locator("#file").setInputFiles({ name: "tax_change.csv", mimeType: "text/csv", buffer: csv });
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  const vat = page.locator('#cards article[data-column="vat"]');
+  await expect(vat).toContainText("vat = 0.21 * net", { timeout: 45_000 });
+  await expect(vat).toContainText("36 of 60 rows, the rest with a second formula");
+  await expect(vat.locator(".other")).toContainText("vat = 0.1 * net for 24 rows, where year >= 2023");
+  await expect(page.locator("#summary")).toContainText("No suspicious rows");
+});
+
+test("reads JSON files and pasted cells", async ({ page }) => {
+  await page.goto("./");
+  const rows = Array.from({ length: 12 }, (_, i) => ({ net: 10 + i * 3, vat: Number(((10 + i * 3) * 0.21).toFixed(2)) }));
+  await page.locator("#file").setInputFiles({ name: "rows.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(rows)) });
+  await expect(page.locator("#file-summary")).toHaveText("12 rows, 2 numeric columns");
+
+  await page.goto("./");
+  const tsv = ["price\tquantity\ttotal", ...Array.from({ length: 10 }, (_, i) => `${i + 2}\t${(i % 4) + 1}\t${(i + 2) * ((i % 4) + 1)}`)].join("\n");
+  await page.evaluate((text) => {
+    const data = new DataTransfer();
+    data.setData("text/plain", text);
+    document.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true }));
+  }, tsv);
+  await expect(page.locator("#file-name")).toHaveText("pasted cells");
+  await expect(page.locator("#file-summary")).toHaveText("10 rows, 3 numeric columns");
+});

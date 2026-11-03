@@ -52,6 +52,47 @@ pub struct DerivedJson {
     pub exceptions: Vec<ExceptionJson>,
     /// The well-known formula this is, if it is one.
     pub known: Option<KnownJson>,
+    /// A second formula that many of the exceptions follow, when the column
+    /// mixes two kinds of rows.
+    pub other: Option<OtherJson>,
+}
+
+/// A second formula for some rows of a derived column.
+#[derive(Debug, Clone, Serialize)]
+pub struct OtherJson {
+    /// The formula, using column names.
+    pub formula: String,
+    /// Data rows (1 = first row after the header) that follow it.
+    pub rows: Vec<usize>,
+    /// A rule on another column that tells these rows apart, if one exists.
+    pub split: Option<SplitJson>,
+}
+
+/// A rule that separates the rows of two formulas.
+#[derive(Debug, Clone, Serialize)]
+pub struct SplitJson {
+    /// The column the rule is about.
+    pub column: String,
+    /// The rule, such as `year >= 2023` or `region in {2, 3}`.
+    pub rule: String,
+    /// Fraction of the rows of both formulas it classifies correctly.
+    pub accuracy: f64,
+}
+
+impl OtherJson {
+    /// `0.1 * net (24 rows, where year >= 2023)`.
+    pub fn summary(&self) -> String {
+        let n = self.rows.len();
+        let rows = if n == 1 {
+            "1 row".to_string()
+        } else {
+            format!("{n} rows")
+        };
+        match &self.split {
+            Some(split) => format!("{} ({rows}, where {})", self.formula, split.rule),
+            None => format!("{} ({rows})", self.formula),
+        }
+    }
 }
 
 /// A row that does not follow the formula of its column.
@@ -202,8 +243,9 @@ impl KnownJson {
 pub struct DiagnosisJson {
     /// Kind of mistake: `rounding`, `typo`, `sign`, `factor`,
     /// `wrong_constant`, `wrong_variable`, `swapped_variables`,
-    /// `missing_operation`, `missing_term`, `wrong_operation` or
-    /// `swapped_operands`.
+    /// `missing_operation`, `missing_term`, `wrong_operation`,
+    /// `swapped_operands`, `other_cell` or `other_formula` (the row follows
+    /// the second formula of a column that mixes two kinds of rows).
     pub kind: String,
     /// What went wrong, such as `used 0.1 instead of 0.21`.
     pub description: String,
@@ -224,20 +266,39 @@ impl DerivedJson {
     /// so a wrong cell that breaks several formulas is blamed only once.
     pub fn with_context(table: &Table, d: &DerivedColumn, all: &[DerivedColumn]) -> Self {
         let names = &table.names;
+        let other = d.other.as_ref().map(|o| OtherJson {
+            formula: o.formula_text.clone(),
+            rows: o.rows.iter().map(|r| r + 1).collect(),
+            split: o.split.as_ref().map(|split| SplitJson {
+                column: names[split.column].clone(),
+                rule: split.text(names),
+                accuracy: split.accuracy,
+            }),
+        });
         let exceptions = d
             .exceptions
             .iter()
             .take(MAX_EXCEPTION_DETAILS)
             .map(|&r| {
                 let row: Vec<f64> = table.columns.iter().map(|c| c[r]).collect();
-                let diagnosis = diagnose_exception(table, d, all, r, &ScanConfig::default())
-                    .into_iter()
-                    .next()
-                    .map(|m| DiagnosisJson {
-                        kind: m.kind.id().to_string(),
-                        description: m.description,
-                        formula: m.formula.map(|f| f.display_with(names).to_string()),
-                    });
+                let follows_other = other
+                    .as_ref()
+                    .filter(|o| o.rows.binary_search(&(r + 1)).is_ok());
+                let diagnosis = match follows_other {
+                    Some(o) => Some(DiagnosisJson {
+                        kind: "other_formula".to_string(),
+                        description: format!("follows the other formula, {}", o.summary()),
+                        formula: Some(o.formula.clone()),
+                    }),
+                    None => diagnose_exception(table, d, all, r, &ScanConfig::default())
+                        .into_iter()
+                        .next()
+                        .map(|m| DiagnosisJson {
+                            kind: m.kind.id().to_string(),
+                            description: m.description,
+                            formula: m.formula.map(|f| f.display_with(names).to_string()),
+                        }),
+                };
                 ExceptionJson {
                     row: r + 1,
                     actual: table.columns[d.target][r],
@@ -257,6 +318,7 @@ impl DerivedJson {
             exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
             exceptions,
             known: known_column(table, d),
+            other,
         }
     }
 }
@@ -358,11 +420,14 @@ impl ScanReport {
                 "  {:<width$} = {:<fwidth$}   {}/{} rows",
                 d.column, d.formula, d.matched_rows, d.checked_rows
             );
-            let known = d
+            let mut known = d
                 .known
                 .as_ref()
                 .map(|k| format!("\n  {:width$}   {}", "", k.summary()))
                 .unwrap_or_default();
+            if let Some(o) = &d.other {
+                let _ = write!(known, "\n  {:width$}   other rows: {}", "", o.summary());
+            }
             let why = |x: &ExceptionJson| {
                 x.diagnosis
                     .as_ref()
@@ -383,14 +448,17 @@ impl ScanReport {
                 }
                 continue;
             }
-            if !d.exception_rows.is_empty() {
-                let shown: Vec<String> = d
-                    .exception_rows
-                    .iter()
-                    .take(10)
-                    .map(|r| r.to_string())
-                    .collect();
-                let more = d.exception_rows.len().saturating_sub(10);
+            // Rows that follow the other formula are not exceptions to report.
+            let other_rows = d.other.as_ref().map_or(&[][..], |o| o.rows.as_slice());
+            let wrong: Vec<usize> = d
+                .exception_rows
+                .iter()
+                .copied()
+                .filter(|r| other_rows.binary_search(r).is_err())
+                .collect();
+            if !wrong.is_empty() {
+                let shown: Vec<String> = wrong.iter().take(10).map(|r| r.to_string()).collect();
+                let more = wrong.len().saturating_sub(10);
                 let _ = write!(s, "   exceptions: row {}", shown.join(", "));
                 if more > 0 {
                     let _ = write!(s, " and {more} more");
@@ -399,8 +467,12 @@ impl ScanReport {
                 for x in d
                     .exceptions
                     .iter()
+                    .filter(|x| {
+                        x.diagnosis
+                            .as_ref()
+                            .is_some_and(|m| m.kind != "other_formula")
+                    })
                     .take(5)
-                    .filter(|x| x.diagnosis.is_some())
                 {
                     let _ = write!(
                         s,

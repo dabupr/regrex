@@ -1,6 +1,6 @@
 # Regrex
 
-> Regrex finds the formulas behind tabular data. Give it a CSV or spreadsheet and it reports which columns are computed from other columns (for example `vat = 0.21 * net`), and which rows break each formula. It also finds formulas for one target from inputs (symbolic regression), with fitted constants, unit checks and a Pareto front of simplicity vs accuracy. Written in Rust; MIT licensed.
+> Regrex finds the formulas behind tabular data. Give it a CSV, spreadsheet or JSON file and it reports which columns are computed from other columns (for example `vat = 0.21 * net`), and which rows break each formula. It also finds formulas for one target from inputs (symbolic regression), with fitted constants, unit checks and a Pareto front of simplicity vs accuracy. Written in Rust; MIT licensed.
 
 Regrex runs in the browser (WebAssembly, data never leaves the device), as a command-line tool, as a Python package, as a Rust library, and as an MCP server for AI assistants. All of them return the same versioned JSON.
 
