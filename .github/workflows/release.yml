@@ -65,7 +65,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.target }}
-          path: regrex-*.*
+          # Only the archives: `regrex-*.*` also matched the folder they are
+          # made from, because the version in its name has dots.
+          path: |
+            regrex-*.tar.gz
+            regrex-*.zip
+          if-no-files-found: error
 
   wheels:
     needs: check
@@ -140,8 +145,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           (cd artifacts && sha256sum * > ../SHA256SUMS.txt) && mv SHA256SUMS.txt artifacts/
-          gh release create "$GITHUB_REF_NAME" --title "Regrex $GITHUB_REF_NAME" \
-            --notes-file notes.md artifacts/*
+          # A run that is tried again finds the release of the first try.
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --draft=false --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --title "Regrex $GITHUB_REF_NAME" \
+              --notes-file notes.md artifacts/*
+          fi
 
   pypi:
     needs: github-release
@@ -159,6 +170,9 @@ jobs:
           path: dist
           merge-multiple: true
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Files already uploaded by an earlier try of this release are fine.
+          skip-existing: true
 
   crates-io:
     needs: github-release
@@ -171,6 +185,12 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
+          version=${GITHUB_REF_NAME#v}
           for crate in regrex-formulas regrex-core regrex-io regrex-cli; do
+            # Skip a crate already published by an earlier try of this release.
+            if curl -sf -A "regrex release workflow" "https://crates.io/api/v1/crates/$crate/$version" > /dev/null; then
+              echo "$crate $version is already on crates.io"
+              continue
+            fi
             cargo publish --locked -p "$crate"
           done
