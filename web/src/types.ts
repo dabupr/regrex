@@ -105,9 +105,18 @@ export interface FitReport {
   candidates: Candidate[];
 }
 
+export interface ExplainOptions {
+  ignore: string[];
+  max_size?: number;
+  max_params?: number;
+  small_samples?: number;
+  operators?: string[];
+}
+
 export type Request =
   | { kind: "load"; name: string; bytes: ArrayBuffer; sheet?: string }
-  | { kind: "explain"; column: string; options: { ignore: string[] } }
+  | { kind: "explain"; column: string; options: ExplainOptions }
+  | { kind: "formula"; column: string; text: string }
   | { kind: "fit"; target: string; options: { inputs: string[] } }
   | { kind: "rows"; rows: number[] }
   | { kind: "review"; options: { ignore: string[] } };

@@ -4,7 +4,10 @@
 //! at a time so it can show progress. Everything crosses the boundary as
 //! JSON strings, using the same report format as the command-line tool.
 
-use regrex_core::{explain_column, search, DerivedColumn, ScanConfig, SearchConfig};
+use regrex_core::parse::parse_template;
+use regrex_core::{
+    explain_column, fit_shape, search, DerivedColumn, ScanConfig, SearchConfig, UnaryOp,
+};
 use regrex_io::report::{DerivedJson, FitReport};
 use regrex_io::Loaded;
 use serde::{Deserialize, Serialize};
@@ -49,7 +52,53 @@ struct ExplainOptions {
     ignore: Vec<String>,
     min_match: Option<f64>,
     max_size: Option<usize>,
+    /// Fitted constants allowed inside a formula.
+    max_params: Option<usize>,
+    /// Small random samples searched when a few rows spoil the fit.
+    small_samples: Option<usize>,
+    /// Allowed operators: `+ - * / ^ sqrt exp log sin cos`. `-` also
+    /// allows negation and `^` squares. Missing means all.
+    operators: Option<Vec<String>>,
 }
+
+impl ExplainOptions {
+    fn scan_config(&self) -> Result<ScanConfig, JsError> {
+        let mut config = ScanConfig::default();
+        if let Some(m) = self.min_match {
+            config.min_match = m;
+        }
+        if let Some(s) = self.max_size {
+            config.search.max_size = s.clamp(1, 9);
+        }
+        if let Some(p) = self.max_params {
+            config.search.max_params = p.min(3);
+        }
+        if let Some(n) = self.small_samples {
+            config.small_samples = n.min(16);
+        }
+        if let Some(ops) = &self.operators {
+            for op in ops {
+                if !OPERATORS.contains(&op.as_str()) {
+                    return Err(js_error(format!(
+                        "unknown operator {op:?}, expected one of {}",
+                        OPERATORS.join(" ")
+                    )));
+                }
+            }
+            let has = |name: &str| ops.iter().any(|o| o == name);
+            config.search.binary_ops.retain(|op| has(op.symbol()));
+            config.search.unary_ops.retain(|op| match op {
+                UnaryOp::Neg => has("-"),
+                UnaryOp::Square => has("^"),
+                other => has(other.name()),
+            });
+        }
+        Ok(config)
+    }
+}
+
+/// Operator names accepted in [`ExplainOptions::operators`].
+const OPERATORS: [&str; 10] = ["+", "-", "*", "/", "^", "sqrt", "exp", "log", "sin", "cos"];
 
 /// Options for [`Dataset::fit`], as JSON.
 #[derive(Deserialize, Default)]
@@ -117,13 +166,7 @@ impl Dataset {
         let options: ExplainOptions = parse_options(options_json)?;
         let table = self.table_without(&options.ignore, Some(column));
         let target = index_of(&table, column)?;
-        let mut config = ScanConfig::default();
-        if let Some(m) = options.min_match {
-            config.min_match = m;
-        }
-        if let Some(s) = options.max_size {
-            config.search.max_size = s;
-        }
+        let config = options.scan_config()?;
         let found = explain_column(&table, target, &config);
         if !options.ignore.iter().any(|n| n == column) {
             let mut cache = self.found.borrow_mut();
@@ -135,6 +178,30 @@ impl Dataset {
         }
         let json = found.map(|d| DerivedJson::new(&table, &d));
         serde_json::to_string(&json).map_err(js_error)
+    }
+
+    /// Checks a formula written by the user, such as `0.21 * net`, against
+    /// `column`. Names that are not columns are constants to fit, so
+    /// `rate * net` finds the rate. Returns the derived-column JSON even
+    /// when few rows match, so the page can show where the formula fails.
+    pub fn formula(&self, column: &str, text: &str) -> Result<String, JsError> {
+        let table = &self.loaded.table;
+        let target = index_of(table, column)?;
+        let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
+        let (shape, params) = parse_template(text, &names).map_err(js_error)?;
+        if params.len() > 4 {
+            return Err(js_error(format!(
+                "too many constants to fit ({}): {}; are these column names?",
+                params.len(),
+                params.join(", ")
+            )));
+        }
+        if shape.vars().contains(&target) {
+            return Err(js_error(format!("the formula uses {column} itself")));
+        }
+        let found = fit_shape(table, target, &shape, &ScanConfig::default())
+            .ok_or_else(|| js_error("could not fit the constants of this formula"))?;
+        serde_json::to_string(&DerivedJson::new(table, &found)).map_err(js_error)
     }
 
     /// Every formula found so far with the same `ignore` option, as a JSON

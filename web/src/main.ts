@@ -1,5 +1,6 @@
 import { Engine } from "./engine";
 import type { DatasetInfo, Derived, Known } from "./types";
+import { DEFAULTS, OPERATORS, describe, loadSettings, saveSettings, searchOptions, type Profile, type Settings } from "./settings";
 
 const engine = new Engine();
 
@@ -28,7 +29,18 @@ const ui = {
   suspicious: $("suspicious"),
   suspiciousTable: $<HTMLTableElement>("suspicious-table"),
   export: $<HTMLButtonElement>("export"),
+  settingsSummary: $("settings-summary"),
+  only: $<HTMLSelectElement>("only"),
+  operators: $("operators"),
+  reset: $<HTMLButtonElement>("reset"),
+  ownForm: $<HTMLFormElement>("own-form"),
+  ownColumn: $<HTMLSelectElement>("own-column"),
+  ownFormula: $<HTMLInputElement>("own-formula"),
+  ownError: $("own-error"),
+  ownResult: $("own-result"),
 };
+
+let settings: Settings = loadSettings();
 
 /**
  * When at most this share of the rows break a formula, they are treated as
@@ -120,6 +132,7 @@ function renderData() {
     box.addEventListener("change", () => {
       if (box.checked) state!.ignored.delete(col);
       else state!.ignored.add(col);
+      renderColumnChoices();
     });
     head.append(el("th", {}, el("label", {}, box, col), el("span", { class: "kind" }, "number")));
   }
@@ -132,12 +145,73 @@ function renderData() {
     ),
   );
   ui.preview.replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
+  renderColumnChoices();
+  ui.ownResult.replaceChildren();
+  showOwnError(null);
+}
+
+/** Fills the column choices of the settings and of "Test your own formula". */
+function renderColumnChoices() {
+  if (!state) return;
+  const usable = state.info.columns.map((c) => c.name).filter((n) => !state!.ignored.has(n));
+  const only = ui.only.value;
+  ui.only.replaceChildren(
+    el("option", { value: "" }, "every column"),
+    ...usable.map((c) => el("option", { value: c }, `only ${c}`)),
+  );
+  ui.only.value = usable.includes(only) ? only : "";
+  const own = ui.ownColumn.value;
+  const all = state.info.columns.map((c) => c.name);
+  ui.ownColumn.replaceChildren(...all.map((c) => el("option", { value: c }, c)));
+  if (all.includes(own)) ui.ownColumn.value = own;
+}
+
+function renderSettings() {
+  for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="profile"]')) {
+    radio.checked = radio.value === settings.profile;
+  }
+  for (const box of ui.operators.querySelectorAll<HTMLInputElement>("input")) {
+    box.checked = settings.operators.includes(box.value);
+  }
+  ui.settingsSummary.textContent = `(${describe(settings)})`;
+}
+
+function updateSettings(change: Partial<Settings>) {
+  settings = { ...settings, ...change };
+  saveSettings(settings);
+  renderSettings();
+}
+
+function showOwnError(message: string | null) {
+  ui.ownError.hidden = message === null;
+  ui.ownError.textContent = message ?? "";
+}
+
+async function checkOwnFormula() {
+  if (!state) return;
+  const column = ui.ownColumn.value;
+  // "vat = rate * net" is accepted as well as "rate * net".
+  let text = ui.ownFormula.value.trim();
+  if (text.startsWith(column) && text.slice(column.length).trimStart().startsWith("=")) {
+    text = text.slice(column.length).trimStart().slice(1);
+  }
+  showOwnError(null);
+  ui.ownResult.replaceChildren(el("p", { class: "muted" }, "Checking…"));
+  try {
+    const d = await engine.formula(column, text);
+    ui.ownResult.replaceChildren(derivedCard(d));
+  } catch (e) {
+    ui.ownResult.replaceChildren();
+    showOwnError((e as Error).message);
+  }
 }
 
 async function scanAll() {
   if (!state) return;
-  const columns = state.info.columns.map((c) => c.name).filter((n) => !state!.ignored.has(n));
+  const usable = state.info.columns.map((c) => c.name).filter((n) => !state!.ignored.has(n));
+  const columns = usable.includes(ui.only.value) ? [ui.only.value] : usable;
   const ignore = [...state.ignored];
+  const options = { ignore, ...searchOptions(settings) };
   ui.scan.disabled = true;
   ui.progress.hidden = false;
   ui.results.hidden = true;
@@ -148,7 +222,7 @@ async function scanAll() {
     for (const [i, column] of columns.entries()) {
       ui.progressText.textContent = `Checking ${column} (${i + 1} of ${columns.length})…`;
       ui.meter.style.width = `${(100 * i) / columns.length}%`;
-      const found = await engine.explain(column, ignore);
+      const found = await engine.explain(column, options);
       if (found) state.derived.push(found);
     }
     ui.meter.style.width = "100%";
@@ -302,61 +376,64 @@ function knownNode(k: Known): HTMLElement {
   return el("details", { class: "known" }, el("summary", {}, el("span", { class: "badge" }, "Known formula"), ` ${k.name}`), body);
 }
 
+/** The card for one formula: status, inputs, known formula and the rows that break it. */
+function derivedCard(d: Derived): HTMLElement {
+  const exceptions = d.exception_rows.length;
+  const status =
+    exceptions === 0
+      ? el("span", { class: "ok" }, `✓ all ${d.checked_rows} rows`)
+      : el("span", { class: "warn" }, `${d.matched_rows} of ${d.checked_rows} rows`);
+  const card = el(
+    "article",
+    { class: "card", "data-column": d.column },
+    formulaNode(d),
+    el("div", { class: "meta" }, status, el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
+  );
+  if (d.known) card.append(knownNode(d.known));
+  if (exceptions > 0 && !fewExceptions(d) && d.matched_rows >= 0.5 * d.checked_rows) {
+    const share = Math.round((100 * exceptions) / d.checked_rows);
+    card.append(
+      el(
+        "p",
+        { class: "note" },
+        `${share}% of the rows follow another rule. They may be a separate group (another rate, product or period) rather than mistakes.`,
+      ),
+    );
+  }
+  if (exceptions > 0) {
+    const rows = d.exceptions.map((x) =>
+      el(
+        "tr",
+        {},
+        el("td", {}, String(x.row)),
+        el("td", {}, fmt(x.actual)),
+        el("td", {}, fmt(x.expected)),
+        el("td", { class: "muted" }, x.diagnosis ? x.diagnosis.description : ""),
+      ),
+    );
+    const more = exceptions > d.exceptions.length ? ` (first ${d.exceptions.length} shown)` : "";
+    card.append(
+      el(
+        "details",
+        {},
+        el("summary", {}, `${exceptions === 1 ? "1 row breaks" : `${exceptions} rows break`} the rule${more}`),
+        el(
+          "table",
+          {},
+          el("thead", {}, el("tr", {}, el("th", {}, "Row"), el("th", {}, "In the file"), el("th", {}, "Formula gives"), el("th", {}, "Likely mistake"))),
+          el("tbody", {}, ...rows),
+        ),
+      ),
+    );
+  }
+  return card;
+}
+
 function renderResults(columns: string[]) {
   if (!state) return;
   ui.results.hidden = false;
-  const cards = state.derived.map((d) => {
-    const exceptions = d.exception_rows.length;
-    const status =
-      exceptions === 0
-        ? el("span", { class: "ok" }, `✓ all ${d.checked_rows} rows`)
-        : el("span", { class: "warn" }, `${d.matched_rows} of ${d.checked_rows} rows`);
-    const card = el(
-      "article",
-      { class: "card", "data-column": d.column },
-      formulaNode(d),
-      el("div", { class: "meta" }, status, el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
-    );
-    if (d.known) card.append(knownNode(d.known));
-    if (exceptions > 0 && !fewExceptions(d)) {
-      const share = Math.round((100 * exceptions) / d.checked_rows);
-      card.append(
-        el(
-          "p",
-          { class: "note" },
-          `${share}% of the rows follow another rule. They may be a separate group (another rate, product or period) rather than mistakes.`,
-        ),
-      );
-    }
-    if (exceptions > 0) {
-      const rows = d.exceptions.map((x) =>
-        el(
-          "tr",
-          {},
-          el("td", {}, String(x.row)),
-          el("td", {}, fmt(x.actual)),
-          el("td", {}, fmt(x.expected)),
-          el("td", { class: "muted" }, x.diagnosis ? x.diagnosis.description : ""),
-        ),
-      );
-      const more = exceptions > d.exceptions.length ? ` (first ${d.exceptions.length} shown)` : "";
-      card.append(
-        el(
-          "details",
-          {},
-          el("summary", {}, `${exceptions === 1 ? "1 row breaks" : `${exceptions} rows break`} the rule${more}`),
-          el(
-            "table",
-            {},
-            el("thead", {}, el("tr", {}, el("th", {}, "Row"), el("th", {}, "In the file"), el("th", {}, "Formula gives"), el("th", {}, "Likely mistake"))),
-            el("tbody", {}, ...rows),
-          ),
-        ),
-      );
-      highlight(d.exception_rows);
-    }
-    return card;
-  });
+  const cards = state.derived.map(derivedCard);
+  for (const d of state.derived) highlight(d.exception_rows);
   ui.cards.replaceChildren(
     ...(cards.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
   );
@@ -424,3 +501,20 @@ ui.sheet.addEventListener("change", () => {
 ui.scan.addEventListener("click", () => void scanAll());
 ui.download.addEventListener("click", download);
 ui.export.addEventListener("click", exportSuspects);
+
+ui.operators.replaceChildren(
+  ...OPERATORS.map((o) => el("label", {}, el("input", { type: "checkbox", value: o.id }), ` ${o.label}`)),
+);
+for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="profile"]')) {
+  radio.addEventListener("change", () => updateSettings({ profile: radio.value as Profile }));
+}
+ui.operators.addEventListener("change", () => {
+  const checked = [...ui.operators.querySelectorAll<HTMLInputElement>("input:checked")].map((b) => b.value);
+  updateSettings({ operators: checked });
+});
+ui.reset.addEventListener("click", () => updateSettings({ ...DEFAULTS }));
+ui.ownForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  void checkOwnFormula();
+});
+renderSettings();

@@ -86,3 +86,42 @@ test("a group of rows with another rule is not called a mistake", async ({ page 
   await expect(page.locator("#summary")).toContainText("No suspicious rows");
   await expect(page.locator("#suspicious")).toBeHidden();
 });
+
+test("tests a formula written by the user, fitting its constants", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Test your own formula").click();
+  await page.getByLabel("Column to test").selectOption("vat");
+  await page.getByLabel("Formula", { exact: true }).fill("vat = rate * net");
+  await page.getByRole("button", { name: "Check" }).click();
+  const card = page.locator("#own-result article");
+  await expect(card).toContainText("vat = 0.21 * net");
+  await expect(card).toContainText("59 of 60 rows");
+
+  await page.getByLabel("Formula", { exact: true }).fill("price * (");
+  await page.getByRole("button", { name: "Check" }).click();
+  await expect(page.locator("#own-error")).toBeVisible();
+});
+
+test("search settings are applied and remembered", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await page.getByLabel(/Fast/).check();
+  await page.locator("#only").selectOption("vat");
+  await expect(page.locator("#settings-summary")).toHaveText("(Fast)");
+  await page.getByLabel("÷ divide").uncheck();
+  await expect(page.locator("#settings-summary")).toHaveText("(Fast, 9 of 10 operations)");
+
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await expect(page.locator('article[data-column="vat"]')).toContainText("vat = 0.21 * net", { timeout: 45_000 });
+  await expect(page.locator("#cards article")).toHaveCount(1);
+
+  await page.reload();
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await expect(page.getByLabel(/Fast/)).toBeChecked();
+  await expect(page.getByLabel("÷ divide")).not.toBeChecked();
+  await page.getByRole("button", { name: "Reset to the defaults" }).click();
+  await expect(page.locator("#settings-summary")).toHaveText("(Normal)");
+});

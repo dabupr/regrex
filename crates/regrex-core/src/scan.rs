@@ -244,6 +244,120 @@ pub fn check_formula(
     derived(table, target, formula.clone(), &rows, &matched)
 }
 
+/// Fits the constants of a formula shape, such as `a * net` or
+/// `a * x^b + c` (see [`crate::parse::parse_template`]), to column `target`.
+///
+/// Like the scan, the fit is robust to a few wrong rows: constants are
+/// fitted on all rows and on small samples, the fit that matches most rows
+/// wins and is refined on the rows it matches, and constants are rounded to
+/// simple values (`0.21`, `0.5`, `π`) when that matches as many rows. The
+/// result is returned even when few rows match, like [`check_formula`].
+/// Returns `None` when the constants cannot be fitted at all.
+///
+/// ```
+/// use regrex_core::{fit_shape, parse::parse_template, ScanConfig, Table};
+///
+/// let table = Table {
+///     names: vec!["net".into(), "vat".into()],
+///     columns: vec![vec![10.0, 20.0, 30.0, 40.0], vec![2.1, 4.2, 6.3, 8.4]],
+///     decimals: vec![Some(2), Some(2)],
+///     units: vec![None, None],
+/// };
+/// let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
+/// let (shape, _) = parse_template("rate * net", &names).unwrap();
+/// let fit = fit_shape(&table, 1, &shape, &ScanConfig::default()).unwrap();
+/// assert_eq!(fit.formula.display_with(&table.names).to_string(), "0.21 * net");
+/// assert_eq!(fit.matched, 4);
+/// ```
+pub fn fit_shape(
+    table: &Table,
+    target: usize,
+    shape: &Expr,
+    config: &ScanConfig,
+) -> Option<DerivedColumn> {
+    let n_params = shape.num_params();
+    if n_params == 0 {
+        return Some(check_formula(table, target, shape, config));
+    }
+    let mut used = Vec::new();
+    collect_vars(shape, &mut used);
+    let y_all = &table.columns[target];
+    let rows: Vec<usize> = (0..table.n_rows())
+        .filter(|&r| y_all[r].is_finite() && used.iter().all(|&c| table.columns[c][r].is_finite()))
+        .collect();
+    if rows.len() < n_params {
+        return None;
+    }
+    let tolerance = row_tolerance(table, target, config);
+    let opts = crate::fit::FitOptions::default();
+    let fit_on = |subset: &[usize]| -> Option<Vec<f64>> {
+        let columns: Vec<Vec<f64>> = table
+            .columns
+            .iter()
+            .map(|c| subset.iter().map(|&r| c[r]).collect())
+            .collect();
+        let y: Vec<f64> = subset.iter().map(|&r| y_all[r]).collect();
+        crate::fit::fit_params(shape, &columns, &y, &opts).map(|(p, _)| p)
+    };
+    let score = |params: &[f64]| -> usize {
+        matching_rows(
+            &shape.substitute_params(params),
+            table,
+            &rows,
+            y_all,
+            &tolerance,
+        )
+        .len()
+    };
+
+    let sample_size = SMALL_SUBSET.max(2 * n_params + 2);
+    let mut attempts = vec![spread(&rows, 400)];
+    if rows.len() >= 2 * sample_size {
+        attempts.extend(samples(&rows, sample_size, config.small_samples.max(4)));
+    }
+    let mut best: Option<(Vec<f64>, usize)> = None;
+    for subset in &attempts {
+        if let Some(p) = fit_on(subset) {
+            let m = score(&p);
+            if best.as_ref().is_none_or(|(_, bm)| m > *bm) {
+                best = Some((p, m));
+            }
+        }
+    }
+    let (mut params, mut matched) = best?;
+    // Refine on the rows the best fit matches, which are free of wrong rows.
+    let inliers = matching_rows(
+        &shape.substitute_params(&params),
+        table,
+        &rows,
+        y_all,
+        &tolerance,
+    );
+    if inliers.len() > n_params && inliers.len() < rows.len() {
+        if let Some(p) = fit_on(&spread(&inliers, 400)) {
+            let m = score(&p);
+            if m >= matched {
+                (params, matched) = (p, m);
+            }
+        }
+    }
+    // Round each constant to the simplest value that matches as many rows.
+    for i in 0..n_params {
+        for nice in crate::fit::nice_values(params[i]) {
+            let mut p = params.clone();
+            p[i] = nice;
+            let m = score(&p);
+            if m >= matched {
+                (params, matched) = (p, m);
+                break;
+            }
+        }
+    }
+    let formula = shape.substitute_params(&params);
+    let matched_rows = matching_rows(&formula, table, &rows, y_all, &tolerance);
+    Some(derived(table, target, formula, &rows, &matched_rows))
+}
+
 /// Explains why `row` breaks the formula of `derived`: see
 /// [`crate::diagnose::diagnose`]. Mistakes are checked with the same
 /// tolerance as the scan.
@@ -611,6 +725,30 @@ mod tests {
         assert_eq!(subtotal.formula_text, "price * quantity");
         assert!(subtotal.exceptions.is_empty());
         assert_eq!(subtotal.inputs, vec![0, 1]);
+    }
+
+    #[test]
+    fn fits_a_shape_despite_wrong_rows() {
+        use crate::parse::parse_template;
+        // y = 3 * x^2 with two wrong rows.
+        let x: Vec<f64> = (1..=30).map(f64::from).collect();
+        let mut y: Vec<f64> = x.iter().map(|v| 3.0 * v * v).collect();
+        y[4] = 1.0;
+        y[17] = 999.0;
+        let table = Table {
+            names: vec!["x".into(), "y".into()],
+            columns: vec![x, y],
+            decimals: vec![Some(0), Some(0)],
+            units: vec![None, None],
+        };
+        let (shape, params) = parse_template("a * x^b", &["x", "y"]).unwrap();
+        assert_eq!(params, ["a", "b"]);
+        let fit = fit_shape(&table, 1, &shape, &ScanConfig::default()).unwrap();
+        assert_eq!(
+            fit.formula.display_with(&table.names).to_string(),
+            "3 * x^2"
+        );
+        assert_eq!(fit.exceptions, vec![4, 17]);
     }
 
     #[test]

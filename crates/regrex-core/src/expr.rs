@@ -207,6 +207,26 @@ impl Expr {
         }
     }
 
+    /// The input columns the expression uses, sorted and without repeats.
+    pub fn vars(&self) -> Vec<usize> {
+        fn go(e: &Expr, out: &mut Vec<usize>) {
+            match e {
+                Expr::Var(i) => out.push(*i),
+                Expr::Const(_) | Expr::Param(_) => {}
+                Expr::Unary(_, a) => go(a, out),
+                Expr::Binary(_, a, b) => {
+                    go(a, out);
+                    go(b, out);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        go(self, &mut out);
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
     /// Renumbers parameters as `0, 1, 2, ...` in depth-first order.
     pub fn number_params(&self) -> Expr {
         fn go(e: &Expr, next: &mut usize) -> Expr {

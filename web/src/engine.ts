@@ -1,6 +1,6 @@
 // Promise-based client for the engine worker.
 
-import type { DatasetInfo, Derived, FitReport, Request, Response } from "./types";
+import type { DatasetInfo, Derived, ExplainOptions, FitReport, Request, Response } from "./types";
 
 export class Engine {
   private worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
@@ -32,8 +32,13 @@ export class Engine {
     return this.call({ kind: "load", name, bytes: copy, sheet }, [copy]);
   }
 
-  explain(column: string, ignore: string[]): Promise<Derived | null> {
-    return this.call({ kind: "explain", column, options: { ignore } });
+  explain(column: string, options: ExplainOptions): Promise<Derived | null> {
+    return this.call({ kind: "explain", column, options });
+  }
+
+  /** Checks a formula written by the user; names that are not columns are fitted constants. */
+  formula(column: string, text: string): Promise<Derived> {
+    return this.call({ kind: "formula", column, text });
   }
 
   /** Every formula found so far, diagnosed together so a wrong cell is blamed once. */

@@ -137,3 +137,23 @@ td.rownum { color: var(--muted); text-align: right; }
 .note { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
 td.bad-cell { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 td.why { white-space: normal; min-width: 260px; color: var(--text); }
+
+.panel {
+  margin-top: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); font-size: 15px;
+}
+.panel > summary { cursor: pointer; font-weight: 600; }
+.panel fieldset { border: 0; padding: 0; margin: 12px 0 0; }
+.panel legend { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.profiles { display: grid; gap: 6px; }
+.profiles label { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.profiles span { font-size: 14px; }
+.only { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.operators { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.operators label { display: flex; gap: 4px; align-items: center; white-space: nowrap; }
+.own-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.own-form input {
+  flex: 1 1 200px; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg, var(--surface)); color: var(--text);
+}
+#own-result .card { margin: 10px 0 0; }

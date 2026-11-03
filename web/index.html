@@ -49,6 +49,41 @@
         </div>
         <p class="hint muted">Untick columns that are not data, such as IDs or invoice numbers.</p>
         <div class="table-wrap"><table id="preview"></table></div>
+
+        <details id="settings" class="panel">
+          <summary>Search settings <span id="settings-summary" class="muted"></span></summary>
+          <fieldset class="profiles">
+            <legend>How hard to search</legend>
+            <label><input type="radio" name="profile" value="fast" /> <b>Fast</b>
+              <span class="muted">Short formulas only. Best for big files.</span></label>
+            <label><input type="radio" name="profile" value="normal" /> <b>Normal</b>
+              <span class="muted">Formulas like price × quantity × 1.21, even with a few wrong rows.</span></label>
+            <label><input type="radio" name="profile" value="thorough" /> <b>Thorough</b>
+              <span class="muted">Longer formulas. Can take several minutes.</span></label>
+          </fieldset>
+          <label class="only">Explain <select id="only"></select></label>
+          <fieldset>
+            <legend>Operations formulas may use</legend>
+            <div id="operators" class="operators"></div>
+            <p class="hint muted">Fewer operations make the search faster and the formulas simpler.</p>
+          </fieldset>
+          <button id="reset" type="button" class="link">Reset to the defaults</button>
+        </details>
+
+        <details id="own" class="panel">
+          <summary>Test your own formula</summary>
+          <form id="own-form" class="own-form">
+            <select id="own-column" aria-label="Column to test"></select>
+            <span aria-hidden="true">=</span>
+            <input id="own-formula" aria-label="Formula" placeholder="rate * net" autocomplete="off" required />
+            <button class="primary" type="submit">Check</button>
+          </form>
+          <p class="hint muted">
+            Use column names. Any other name, such as <code>rate</code>, is a constant that Regrex fits for you.
+          </p>
+          <p id="own-error" class="error" role="alert" hidden></p>
+          <div id="own-result"></div>
+        </details>
       </section>
 
       <section id="progress" hidden>
