@@ -28,6 +28,52 @@ export interface Diagnosis {
   formula: string | null;
 }
 
+export interface KnownQuantity {
+  symbol: string;
+  name: string;
+  unit: string;
+  column: string | null;
+  value: number | null;
+}
+
+export interface Known {
+  id: string;
+  name: string;
+  domain: string;
+  description: string | null;
+  expression: string;
+  output: KnownQuantity;
+  variables: KnownQuantity[];
+  changed_constant: { id: string; library_value: number; value: number } | null;
+  exact: boolean;
+  source_title: string;
+  source_url: string | null;
+}
+
+export interface LibraryQuantity {
+  symbol: string;
+  name: string;
+  unit: string;
+}
+
+export interface LibraryFormula {
+  id: string;
+  name: string;
+  domain: string;
+  description: string | null;
+  expression: string;
+  output: LibraryQuantity;
+  variables: LibraryQuantity[];
+  tags: string[];
+  source_title: string;
+  source_url: string | null;
+}
+
+export interface Library {
+  domains: { id: string; name: string; description: string }[];
+  formulas: LibraryFormula[];
+}
+
 export interface Derived {
   column: string;
   formula: string;
@@ -38,6 +84,7 @@ export interface Derived {
   match_ratio: number;
   exception_rows: number[];
   exceptions: ExceptionDetail[];
+  known: Known | null;
 }
 
 export interface Candidate {
@@ -47,6 +94,7 @@ export interface Candidate {
   r2: number;
   max_abs_error: number;
   exact: boolean;
+  known: Known | null;
 }
 
 export interface FitReport {

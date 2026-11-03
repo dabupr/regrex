@@ -206,3 +206,77 @@ mod tests {
         assert_eq!(v["candidates"][0]["formula"], "price * qty");
     }
 }
+
+/// One formula of the built-in library, for the library page.
+#[derive(Serialize)]
+struct LibraryFormula<'a> {
+    id: &'a str,
+    name: &'a str,
+    domain: &'a str,
+    description: Option<&'a str>,
+    expression: &'a str,
+    output: LibraryQuantity<'a>,
+    variables: Vec<LibraryQuantity<'a>>,
+    tags: &'a [String],
+    source_title: &'a str,
+    source_url: Option<&'a str>,
+}
+
+#[derive(Serialize)]
+struct LibraryQuantity<'a> {
+    symbol: &'a str,
+    name: &'a str,
+    unit: &'a str,
+}
+
+#[derive(Serialize)]
+struct LibraryDomain<'a> {
+    id: &'a str,
+    name: &'a str,
+    description: &'a str,
+}
+
+#[derive(Serialize)]
+struct LibraryJson<'a> {
+    domains: Vec<LibraryDomain<'a>>,
+    formulas: Vec<LibraryFormula<'a>>,
+}
+
+/// The built-in library of known formulas, as JSON: `{domains, formulas}`.
+#[wasm_bindgen]
+pub fn library() -> String {
+    let lib = regrex_formulas::Library::builtin();
+    let quantity = |q: &'static regrex_formulas::Quantity| LibraryQuantity {
+        symbol: &q.symbol,
+        name: &q.name,
+        unit: &q.unit,
+    };
+    let json = LibraryJson {
+        domains: lib
+            .domains
+            .iter()
+            .map(|d| LibraryDomain {
+                id: &d.id,
+                name: &d.name,
+                description: &d.description,
+            })
+            .collect(),
+        formulas: lib
+            .formulas
+            .iter()
+            .map(|f| LibraryFormula {
+                id: &f.id,
+                name: &f.name,
+                domain: &f.domain,
+                description: f.description.as_deref(),
+                expression: &f.expr_text,
+                output: quantity(&f.output),
+                variables: f.variables.iter().map(quantity).collect(),
+                tags: &f.tags,
+                source_title: &f.source.title,
+                source_url: f.source.url.as_deref(),
+            })
+            .collect(),
+    };
+    serde_json::to_string(&json).expect("serializable")
+}

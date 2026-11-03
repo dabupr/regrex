@@ -1,5 +1,5 @@
 import { Engine } from "./engine";
-import type { DatasetInfo, Derived } from "./types";
+import type { DatasetInfo, Derived, Known } from "./types";
 
 const engine = new Engine();
 
@@ -142,6 +142,48 @@ function formulaNode(d: Derived): HTMLElement {
   return el("div", { class: "formula" }, el("b", {}, d.column), ` = ${d.formula}`);
 }
 
+/** A "Known formula" badge that opens a card about the library formula. */
+function knownNode(k: Known): HTMLElement {
+  const bindings = k.variables.map((v) => {
+    const where = v.column !== null ? el("b", {}, v.column) : el("b", {}, fmt(v.value ?? 0));
+    const unit = v.unit && v.unit !== "1" ? ` (${v.unit})` : "";
+    return el("li", {}, el("code", {}, v.symbol), ` ${v.name}${unit}: `, where);
+  });
+  const output = k.output.column ?? "";
+  const body = el(
+    "div",
+    { class: "known-card" },
+    el("p", {}, el("strong", {}, k.name), el("span", { class: "muted" }, ` · ${k.domain}`)),
+    k.description ? el("p", {}, k.description) : "",
+    el("p", {}, el("code", {}, `${k.output.symbol} = ${k.expression}`)),
+    el("ul", {}, el("li", {}, el("code", {}, k.output.symbol), ` ${k.output.name}: `, el("b", {}, output)), ...bindings),
+  );
+  if (k.changed_constant) {
+    const c = k.changed_constant;
+    body.append(
+      el(
+        "p",
+        { class: "warn" },
+        `The data uses ${c.id} = ${fmt(c.value)} instead of the usual ${fmt(c.library_value)}.`,
+      ),
+    );
+  }
+  const source = k.source_url
+    ? el("a", { href: k.source_url, rel: "noopener", target: "_blank" }, k.source_title)
+    : el("span", {}, k.source_title);
+  body.append(
+    el(
+      "p",
+      { class: "muted" },
+      "Source: ",
+      source,
+      " · ",
+      el("a", { href: `library.html#${encodeURIComponent(k.id)}` }, "See it in the library"),
+    ),
+  );
+  return el("details", { class: "known" }, el("summary", {}, el("span", { class: "badge" }, "Known formula"), ` ${k.name}`), body);
+}
+
 function renderResults(columns: string[]) {
   if (!state) return;
   ui.results.hidden = false;
@@ -157,6 +199,7 @@ function renderResults(columns: string[]) {
       formulaNode(d),
       el("div", { class: "meta" }, status, el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
     );
+    if (d.known) card.append(knownNode(d.known));
     if (exceptions > 0) {
       const rows = d.exceptions.map((x) =>
         el(

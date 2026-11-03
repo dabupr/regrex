@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="The formulas Regrex recognises: physics, finance, geometry, statistics and more, with their variables, units and sources." />
+    <title>Regrex: library of known formulas</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232b59c3'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='18' font-style='italic' fill='white' text-anchor='middle'%3Ef(x)%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="wrap top-inner">
+        <a class="brand" href="./"><span class="logo" aria-hidden="true">f(x)</span> Regrex</a>
+        <nav class="nav"><a href="./">Analyse a file</a> <a class="gh" href="https://github.com/dabupr/regrex">GitHub</a></nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="lib-head">
+        <h1>Library of known formulas</h1>
+        <p class="lead">
+          When a formula found in your data is a known one, Regrex names it and links here.
+          Each formula lists its variables, units and a source.
+        </p>
+        <div class="lib-filters">
+          <label class="search">Search <input id="q" type="search" placeholder="kinetic energy, VAT, area…" autocomplete="off" /></label>
+          <label>Domain <select id="domain"><option value="">All domains</option></select></label>
+        </div>
+        <p id="count" class="muted" aria-live="polite"></p>
+      </section>
+      <div id="list"></div>
+    </main>
+
+    <footer class="wrap foot muted">
+      Missing a formula? <a href="https://github.com/dabupr/regrex/blob/main/crates/regrex-formulas/README.md">Add it to the library</a>.
+    </footer>
+
+    <script type="module" src="/src/library.ts"></script>
+  </body>
+</html>
