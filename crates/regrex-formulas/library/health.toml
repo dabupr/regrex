@@ -163,3 +163,200 @@ variables = [
 tags = ["clinical"]
 source = { title = "Dose (biochemistry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dose_(biochemistry)" }
 checks = [{ inputs = [10, 20], output = 200 }]
+
+[[formula]]
+id = "body_surface_area_du_bois"
+name = "Body surface area, Du Bois"
+expr = "0.007184 * m^0.425 * h^0.725"
+output = { symbol = "BSA", name = "body surface area in m²", unit = "1", aliases = ["bsa"] }
+variables = [
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight", "mass"] },
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+]
+tags = ["anthropometry"]
+source = { title = "Du Bois D, Du Bois EF, Arch Intern Med 17 (1916) 863–871", url = "https://doi.org/10.1001/archinte.1916.00080130010002" }
+checks = [{ inputs = [70, 175], output = 1.8481430181213463 }]
+
+[[formula]]
+id = "ideal_body_weight_devine_men"
+name = "Ideal body weight, Devine (men)"
+expr = "50 + 2.3 * (h / 2.54 - 60)"
+output = { symbol = "IBW", name = "ideal body weight in kg", unit = "1", aliases = ["ibw", "ideal_weight"] }
+variables = [
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+]
+tags = ["anthropometry"]
+source = { title = "Human body weight (Wikipedia)", url = "https://en.wikipedia.org/wiki/Human_body_weight" }
+checks = [{ inputs = [180], output = 74.99212598425197 }]
+
+[[formula]]
+id = "ideal_body_weight_devine_women"
+name = "Ideal body weight, Devine (women)"
+expr = "45.5 + 2.3 * (h / 2.54 - 60)"
+output = { symbol = "IBW", name = "ideal body weight in kg", unit = "1", aliases = ["ibw", "ideal_weight"] }
+variables = [
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+]
+tags = ["anthropometry"]
+source = { title = "Human body weight (Wikipedia)", url = "https://en.wikipedia.org/wiki/Human_body_weight" }
+checks = [{ inputs = [165], output = 56.90944881889762 }]
+
+[[formula]]
+id = "bmr_harris_benedict_men"
+name = "Basal metabolic rate, revised Harris–Benedict (men)"
+expr = "88.362 + 13.397 * m + 4.799 * h - 5.677 * age"
+output = { symbol = "BMR", name = "basal metabolic rate in kcal/day", unit = "1", aliases = ["bmr"] }
+variables = [
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight"] },
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+  { symbol = "age", name = "age in years", unit = "1" },
+]
+tags = ["metabolism"]
+source = { title = "Harris–Benedict equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Harris–Benedict_equation" }
+checks = [{ inputs = [70, 175, 30], output = 1695.6670000000001 }]
+
+[[formula]]
+id = "bmr_harris_benedict_women"
+name = "Basal metabolic rate, revised Harris–Benedict (women)"
+expr = "447.593 + 9.247 * m + 3.098 * h - 4.33 * age"
+output = { symbol = "BMR", name = "basal metabolic rate in kcal/day", unit = "1", aliases = ["bmr"] }
+variables = [
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight"] },
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+  { symbol = "age", name = "age in years", unit = "1" },
+]
+tags = ["metabolism"]
+source = { title = "Harris–Benedict equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Harris–Benedict_equation" }
+checks = [{ inputs = [60, 165, 30], output = 1383.683 }]
+
+[[formula]]
+id = "total_daily_energy"
+name = "Total daily energy expenditure"
+expr = "BMR * PAL"
+output = { symbol = "TDEE", name = "daily energy expenditure in kcal", unit = "1", aliases = ["tdee", "calories"] }
+variables = [
+  { symbol = "BMR", name = "basal metabolic rate in kcal/day", unit = "1", aliases = ["bmr"] },
+  { symbol = "PAL", name = "physical activity level", unit = "1", aliases = ["pal", "activity_factor"] },
+]
+tags = ["metabolism"]
+source = { title = "Physical activity level (Wikipedia)", url = "https://en.wikipedia.org/wiki/Physical_activity_level" }
+checks = [{ inputs = [1650, 1.55], output = 2557.5 }]
+
+[[formula]]
+id = "heart_rate_reserve"
+name = "Heart rate reserve"
+expr = "HRmax - HRrest"
+output = { symbol = "HRR", name = "heart rate reserve", unit = "1", aliases = ["hrr"] }
+variables = [
+  { symbol = "HRmax", name = "maximum heart rate", unit = "1", aliases = ["max_hr"] },
+  { symbol = "HRrest", name = "resting heart rate", unit = "1", aliases = ["resting_hr"] },
+]
+tags = ["cardio"]
+source = { title = "Heart rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heart_rate" }
+checks = [{ inputs = [190, 60], output = 130 }]
+
+[[formula]]
+id = "mean_arterial_pressure"
+name = "Mean arterial pressure"
+expr = "(2 * D + S) / 3"
+output = { symbol = "MAP", name = "mean arterial pressure in mmHg", unit = "1", aliases = ["map"] }
+variables = [
+  { symbol = "D", name = "diastolic pressure in mmHg", unit = "1", aliases = ["diastolic"] },
+  { symbol = "S", name = "systolic pressure in mmHg", unit = "1", aliases = ["systolic"] },
+]
+tags = ["cardio"]
+source = { title = "Mean arterial pressure (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mean_arterial_pressure" }
+checks = [{ inputs = [80, 120], output = 93.33333333333333 }]
+
+[[formula]]
+id = "pulse_pressure"
+name = "Pulse pressure"
+expr = "S - D"
+output = { symbol = "PP", name = "pulse pressure in mmHg", unit = "1", aliases = ["pulse_pressure"] }
+variables = [
+  { symbol = "S", name = "systolic pressure in mmHg", unit = "1", aliases = ["systolic"] },
+  { symbol = "D", name = "diastolic pressure in mmHg", unit = "1", aliases = ["diastolic"] },
+]
+tags = ["cardio"]
+source = { title = "Pulse pressure (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pulse_pressure" }
+checks = [{ inputs = [120, 80], output = 40 }]
+
+[[formula]]
+id = "waist_hip_ratio"
+name = "Waist-to-hip ratio"
+expr = "w / h"
+output = { symbol = "WHR", name = "waist-to-hip ratio", unit = "1", aliases = ["whr"] }
+variables = [
+  { symbol = "w", name = "waist circumference", unit = "m", aliases = ["waist"] },
+  { symbol = "h", name = "hip circumference", unit = "m", aliases = ["hip", "hips"] },
+]
+tags = ["anthropometry"]
+source = { title = "Waist–hip ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Waist–hip_ratio" }
+checks = [{ inputs = [0.82, 1], output = 0.82 }]
+
+[[formula]]
+id = "creatinine_clearance_cockcroft_gault"
+name = "Creatinine clearance, Cockcroft–Gault (men)"
+expr = "(140 - age) * m / (72 * Cr)"
+output = { symbol = "CrCl", name = "creatinine clearance in mL/min", unit = "1", aliases = ["crcl"] }
+variables = [
+  { symbol = "age", name = "age in years", unit = "1" },
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight"] },
+  { symbol = "Cr", name = "serum creatinine in mg/dL", unit = "1", aliases = ["creatinine"] },
+]
+tags = ["clinical"]
+source = { title = "Renal function (Wikipedia)", url = "https://en.wikipedia.org/wiki/Renal_function" }
+checks = [{ inputs = [50, 72, 1], output = 90 }]
+
+[[formula]]
+id = "one_rep_max_epley"
+name = "One-repetition maximum, Epley"
+expr = "w * (1 + r / 30)"
+output = { symbol = "RM1", name = "one-repetition maximum", unit = "kg", aliases = ["one_rep_max", "1rm"] }
+variables = [
+  { symbol = "w", name = "weight lifted", unit = "kg", aliases = ["weight", "load"] },
+  { symbol = "r", name = "repetitions", unit = "1", aliases = ["reps", "repetitions"] },
+]
+tags = ["strength"]
+source = { title = "One-repetition maximum (Wikipedia)", url = "https://en.wikipedia.org/wiki/One-repetition_maximum" }
+checks = [{ inputs = [100, 5], output = 116.66666666666667 }]
+
+[[formula]]
+id = "running_speed_from_pace"
+name = "Speed from running pace"
+expr = "60 / p"
+output = { symbol = "v", name = "speed in km/h", unit = "1", aliases = ["speed", "kmh"] }
+variables = [
+  { symbol = "p", name = "pace in minutes per km", unit = "1", aliases = ["pace"] },
+]
+tags = ["running"]
+source = { title = "Pace (speed) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pace_(speed)" }
+checks = [{ inputs = [5], output = 12 }]
+
+[[formula]]
+id = "water_intake"
+name = "Daily water intake (35 mL per kg)"
+expr = "0.035 * m"
+output = { symbol = "W", name = "water in litres per day", unit = "1", aliases = ["water", "fluid"] }
+variables = [
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight", "mass"] },
+]
+tags = ["nutrition"]
+source = { title = "Drinking water (Wikipedia)", url = "https://en.wikipedia.org/wiki/Drinking_water" }
+checks = [{ inputs = [70], output = 2.45 }]
+
+[[formula]]
+id = "blood_alcohol_widmark"
+name = "Blood alcohol content, Widmark"
+expr = "A / (r * m) - beta * t"
+output = { symbol = "BAC", name = "blood alcohol in g/kg", unit = "1", aliases = ["bac"] }
+variables = [
+  { symbol = "A", name = "alcohol consumed in g", unit = "1", aliases = ["alcohol", "grams"] },
+  { symbol = "r", name = "Widmark factor (0.68 men, 0.55 women)", unit = "1", aliases = ["widmark"] },
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight"] },
+  { symbol = "beta", name = "elimination rate in g/kg per hour", unit = "1", aliases = ["elimination"] },
+  { symbol = "t", name = "hours since drinking", unit = "1", aliases = ["hours", "time"] },
+]
+tags = ["clinical"]
+source = { title = "Blood alcohol content (Wikipedia)", url = "https://en.wikipedia.org/wiki/Blood_alcohol_content" }
+checks = [{ inputs = [28, 0.68, 75, 0.15, 2], output = 0.2490196078431372 }]

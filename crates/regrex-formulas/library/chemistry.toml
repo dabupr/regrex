@@ -352,3 +352,177 @@ variables = [
 tags = ["spectroscopy"]
 source = { title = "Beer–Lambert law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Beer%E2%80%93Lambert_law" }
 checks = [{ inputs = [10000, 0.01, 0.001], output = 0.1 }]
+
+[[formula]]
+id = "molality"
+name = "Molality"
+expr = "n / m"
+output = { symbol = "b", name = "molality", unit = "mol/kg", aliases = ["molality"] }
+variables = [
+  { symbol = "n", name = "amount of solute", unit = "mol", aliases = ["moles"] },
+  { symbol = "m", name = "mass of solvent", unit = "kg", aliases = ["solvent_mass"] },
+]
+tags = ["solutions"]
+source = { title = "Molality (Wikipedia)", url = "https://en.wikipedia.org/wiki/Molality" }
+checks = [{ inputs = [0.5, 2], output = 0.25 }]
+
+[[formula]]
+id = "mole_fraction"
+name = "Mole fraction"
+expr = "n / N"
+output = { symbol = "x", name = "mole fraction", unit = "1", aliases = ["mole_fraction"] }
+variables = [
+  { symbol = "n", name = "amount of the component", unit = "mol" },
+  { symbol = "N", name = "total amount", unit = "mol", aliases = ["total"] },
+]
+tags = ["solutions"]
+source = { title = "Mole fraction (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mole_fraction" }
+checks = [{ inputs = [2, 10], output = 0.2 }]
+
+[[formula]]
+id = "mass_concentration"
+name = "Mass concentration"
+expr = "m / V"
+output = { symbol = "rho", name = "mass concentration", unit = "kg/m^3", aliases = ["concentration"] }
+variables = [
+  { symbol = "m", name = "mass of solute", unit = "kg", aliases = ["mass"] },
+  { symbol = "V", name = "volume of solution", unit = "m^3", aliases = ["volume"] },
+]
+tags = ["solutions"]
+source = { title = "Mass concentration (chemistry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mass_concentration_(chemistry)" }
+checks = [{ inputs = [0.01, 0.001], output = 10 }]
+
+[[formula]]
+id = "ppm_by_mass"
+name = "Parts per million (by mass)"
+expr = "1000000 * m / M"
+output = { symbol = "ppm", name = "parts per million", unit = "1", aliases = ["ppm"] }
+variables = [
+  { symbol = "m", name = "mass of solute", unit = "kg" },
+  { symbol = "M", name = "mass of solution", unit = "kg" },
+]
+tags = ["solutions"]
+source = { title = "Parts-per notation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Parts-per_notation" }
+checks = [{ inputs = [0.002, 1000], output = 2 }]
+
+[[formula]]
+id = "percent_yield"
+name = "Percent yield"
+expr = "100 * a / t"
+output = { symbol = "Y", name = "percent yield", unit = "1", aliases = ["yield", "percent_yield"] }
+variables = [
+  { symbol = "a", name = "actual yield", unit = "kg", aliases = ["actual"] },
+  { symbol = "t", name = "theoretical yield", unit = "kg", aliases = ["theoretical"] },
+]
+tags = ["stoichiometry"]
+source = { title = "Yield (chemistry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Yield_(chemistry)" }
+checks = [{ inputs = [0.8, 1], output = 80 }]
+
+[[formula]]
+id = "hydrogen_ion_from_ph"
+name = "Hydrogen ion concentration from pH"
+expr = "10^(-pH)"
+output = { symbol = "H", name = "hydrogen ion concentration in mol/L", unit = "1", aliases = ["h_concentration"] }
+variables = [
+  { symbol = "pH", name = "pH", unit = "1", aliases = ["ph"] },
+]
+tags = ["acids_bases"]
+source = { title = "PH (Wikipedia)", url = "https://en.wikipedia.org/wiki/PH" }
+checks = [{ inputs = [3], output = 0.001 }]
+
+[[formula]]
+id = "van_der_waals_pressure"
+name = "Van der Waals equation (pressure)"
+expr = "n * R * T / (V - n * b) - a * n^2 / V^2"
+output = { symbol = "p", name = "pressure", unit = "Pa", aliases = ["pressure"] }
+variables = [
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles"] },
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature"] },
+  { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] },
+  { symbol = "b", name = "excluded volume per mole", unit = "m^3/mol" },
+  { symbol = "a", name = "attraction parameter", unit = "Pa*m^6/mol^2" },
+]
+tags = ["gases"]
+source = { title = "Van der Waals equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Van_der_Waals_equation" }
+checks = [{ inputs = [1, 300, 0.001, 3.2e-05, 0.364], output = 2212796.265909091 }]
+
+[[formula]]
+id = "dalton_partial_pressure"
+name = "Partial pressure (Dalton's law)"
+expr = "x * p"
+output = { symbol = "p_i", name = "partial pressure", unit = "Pa", aliases = ["partial_pressure"] }
+variables = [
+  { symbol = "x", name = "mole fraction", unit = "1", aliases = ["mole_fraction"] },
+  { symbol = "p", name = "total pressure", unit = "Pa", aliases = ["pressure", "total_pressure"] },
+]
+tags = ["gases"]
+source = { title = "Dalton's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dalton's_law" }
+checks = [{ inputs = [0.21, 101325], output = 21278.25 }]
+
+[[formula]]
+id = "raoult_law"
+name = "Vapour pressure of a solution (Raoult's law)"
+expr = "x * p0"
+output = { symbol = "p", name = "vapour pressure", unit = "Pa", aliases = ["vapour_pressure", "vapor_pressure"] }
+variables = [
+  { symbol = "x", name = "mole fraction of the solvent", unit = "1", aliases = ["mole_fraction"] },
+  { symbol = "p0", name = "vapour pressure of the pure solvent", unit = "Pa" },
+]
+tags = ["solutions"]
+source = { title = "Raoult's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Raoult's_law" }
+checks = [{ inputs = [0.95, 3170], output = 3011.5 }]
+
+[[formula]]
+id = "second_order_half_life"
+name = "Half-life of a second-order reaction"
+expr = "1 / (k * A0)"
+output = { symbol = "t_half", name = "half-life", unit = "s", aliases = ["half_life"] }
+variables = [
+  { symbol = "k", name = "rate constant", unit = "L/(mol*s)", aliases = ["k", "rate_constant"] },
+  { symbol = "A0", name = "initial concentration", unit = "mol/L", aliases = ["initial_concentration"] },
+]
+tags = ["kinetics"]
+source = { title = "Rate equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rate_equation" }
+checks = [{ inputs = [0.5, 0.2], output = 10 }]
+
+[[formula]]
+id = "zero_order_kinetics"
+name = "Zero-order reaction"
+expr = "A0 - k * t"
+output = { symbol = "A", name = "concentration", unit = "mol/L", aliases = ["concentration"] }
+variables = [
+  { symbol = "A0", name = "initial concentration", unit = "mol/L", aliases = ["initial_concentration"] },
+  { symbol = "k", name = "rate constant", unit = "mol/(L*s)", aliases = ["k"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time"] },
+]
+tags = ["kinetics"]
+source = { title = "Rate equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rate_equation" }
+checks = [{ inputs = [1, 0.01, 30], output = 0.7 }]
+
+[[formula]]
+id = "freezing_point_depression"
+name = "Freezing point depression"
+expr = "i * Kf * b"
+output = { symbol = "dT", name = "freezing point depression", unit = "K", aliases = ["depression", "delta_t"] }
+variables = [
+  { symbol = "i", name = "van 't Hoff factor", unit = "1", aliases = ["vant_hoff"] },
+  { symbol = "Kf", name = "cryoscopic constant", unit = "K*kg/mol", aliases = ["kf"] },
+  { symbol = "b", name = "molality", unit = "mol/kg", aliases = ["molality"] },
+]
+tags = ["solutions"]
+source = { title = "Freezing-point depression (Wikipedia)", url = "https://en.wikipedia.org/wiki/Freezing-point_depression" }
+checks = [{ inputs = [2, 1.86, 0.5], output = 1.86 }]
+
+[[formula]]
+id = "boiling_point_elevation"
+name = "Boiling point elevation"
+expr = "i * Kb * b"
+output = { symbol = "dT", name = "boiling point elevation", unit = "K", aliases = ["elevation", "delta_t"] }
+variables = [
+  { symbol = "i", name = "van 't Hoff factor", unit = "1", aliases = ["vant_hoff"] },
+  { symbol = "Kb", name = "ebullioscopic constant", unit = "K*kg/mol", aliases = ["kb"] },
+  { symbol = "b", name = "molality", unit = "mol/kg", aliases = ["molality"] },
+]
+tags = ["solutions"]
+source = { title = "Boiling-point elevation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Boiling-point_elevation" }
+checks = [{ inputs = [2, 0.512, 0.5], output = 0.512 }]

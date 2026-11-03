@@ -442,3 +442,203 @@ variables = [
 ]
 tags = ["signals", "noise"]
 source = { title = "Johnson–Nyquist noise (Wikipedia)", url = "https://en.wikipedia.org/wiki/Johnson%E2%80%93Nyquist_noise" }
+
+[[formula]]
+id = "capacitors_in_parallel"
+name = "Capacitors in parallel"
+expr = "C1 + C2"
+output = { symbol = "C", name = "total capacitance", unit = "F", aliases = ["capacitance"] }
+variables = [
+  { symbol = "C1", name = "first capacitance", unit = "F" },
+  { symbol = "C2", name = "second capacitance", unit = "F" },
+]
+tags = ["components"]
+source = { title = "Series and parallel circuits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_circuits" }
+checks = [{ inputs = [1e-06, 2.2e-06], output = 3.2e-06 }]
+
+[[formula]]
+id = "inductors_in_series"
+name = "Inductors in series"
+expr = "L1 + L2"
+output = { symbol = "L", name = "total inductance", unit = "H", aliases = ["inductance"] }
+variables = [
+  { symbol = "L1", name = "first inductance", unit = "H" },
+  { symbol = "L2", name = "second inductance", unit = "H" },
+]
+tags = ["components"]
+source = { title = "Series and parallel circuits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_circuits" }
+checks = [{ inputs = [0.01, 0.022], output = 0.032 }]
+
+[[formula]]
+id = "current_divider"
+name = "Current divider"
+expr = "I * R2 / (R1 + R2)"
+output = { symbol = "I1", name = "current through R1", unit = "A", aliases = ["current"] }
+variables = [
+  { symbol = "I", name = "total current", unit = "A", aliases = ["total_current"] },
+  { symbol = "R1", name = "first resistance", unit = "ohm" },
+  { symbol = "R2", name = "second resistance", unit = "ohm" },
+]
+tags = ["dc_circuits"]
+source = { title = "Current divider (Wikipedia)", url = "https://en.wikipedia.org/wiki/Current_divider" }
+checks = [{ inputs = [2, 100, 300], output = 1.5 }]
+
+[[formula]]
+id = "led_resistor"
+name = "Series resistor for an LED"
+expr = "(Vs - Vf) / I"
+output = { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "resistor"] }
+variables = [
+  { symbol = "Vs", name = "supply voltage", unit = "V", aliases = ["supply"] },
+  { symbol = "Vf", name = "LED forward voltage", unit = "V", aliases = ["forward_voltage"] },
+  { symbol = "I", name = "LED current", unit = "A", aliases = ["current"] },
+]
+tags = ["dc_circuits", "components"]
+source = { title = "LED circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/LED_circuit" }
+checks = [{ inputs = [5, 2, 0.02], output = 150 }]
+
+[[formula]]
+id = "rl_time_constant"
+name = "RL time constant"
+expr = "L / R"
+output = { symbol = "tau", name = "time constant", unit = "s", aliases = ["time_constant", "tau"] }
+variables = [
+  { symbol = "L", name = "inductance", unit = "H", aliases = ["inductance"] },
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance"] },
+]
+tags = ["transients"]
+source = { title = "RL circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/RL_circuit" }
+checks = [{ inputs = [0.1, 50], output = 0.002 }]
+
+[[formula]]
+id = "apparent_power"
+name = "Apparent power"
+expr = "V * I"
+output = { symbol = "S", name = "apparent power", unit = "W", aliases = ["apparent_power", "va"] }
+variables = [
+  { symbol = "V", name = "RMS voltage", unit = "V", aliases = ["voltage"] },
+  { symbol = "I", name = "RMS current", unit = "A", aliases = ["current"] },
+]
+tags = ["ac_circuits", "power"]
+source = { title = "AC power (Wikipedia)", url = "https://en.wikipedia.org/wiki/AC_power" }
+checks = [{ inputs = [230, 10], output = 2300 }]
+
+[[formula]]
+id = "three_phase_power"
+name = "Three-phase power"
+expr = "sqrt(3) * V * I * pf"
+output = { symbol = "P", name = "real power", unit = "W", aliases = ["power"] }
+variables = [
+  { symbol = "V", name = "line voltage", unit = "V", aliases = ["voltage"] },
+  { symbol = "I", name = "line current", unit = "A", aliases = ["current"] },
+  { symbol = "pf", name = "power factor", unit = "1", aliases = ["power_factor", "pf"] },
+]
+tags = ["ac_circuits", "power"]
+source = { title = "Three-phase electric power (Wikipedia)", url = "https://en.wikipedia.org/wiki/Three-phase_electric_power" }
+checks = [{ inputs = [400, 16, 0.9], output = 9976.612651596733 }]
+
+[[formula]]
+id = "transformer_voltage"
+name = "Ideal transformer"
+expr = "Vp * Ns / Np"
+output = { symbol = "Vs", name = "secondary voltage", unit = "V", aliases = ["secondary_voltage", "voltage"] }
+variables = [
+  { symbol = "Vp", name = "primary voltage", unit = "V", aliases = ["primary_voltage"] },
+  { symbol = "Ns", name = "secondary turns", unit = "1", aliases = ["secondary_turns"] },
+  { symbol = "Np", name = "primary turns", unit = "1", aliases = ["primary_turns"] },
+]
+tags = ["ac_circuits", "components"]
+source = { title = "Transformer (Wikipedia)", url = "https://en.wikipedia.org/wiki/Transformer" }
+checks = [{ inputs = [230, 50, 1000], output = 11.5 }]
+
+[[formula]]
+id = "quality_factor_series_rlc"
+name = "Quality factor of a series RLC circuit"
+expr = "sqrt(L / C) / R"
+output = { symbol = "Q", name = "quality factor", unit = "1", aliases = ["q", "quality_factor"] }
+variables = [
+  { symbol = "L", name = "inductance", unit = "H", aliases = ["inductance"] },
+  { symbol = "C", name = "capacitance", unit = "F", aliases = ["capacitance"] },
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance"] },
+]
+tags = ["ac_circuits", "filters"]
+source = { title = "Q factor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Q_factor" }
+checks = [{ inputs = [0.01, 1e-06, 10], output = 10 }]
+
+[[formula]]
+id = "inverting_amplifier"
+name = "Inverting amplifier gain"
+expr = "-Rf / Rin"
+output = { symbol = "G", name = "voltage gain", unit = "1", aliases = ["gain"] }
+variables = [
+  { symbol = "Rf", name = "feedback resistance", unit = "ohm", aliases = ["rf"] },
+  { symbol = "Rin", name = "input resistance", unit = "ohm", aliases = ["rin"] },
+]
+tags = ["amplifiers"]
+source = { title = "Operational amplifier applications (Wikipedia)", url = "https://en.wikipedia.org/wiki/Operational_amplifier_applications" }
+checks = [{ inputs = [10000, 1000], output = -10 }]
+
+[[formula]]
+id = "non_inverting_amplifier"
+name = "Non-inverting amplifier gain"
+expr = "1 + Rf / Rg"
+output = { symbol = "G", name = "voltage gain", unit = "1", aliases = ["gain"] }
+variables = [
+  { symbol = "Rf", name = "feedback resistance", unit = "ohm", aliases = ["rf"] },
+  { symbol = "Rg", name = "resistance to ground", unit = "ohm", aliases = ["rg"] },
+]
+tags = ["amplifiers"]
+source = { title = "Operational amplifier applications (Wikipedia)", url = "https://en.wikipedia.org/wiki/Operational_amplifier_applications" }
+checks = [{ inputs = [9000, 1000], output = 10 }]
+
+[[formula]]
+id = "adc_resolution"
+name = "ADC step size"
+expr = "V / 2^n"
+output = { symbol = "q", name = "step size", unit = "V", aliases = ["lsb", "resolution"] }
+variables = [
+  { symbol = "V", name = "full-scale voltage", unit = "V", aliases = ["full_scale"] },
+  { symbol = "n", name = "bits", unit = "1", aliases = ["bits"] },
+]
+tags = ["signals", "digital"]
+source = { title = "Analog-to-digital converter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Analog-to-digital_converter" }
+checks = [{ inputs = [3.3, 12], output = 0.0008056640625 }]
+
+[[formula]]
+id = "signal_to_noise_db"
+name = "Signal-to-noise ratio in decibels"
+expr = "10 * log(Ps / Pn) / log(10)"
+output = { symbol = "SNR", name = "signal-to-noise ratio in dB", unit = "1", aliases = ["snr"] }
+variables = [
+  { symbol = "Ps", name = "signal power", unit = "W", aliases = ["signal"] },
+  { symbol = "Pn", name = "noise power", unit = "W", aliases = ["noise"] },
+]
+tags = ["signals"]
+source = { title = "Signal-to-noise ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Signal-to-noise_ratio" }
+checks = [{ inputs = [0.01, 1e-05], output = 29.999999999999996 }]
+
+[[formula]]
+id = "duty_cycle"
+name = "Duty cycle"
+expr = "t / T"
+output = { symbol = "D", name = "duty cycle", unit = "1", aliases = ["duty_cycle", "duty"] }
+variables = [
+  { symbol = "t", name = "on time", unit = "s", aliases = ["on_time", "pulse_width"] },
+  { symbol = "T", name = "period", unit = "s", aliases = ["period"] },
+]
+tags = ["signals", "digital"]
+source = { title = "Duty cycle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Duty_cycle" }
+checks = [{ inputs = [0.002, 0.01], output = 0.2 }]
+
+[[formula]]
+id = "pwm_average_voltage"
+name = "Average voltage of a PWM signal"
+expr = "D * V"
+output = { symbol = "Vavg", name = "average voltage", unit = "V", aliases = ["average_voltage", "voltage"] }
+variables = [
+  { symbol = "D", name = "duty cycle", unit = "1", aliases = ["duty_cycle", "duty"] },
+  { symbol = "V", name = "high voltage", unit = "V", aliases = ["supply"] },
+]
+tags = ["signals", "digital"]
+source = { title = "Pulse-width modulation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pulse-width_modulation" }
+checks = [{ inputs = [0.25, 12], output = 3 }]

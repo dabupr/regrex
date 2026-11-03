@@ -1,0 +1,252 @@
+# Energy and environment: electricity bills, renewables, heating, batteries,
+# fuels and emissions.
+#
+# Many practical formulas use everyday units (kWh, litres, kg CO2); their
+# variables are plain numbers with the unit in the name.
+
+id = "energy"
+name = "Energy and environment"
+description = "Electricity use and cost, solar, wind and hydro power, heating, batteries, fuels and CO2 emissions."
+
+[[formula]]
+id = "energy_cost"
+name = "Energy cost"
+expr = "E * p"
+output = { symbol = "cost", name = "energy cost", unit = "currency", aliases = ["cost", "bill", "energy_cost"] }
+variables = [
+  { symbol = "E", name = "energy used in kWh", unit = "1", aliases = ["kwh", "energy", "consumption"] },
+  { symbol = "p", name = "price per kWh", unit = "currency", aliases = ["price", "tariff"] },
+]
+tags = ["electricity", "cost"]
+source = { title = "Electricity pricing (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electricity_pricing" }
+checks = [{ inputs = [320, 0.18], output = 57.599999999999994 }]
+
+[[formula]]
+id = "energy_from_power"
+name = "Energy used by an appliance in kWh"
+expr = "P * t / 1000"
+output = { symbol = "E", name = "energy in kWh", unit = "1", aliases = ["kwh", "energy", "consumption"] }
+variables = [
+  { symbol = "P", name = "power in watts", unit = "1", aliases = ["power", "watts"] },
+  { symbol = "t", name = "hours of use", unit = "1", aliases = ["hours", "time"] },
+]
+tags = ["electricity"]
+source = { title = "Kilowatt-hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kilowatt-hour" }
+checks = [{ inputs = [1500, 3], output = 4.5 }]
+
+[[formula]]
+id = "co2_from_electricity"
+name = "CO₂ emissions of electricity"
+expr = "E * k"
+output = { symbol = "CO2", name = "emissions in kg CO₂", unit = "1", aliases = ["co2", "emissions", "kgco2"] }
+variables = [
+  { symbol = "E", name = "electricity used in kWh", unit = "1", aliases = ["kwh", "energy"] },
+  { symbol = "k", name = "emission factor in kg CO₂ per kWh", unit = "1", aliases = ["factor", "emission_factor"] },
+]
+tags = ["emissions"]
+source = { title = "Emission intensity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Emission_intensity" }
+checks = [{ inputs = [1200, 0.25], output = 300 }]
+
+[[formula]]
+id = "co2_from_fuel"
+name = "CO₂ emissions of burned fuel"
+expr = "V * k"
+output = { symbol = "CO2", name = "emissions in kg CO₂", unit = "1", aliases = ["co2", "emissions"] }
+variables = [
+  { symbol = "V", name = "fuel burned in litres", unit = "1", aliases = ["litres", "fuel", "liters"] },
+  { symbol = "k", name = "emission factor in kg CO₂ per litre (2.31 for petrol)", unit = "1", aliases = ["factor", "emission_factor"] },
+]
+tags = ["emissions", "transport"]
+source = { title = "Emission factor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Emission_factor" }
+checks = [{ inputs = [45, 2.31], output = 103.95 }]
+
+[[formula]]
+id = "solar_panel_output"
+name = "Solar panel energy output"
+expr = "A * r * H * PR"
+output = { symbol = "E", name = "energy in kWh", unit = "1", aliases = ["energy", "kwh", "output", "yield"] }
+variables = [
+  { symbol = "A", name = "panel area in m²", unit = "1", aliases = ["area"] },
+  { symbol = "r", name = "panel efficiency", unit = "1", aliases = ["efficiency"] },
+  { symbol = "H", name = "solar irradiation in kWh/m²", unit = "1", aliases = ["irradiation", "irradiance"] },
+  { symbol = "PR", name = "performance ratio", unit = "1", aliases = ["performance_ratio"] },
+]
+tags = ["solar", "renewables"]
+source = { title = "Photovoltaic system performance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Photovoltaic_system_performance" }
+checks = [{ inputs = [10, 0.2, 1600, 0.75], output = 2400 }]
+
+[[formula]]
+id = "capacity_factor"
+name = "Capacity factor"
+expr = "E / (P * t)"
+output = { symbol = "CF", name = "capacity factor", unit = "1", aliases = ["capacity_factor"] }
+variables = [
+  { symbol = "E", name = "energy produced", unit = "J", aliases = ["energy", "output"] },
+  { symbol = "P", name = "nameplate power", unit = "W", aliases = ["power", "capacity"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "period"] },
+]
+tags = ["renewables", "electricity"]
+source = { title = "Capacity factor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capacity_factor" }
+checks = [{ inputs = [3600000000000, 2000000, 31536000], output = 0.05707762557077625 }]
+
+[[formula]]
+id = "wind_power"
+name = "Power in the wind"
+expr = "0.5 * rho * A * v^3"
+output = { symbol = "P", name = "wind power", unit = "W", aliases = ["power", "wind_power"] }
+variables = [
+  { symbol = "rho", name = "air density", unit = "kg/m^3", aliases = ["air_density", "density"] },
+  { symbol = "A", name = "swept area", unit = "m^2", aliases = ["area", "swept_area"] },
+  { symbol = "v", name = "wind speed", unit = "m/s", aliases = ["wind_speed", "speed", "velocity"] },
+]
+tags = ["wind", "renewables"]
+source = { title = "Wind power (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wind_power" }
+checks = [{ inputs = [1.225, 5000, 8], output = 1568000 }]
+
+[[formula]]
+id = "wind_turbine_power"
+name = "Wind turbine output (with power coefficient)"
+expr = "0.5 * Cp * rho * A * v^3"
+output = { symbol = "P", name = "turbine power", unit = "W", aliases = ["power", "output"] }
+variables = [
+  { symbol = "Cp", name = "power coefficient (at most 0.593)", unit = "1", aliases = ["cp", "power_coefficient"] },
+  { symbol = "rho", name = "air density", unit = "kg/m^3", aliases = ["air_density", "density"] },
+  { symbol = "A", name = "swept area", unit = "m^2", aliases = ["area"] },
+  { symbol = "v", name = "wind speed", unit = "m/s", aliases = ["wind_speed", "speed"] },
+]
+tags = ["wind", "renewables"]
+source = { title = "Betz's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Betz's_law" }
+checks = [{ inputs = [0.4, 1.225, 5000, 8], output = 627200.0000000001 }]
+
+[[formula]]
+id = "hydropower"
+name = "Hydroelectric power"
+expr = "eta * rho * g * Q * H"
+output = { symbol = "P", name = "electric power", unit = "W", aliases = ["power", "output"] }
+variables = [
+  { symbol = "eta", name = "efficiency", unit = "1", aliases = ["efficiency"] },
+  { symbol = "rho", name = "water density", unit = "kg/m^3", aliases = ["density"] },
+  { symbol = "Q", name = "flow rate", unit = "m^3/s", aliases = ["flow", "discharge", "flow_rate"] },
+  { symbol = "H", name = "head (height of the fall)", unit = "m", aliases = ["head", "height"] },
+]
+tags = ["hydro", "renewables"]
+source = { title = "Hydropower (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hydropower" }
+checks = [{ inputs = [0.9, 1000, 20, 50], output = 8825985 }]
+
+[[formula]]
+id = "heat_loss_through_wall"
+name = "Heat loss through a wall (U-value)"
+expr = "U * A * dT"
+output = { symbol = "Q", name = "heat loss rate in W", unit = "1", aliases = ["heat_loss", "power"] }
+variables = [
+  { symbol = "U", name = "U-value in W/(m²·K)", unit = "1", aliases = ["u_value"] },
+  { symbol = "A", name = "area in m²", unit = "1", aliases = ["area"] },
+  { symbol = "dT", name = "temperature difference in K", unit = "1", aliases = ["delta_t", "temperature_difference"] },
+]
+tags = ["buildings", "heating"]
+source = { title = "Thermal transmittance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Thermal_transmittance" }
+checks = [{ inputs = [0.3, 40, 20], output = 240 }]
+
+[[formula]]
+id = "heating_degree_days_day"
+name = "Heating degree days of one day"
+expr = "Tb - T"
+output = { symbol = "HDD", name = "heating degree days", unit = "1", aliases = ["hdd", "degree_days"] }
+variables = [
+  { symbol = "Tb", name = "base temperature (often 15.5 °C)", unit = "1", aliases = ["base", "base_temperature"] },
+  { symbol = "T", name = "mean outdoor temperature", unit = "1", aliases = ["temperature", "mean_temperature"] },
+]
+tags = ["buildings", "heating"]
+source = { title = "Heating degree day (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heating_degree_day" }
+checks = [{ inputs = [15.5, 4], output = 11.5 }]
+
+[[formula]]
+id = "heat_pump_cop"
+name = "Coefficient of performance of a heat pump"
+expr = "Q / W"
+output = { symbol = "COP", name = "coefficient of performance", unit = "1", aliases = ["cop"] }
+variables = [
+  { symbol = "Q", name = "heat delivered", unit = "J", aliases = ["heat", "heat_output"] },
+  { symbol = "W", name = "electrical work", unit = "J", aliases = ["work", "electricity", "input"] },
+]
+tags = ["heating", "efficiency"]
+source = { title = "Coefficient of performance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Coefficient_of_performance" }
+checks = [{ inputs = [12, 4], output = 3 }]
+
+[[formula]]
+id = "carnot_cop_heating"
+name = "Carnot coefficient of performance (heating)"
+expr = "Th / (Th - Tc)"
+output = { symbol = "COP", name = "ideal coefficient of performance", unit = "1", aliases = ["cop"] }
+variables = [
+  { symbol = "Th", name = "hot side temperature", unit = "K", aliases = ["hot", "t_hot"] },
+  { symbol = "Tc", name = "cold side temperature", unit = "K", aliases = ["cold", "t_cold"] },
+]
+tags = ["heating", "thermodynamics"]
+source = { title = "Coefficient of performance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Coefficient_of_performance" }
+checks = [{ inputs = [308.15, 273.15], output = 8.804285714285713 }]
+
+[[formula]]
+id = "energy_efficiency"
+name = "Efficiency (useful output over input)"
+expr = "Eo / Ei"
+output = { symbol = "eta", name = "efficiency", unit = "1", aliases = ["efficiency", "eta"] }
+variables = [
+  { symbol = "Eo", name = "useful energy out", unit = "J", aliases = ["output", "useful"] },
+  { symbol = "Ei", name = "energy in", unit = "J", aliases = ["input"] },
+]
+tags = ["efficiency"]
+source = { title = "Energy conversion efficiency (Wikipedia)", url = "https://en.wikipedia.org/wiki/Energy_conversion_efficiency" }
+checks = [{ inputs = [35, 100], output = 0.35 }]
+
+[[formula]]
+id = "battery_energy"
+name = "Battery energy"
+expr = "V * Q"
+output = { symbol = "E", name = "stored energy", unit = "J", aliases = ["energy"] }
+variables = [
+  { symbol = "V", name = "nominal voltage", unit = "V", aliases = ["voltage"] },
+  { symbol = "Q", name = "capacity", unit = "C", aliases = ["capacity", "charge"] },
+]
+tags = ["batteries", "electricity"]
+source = { title = "Battery (electricity) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Battery_(electricity)" }
+checks = [{ inputs = [3.7, 10800], output = 39960 }]
+
+[[formula]]
+id = "battery_runtime"
+name = "Battery runtime"
+expr = "C / I"
+output = { symbol = "t", name = "runtime in hours", unit = "1", aliases = ["runtime", "hours"] }
+variables = [
+  { symbol = "C", name = "capacity in ampere-hours", unit = "1", aliases = ["capacity", "ah"] },
+  { symbol = "I", name = "current in amperes", unit = "1", aliases = ["current", "load"] },
+]
+tags = ["batteries"]
+source = { title = "Ampere hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ampere_hour" }
+checks = [{ inputs = [100, 5], output = 20 }]
+
+[[formula]]
+id = "fuel_energy"
+name = "Energy released by burning fuel"
+expr = "m * LHV"
+output = { symbol = "Q", name = "heat released", unit = "J", aliases = ["heat", "energy"] }
+variables = [
+  { symbol = "m", name = "fuel mass", unit = "kg", aliases = ["mass", "fuel"] },
+  { symbol = "LHV", name = "heating value", unit = "J/kg", aliases = ["heating_value", "lhv", "calorific_value"] },
+]
+tags = ["fuels"]
+source = { title = "Heat of combustion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heat_of_combustion" }
+checks = [{ inputs = [2, 44000000], output = 88000000 }]
+
+[[formula]]
+id = "car_fuel_consumption"
+name = "Fuel consumption per 100 km"
+expr = "100 * V / d"
+output = { symbol = "c", name = "litres per 100 km", unit = "1", aliases = ["consumption", "l_100km"] }
+variables = [
+  { symbol = "V", name = "fuel used in litres", unit = "1", aliases = ["litres", "fuel", "liters"] },
+  { symbol = "d", name = "distance in km", unit = "1", aliases = ["distance", "km"] },
+]
+tags = ["transport", "fuels"]
+source = { title = "Fuel economy in automobiles (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fuel_economy_in_automobiles" }
+checks = [{ inputs = [32, 480], output = 6.666666666666667 }]
