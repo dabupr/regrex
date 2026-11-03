@@ -66,6 +66,10 @@ pub struct ScanConfig {
     pub max_inputs: usize,
     /// Rows per subset when searching robustly.
     pub subset_rows: usize,
+    /// When no formula fits every row, the search is also run on this many
+    /// small random samples of rows, which are likely to miss a few wrong
+    /// rows that spoil the larger subsets. 0 turns it off (faster).
+    pub small_samples: usize,
 }
 
 impl Default for ScanConfig {
@@ -80,6 +84,7 @@ impl Default for ScanConfig {
             rel_tolerance: 1e-6,
             max_inputs: 5,
             subset_rows: 40,
+            small_samples: 4,
         }
     }
 }
@@ -166,6 +171,19 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     for subset in subsets(&rows, config.subset_rows, 3) {
         for formula in search_rows(table, &candidates_cols, target, &subset, config) {
             consider(formula, &mut best);
+        }
+    }
+    // A few wrong rows can spoil every subset of a small table. Unless a
+    // formula already fits every row, also try small samples, which are
+    // likely to miss the wrong rows.
+    if config.small_samples > 0
+        && best.as_ref().is_none_or(|(_, m)| m.len() < rows.len())
+        && rows.len() >= 2 * SMALL_SUBSET
+    {
+        for subset in samples(&rows, SMALL_SUBSET, config.small_samples) {
+            for formula in search_rows(table, &candidates_cols, target, &subset, config) {
+                consider(formula, &mut best);
+            }
         }
     }
     let (_, inliers) = best.clone()?;
@@ -475,6 +493,31 @@ fn correlation(x: &[f64], y: &[f64], f: impl Fn(f64) -> f64) -> f64 {
 }
 
 /// `k` subsets of about `size` rows each, interleaved so they barely overlap.
+/// Rows in each small sample tried when no formula fits every row.
+const SMALL_SUBSET: usize = 8;
+
+/// `k` samples of `size` rows, picked with a fixed pseudo-random sequence so
+/// results are reproducible.
+fn samples(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
+    let mut state: u64 = 0x9E37_79B9_7F4A_7C15;
+    (0..k)
+        .map(|_| {
+            let mut picked: Vec<usize> = Vec::with_capacity(size);
+            while picked.len() < size.min(rows.len()) {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                let r = rows[(state % rows.len() as u64) as usize];
+                if !picked.contains(&r) {
+                    picked.push(r);
+                }
+            }
+            picked.sort_unstable();
+            picked
+        })
+        .collect()
+}
+
 fn subsets(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
     if rows.len() <= size {
         return vec![rows.to_vec()];
@@ -571,6 +614,33 @@ mod tests {
     }
 
     #[test]
+    fn a_few_wrong_rows_in_a_small_table() {
+        // 40 rows, 3 of them with 10% instead of 21% VAT: every row is in the
+        // single 40-row subset, so only the small samples find the rule.
+        let net: Vec<f64> = (1..=40).map(|i| 10.0 + 7.0 * i as f64).collect();
+        let vat: Vec<f64> = net
+            .iter()
+            .enumerate()
+            .map(|(i, n)| {
+                let rate = if (i + 1) % 13 == 0 { 0.1 } else { 0.21 };
+                (n * rate * 100.0).round() / 100.0
+            })
+            .collect();
+        let table = Table {
+            names: vec!["net".into(), "vat".into()],
+            columns: vec![net, vat],
+            decimals: vec![Some(0), Some(2)],
+            units: vec![None, None],
+        };
+        let found = explain_column(&table, 1, &ScanConfig::default()).expect("vat is derived");
+        assert_eq!(
+            found.formula.display_with(&table.names).to_string(),
+            "0.21 * net"
+        );
+        assert_eq!(found.exceptions, vec![12, 25, 38]);
+    }
+
+    #[test]
     fn independent_columns_are_not_reported() {
         let table = Table {
             names: vec!["a".into(), "b".into()],
@@ -626,6 +696,17 @@ mod tests {
         let d = explain_column(&table, 2, &ScanConfig::default()).unwrap();
         assert_eq!(d.formula_text, "price * quantity");
         assert_eq!(d.checked, 11);
+    }
+
+    #[test]
+    fn samples_are_distinct_and_reproducible() {
+        let rows: Vec<usize> = (0..40).collect();
+        let s = samples(&rows, 8, 4);
+        assert_eq!(s, samples(&rows, 8, 4));
+        assert!(s
+            .iter()
+            .all(|x| x.len() == 8 && x.windows(2).all(|w| w[0] < w[1])));
+        assert_ne!(s[0], s[1]);
     }
 
     #[test]
