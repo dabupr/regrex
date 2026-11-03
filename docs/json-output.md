@@ -36,7 +36,23 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
             "formula": "0.1 * net"
           }
         }
-      ]
+      ],
+      "known": {
+        "id": "tax_amount",
+        "name": "Tax amount",
+        "domain": "finance",
+        "description": null,
+        "expression": "p * t",
+        "output": { "symbol": "tax", "name": "tax amount", "unit": "currency", "column": "vat", "value": null },
+        "variables": [
+          { "symbol": "p", "name": "net amount", "unit": "currency", "column": "net", "value": null },
+          { "symbol": "t", "name": "tax rate", "unit": "1", "column": null, "value": 0.21 }
+        ],
+        "changed_constant": null,
+        "exact": false,
+        "source_title": "Value-added tax (Wikipedia)",
+        "source_url": "https://en.wikipedia.org/wiki/Value-added_tax"
+      }
     }
   ]
 }
@@ -62,6 +78,16 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `….diagnosis.description` | What went wrong, in English. |
 | `….diagnosis.formula` | The formula the row follows instead, when the mistake is in the formula. |
 
+| `derived[].known` | The formula from the [library of known formulas](https://dabupr.github.io/regrex/library.html) that the column follows, or `null`. |
+| `known.id`, `known.name`, `known.domain` | Which library formula it is; see `crates/regrex-formulas/library/`. |
+| `known.expression` | The library formula, in its own symbols. |
+| `known.output`, `known.variables[]` | Each symbol with its name and unit, and the `column` it was matched to, or the constant `value` the data uses for it (the tax rate above). |
+| `known.changed_constant` | When the data follows the formula with a different constant, such as `g = 10` instead of `9.80665`: its `id`, `library_value` and `value`. |
+| `known.exact` | Whether every variable is a column and no constant changed. |
+| `known.source_title`, `known.source_url` | Where the formula comes from. |
+
+A formula is only named when the column names agree with the library (`price`, `vat`, `velocity`…) or the formula is specific enough not to be a coincidence, so `a * b` alone is not called "line total".
+
 A diagnosis is never a guess: Regrex recomputes the row with the mistake and only reports it when it gives the value in the file, within the rounding of the column. `other_cell` means the value is fine but another cell of the row is wrong, for example a wrong total that also breaks `net = total - vat`.
 
 The `check_formula` MCP tool returns one `derived` entry for the formula it was given, even when few rows match.
@@ -77,7 +103,7 @@ Returned by `regrex fit --json` and the `fit_formula` and `fit_values` tools; `r
   "inputs": ["m", "v"],
   "rows": 8,
   "candidates": [
-    { "formula": "0.5 * m * v^2", "complexity": 7, "mse": 0.0, "r2": 1.0, "max_abs_error": 0.0, "exact": true }
+    { "formula": "0.5 * m * v^2", "complexity": 7, "mse": 0.0, "r2": 1.0, "max_abs_error": 0.0, "exact": true, "known": { "id": "kinetic_energy", "name": "Kinetic energy", "…": "…" } }
   ]
 }
 ```
@@ -94,6 +120,7 @@ Returned by `regrex fit --json` and the `fit_formula` and `fit_values` tools; `r
 | `candidates[].r2` | Coefficient of determination (1 is a perfect fit). |
 | `candidates[].max_abs_error` | Largest absolute error over the rows. |
 | `candidates[].exact` | Whether the formula reproduces the data up to floating point error. |
+| `candidates[].known` | The known formula it matches, or `null`; same fields as in a scan report. |
 
 ## Formula syntax
 
