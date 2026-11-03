@@ -166,6 +166,7 @@ function renderData() {
   if (state.sheet && info.sheets.includes(state.sheet)) ui.sheet.value = state.sheet;
 
   const numeric = new Set(info.columns.map((c) => c.name));
+  const readAs = new Map(info.columns.map((c) => [c.name, c.read_as]));
   const head = el("tr", {}, el("th", { class: "text" }, "#"));
   for (const col of info.header) {
     if (!numeric.has(col)) {
@@ -179,7 +180,8 @@ function renderData() {
       else state!.ignored.add(col);
       renderColumnChoices();
     });
-    head.append(el("th", {}, el("label", {}, box, col), el("span", { class: "kind" }, "number")));
+    const kind = readAs.get(col) ?? "number";
+    head.append(el("th", {}, el("label", {}, box, col), el("span", { class: "kind" }, kind)));
   }
   const rows = info.preview.map((cells, i) =>
     el(

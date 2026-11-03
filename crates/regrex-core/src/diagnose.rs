@@ -43,6 +43,10 @@ pub enum MistakeKind {
     /// The value is right, but another cell of the row it is computed from
     /// is wrong.
     OtherCell,
+    /// The value is a whole day off (1440 minutes, 24 hours or 86400
+    /// seconds): a time that went past midnight, as in a train arriving at
+    /// 00:10 after leaving at 23:50.
+    Midnight,
 }
 
 impl MistakeKind {
@@ -61,6 +65,7 @@ impl MistakeKind {
             MistakeKind::WrongOperation => "wrong_operation",
             MistakeKind::SwappedOperands => "swapped_operands",
             MistakeKind::OtherCell => "other_cell",
+            MistakeKind::Midnight => "midnight",
         }
     }
 }
@@ -177,6 +182,21 @@ fn value_mistakes(
             MistakeKind::Typo,
             format!("{what}: {written} instead of {should}"),
         );
+    }
+
+    // A time past midnight: a day off, in minutes, hours or seconds.
+    for (day, unit) in [(1440.0, "minutes"), (24.0, "hours"), (86400.0, "seconds")] {
+        let off = actual - expected;
+        if ((off.abs() - day).abs() <= tolerance.max(1e-9 * actual.abs())) && expected != 0.0 {
+            let way = if off < 0.0 { "less" } else { "more" };
+            push(
+                MistakeKind::Midnight,
+                format!(
+                    "{} {unit} {way}: a time past midnight, a day apart",
+                    format_number(day)
+                ),
+            );
+        }
     }
 
     // Sign and factors (units, percentages, minutes).
@@ -641,6 +661,24 @@ mod tests {
         assert!(found.iter().any(|d| d.kind == MistakeKind::SwappedOperands));
         let found = check("0.21 * net", &[("net", 50.0)], 1050.0, Some(2));
         assert_eq!(first(&found).0, MistakeKind::Factor);
+    }
+
+    #[test]
+    fn past_midnight() {
+        // Left at 23:50 (1430), 20 minutes trip: arrives at 00:10 (10).
+        let found = check(
+            "dep + trip",
+            &[("dep", 1430.0), ("trip", 20.0)],
+            10.0,
+            Some(0),
+        );
+        assert_eq!(
+            first(&found),
+            (
+                MistakeKind::Midnight,
+                "1440 minutes less: a time past midnight, a day apart"
+            )
+        );
     }
 
     #[test]

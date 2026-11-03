@@ -92,6 +92,7 @@ fn scan_json(
         skipped: Vec::new(),
         rows: Vec::new(),
         sheets: Vec::new(),
+        converted: Vec::new(),
     };
     Ok(run_scan(py, &loaded, &source, min_match, max_size))
 }

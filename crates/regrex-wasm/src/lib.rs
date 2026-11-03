@@ -44,6 +44,9 @@ struct ColumnInfo<'a> {
     name: &'a str,
     decimals: Option<u32>,
     missing: usize,
+    /// How the cells were read when they are not plain numbers, such as
+    /// `times as minutes (since midnight)`.
+    read_as: Option<&'a str>,
 }
 
 /// Options for [`Dataset::explain`], as JSON. Every field is optional.
@@ -170,6 +173,14 @@ impl Dataset {
                     name,
                     decimals: *decimals,
                     missing: values.iter().filter(|v| v.is_nan()).count(),
+                    read_as: self
+                        .loaded
+                        .converted
+                        .iter()
+                        .find(|(header, _)| {
+                            regrex_core::units::split_header(header).0 == *name || header == name
+                        })
+                        .map(|(_, how)| how.as_str()),
                 })
                 .collect(),
             skipped: &self.loaded.skipped,
