@@ -3,7 +3,7 @@ requires = ["maturin>=1.9,<2"]
 build-backend = "maturin"
 
 [project]
-name = "regrex"
+name = "pyregrex"
 description = "Find the formulas behind your data: symbolic regression for tables, in Rust"
 readme = "README.md"
 license = "MIT"

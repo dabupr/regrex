@@ -66,6 +66,10 @@ pub struct ScanConfig {
     pub max_inputs: usize,
     /// Rows per subset when searching robustly.
     pub subset_rows: usize,
+    /// When no formula fits every row, the search is also run on this many
+    /// small random samples of rows, which are likely to miss a few wrong
+    /// rows that spoil the larger subsets. 0 turns it off (faster).
+    pub small_samples: usize,
 }
 
 impl Default for ScanConfig {
@@ -80,6 +84,7 @@ impl Default for ScanConfig {
             rel_tolerance: 1e-6,
             max_inputs: 5,
             subset_rows: 40,
+            small_samples: 4,
         }
     }
 }
@@ -168,6 +173,19 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
             consider(formula, &mut best);
         }
     }
+    // A few wrong rows can spoil every subset of a small table. Unless a
+    // formula already fits every row, also try small samples, which are
+    // likely to miss the wrong rows.
+    if config.small_samples > 0
+        && best.as_ref().is_none_or(|(_, m)| m.len() < rows.len())
+        && rows.len() >= 2 * SMALL_SUBSET
+    {
+        for subset in samples(&rows, SMALL_SUBSET, config.small_samples) {
+            for formula in search_rows(table, &candidates_cols, target, &subset, config) {
+                consider(formula, &mut best);
+            }
+        }
+    }
     let (_, inliers) = best.clone()?;
     if inliers.len() >= 3 && inliers.len() < rows.len() {
         let refined = spread(&inliers, config.subset_rows);
@@ -224,6 +242,203 @@ pub fn check_formula(
     let tolerance = row_tolerance(table, target, config);
     let matched = matching_rows(formula, table, &rows, y_all, &tolerance);
     derived(table, target, formula.clone(), &rows, &matched)
+}
+
+/// Fits the constants of a formula shape, such as `a * net` or
+/// `a * x^b + c` (see [`crate::parse::parse_template`]), to column `target`.
+///
+/// Like the scan, the fit is robust to a few wrong rows: constants are
+/// fitted on all rows and on small samples, the fit that matches most rows
+/// wins and is refined on the rows it matches, and constants are rounded to
+/// simple values (`0.21`, `0.5`, `π`) when that matches as many rows. The
+/// result is returned even when few rows match, like [`check_formula`].
+/// Returns `None` when the constants cannot be fitted at all.
+///
+/// ```
+/// use regrex_core::{fit_shape, parse::parse_template, ScanConfig, Table};
+///
+/// let table = Table {
+///     names: vec!["net".into(), "vat".into()],
+///     columns: vec![vec![10.0, 20.0, 30.0, 40.0], vec![2.1, 4.2, 6.3, 8.4]],
+///     decimals: vec![Some(2), Some(2)],
+///     units: vec![None, None],
+/// };
+/// let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
+/// let (shape, _) = parse_template("rate * net", &names).unwrap();
+/// let fit = fit_shape(&table, 1, &shape, &ScanConfig::default()).unwrap();
+/// assert_eq!(fit.formula.display_with(&table.names).to_string(), "0.21 * net");
+/// assert_eq!(fit.matched, 4);
+/// ```
+pub fn fit_shape(
+    table: &Table,
+    target: usize,
+    shape: &Expr,
+    config: &ScanConfig,
+) -> Option<DerivedColumn> {
+    let n_params = shape.num_params();
+    if n_params == 0 {
+        return Some(check_formula(table, target, shape, config));
+    }
+    let mut used = Vec::new();
+    collect_vars(shape, &mut used);
+    let y_all = &table.columns[target];
+    let rows: Vec<usize> = (0..table.n_rows())
+        .filter(|&r| y_all[r].is_finite() && used.iter().all(|&c| table.columns[c][r].is_finite()))
+        .collect();
+    if rows.len() < n_params {
+        return None;
+    }
+    let tolerance = row_tolerance(table, target, config);
+    let opts = crate::fit::FitOptions::default();
+    let fit_on = |subset: &[usize]| -> Option<Vec<f64>> {
+        let columns: Vec<Vec<f64>> = table
+            .columns
+            .iter()
+            .map(|c| subset.iter().map(|&r| c[r]).collect())
+            .collect();
+        let y: Vec<f64> = subset.iter().map(|&r| y_all[r]).collect();
+        crate::fit::fit_params(shape, &columns, &y, &opts).map(|(p, _)| p)
+    };
+    let score = |params: &[f64]| -> usize {
+        matching_rows(
+            &shape.substitute_params(params),
+            table,
+            &rows,
+            y_all,
+            &tolerance,
+        )
+        .len()
+    };
+
+    let sample_size = SMALL_SUBSET.max(2 * n_params + 2);
+    let mut attempts = vec![spread(&rows, 400)];
+    if rows.len() >= 2 * sample_size {
+        attempts.extend(samples(&rows, sample_size, config.small_samples.max(4)));
+    }
+    let mut best: Option<(Vec<f64>, usize)> = None;
+    for subset in &attempts {
+        if let Some(p) = fit_on(subset) {
+            let m = score(&p);
+            if best.as_ref().is_none_or(|(_, bm)| m > *bm) {
+                best = Some((p, m));
+            }
+        }
+    }
+    let (mut params, mut matched) = best?;
+    // Refine on the rows the best fit matches, which are free of wrong rows.
+    let inliers = matching_rows(
+        &shape.substitute_params(&params),
+        table,
+        &rows,
+        y_all,
+        &tolerance,
+    );
+    if inliers.len() > n_params && inliers.len() < rows.len() {
+        if let Some(p) = fit_on(&spread(&inliers, 400)) {
+            let m = score(&p);
+            if m >= matched {
+                (params, matched) = (p, m);
+            }
+        }
+    }
+    // Round each constant to the simplest value that matches as many rows.
+    for i in 0..n_params {
+        for nice in crate::fit::nice_values(params[i]) {
+            let mut p = params.clone();
+            p[i] = nice;
+            let m = score(&p);
+            if m >= matched {
+                (params, matched) = (p, m);
+                break;
+            }
+        }
+    }
+    let formula = shape.substitute_params(&params);
+    let matched_rows = matching_rows(&formula, table, &rows, y_all, &tolerance);
+    Some(derived(table, target, formula, &rows, &matched_rows))
+}
+
+/// Explains why `row` breaks the formula of `derived`: see
+/// [`crate::diagnose::diagnose`]. Mistakes are checked with the same
+/// tolerance as the scan.
+///
+/// `all` are the derived columns of the whole scan (it may be empty). When
+/// the row breaks several of them because of one wrong cell, the other
+/// columns are diagnosed as [`MistakeKind::OtherCell`]: a wrong total also
+/// breaks `net = total - vat`, but only the total needs fixing.
+///
+/// [`MistakeKind::OtherCell`]: crate::diagnose::MistakeKind::OtherCell
+pub fn diagnose_exception(
+    table: &Table,
+    derived: &DerivedColumn,
+    all: &[DerivedColumn],
+    row: usize,
+    config: &ScanConfig,
+) -> Vec<crate::diagnose::Diagnosis> {
+    use crate::diagnose::{Diagnosis, MistakeKind};
+    let values: Vec<f64> = table.columns.iter().map(|c| c[row]).collect();
+    let broken: Vec<&DerivedColumn> = all
+        .iter()
+        .filter(|d| d.exceptions.binary_search(&row).is_ok())
+        .collect();
+    if broken.len() >= 2 {
+        if let Some(culprit) = culprit(table, &broken, all, &values, row, config) {
+            if culprit != derived.target {
+                return vec![Diagnosis {
+                    kind: MistakeKind::OtherCell,
+                    description: format!(
+                        "the {} in this row looks wrong, it breaks its own formula too",
+                        table.names[culprit]
+                    ),
+                    formula: None,
+                }];
+            }
+        }
+    }
+    let tolerance = row_tolerance(table, derived.target, config)(row);
+    let decimals = table.decimals.get(derived.target).copied().flatten();
+    crate::diagnose::diagnose(
+        &derived.formula,
+        &table.names,
+        &values,
+        values[derived.target],
+        tolerance,
+        decimals,
+    )
+}
+
+/// The one cell of `row` that, set to the value its own formula gives,
+/// makes every formula in `all` hold again (or at least those that held, and
+/// those in `broken`).
+fn culprit(
+    table: &Table,
+    broken: &[&DerivedColumn],
+    all: &[DerivedColumn],
+    values: &[f64],
+    row: usize,
+    config: &ScanConfig,
+) -> Option<usize> {
+    let mut found = None;
+    for candidate in broken {
+        let mut fixed = values.to_vec();
+        fixed[candidate.target] = candidate.formula.eval_row(values, &[]);
+        let holds = |d: &DerivedColumn, row_values: &[f64]| {
+            let v = d.formula.eval_row(row_values, &[]);
+            (v - row_values[d.target]).abs() <= row_tolerance(table, d.target, config)(row)
+        };
+        // Formulas with missing values in this row are not checked.
+        let all_hold = all
+            .iter()
+            .filter(|d| holds(d, values) || broken.iter().any(|b| b.target == d.target))
+            .all(|d| holds(d, &fixed));
+        if all_hold {
+            if found.is_some() {
+                return None; // ambiguous
+            }
+            found = Some(candidate.target);
+        }
+    }
+    found
 }
 
 /// How far a row of column `target` may be from a formula's value and still
@@ -392,6 +607,31 @@ fn correlation(x: &[f64], y: &[f64], f: impl Fn(f64) -> f64) -> f64 {
 }
 
 /// `k` subsets of about `size` rows each, interleaved so they barely overlap.
+/// Rows in each small sample tried when no formula fits every row.
+const SMALL_SUBSET: usize = 8;
+
+/// `k` samples of `size` rows, picked with a fixed pseudo-random sequence so
+/// results are reproducible.
+fn samples(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
+    let mut state: u64 = 0x9E37_79B9_7F4A_7C15;
+    (0..k)
+        .map(|_| {
+            let mut picked: Vec<usize> = Vec::with_capacity(size);
+            while picked.len() < size.min(rows.len()) {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                let r = rows[(state % rows.len() as u64) as usize];
+                if !picked.contains(&r) {
+                    picked.push(r);
+                }
+            }
+            picked.sort_unstable();
+            picked
+        })
+        .collect()
+}
+
 fn subsets(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
     if rows.len() <= size {
         return vec![rows.to_vec()];
@@ -488,6 +728,57 @@ mod tests {
     }
 
     #[test]
+    fn fits_a_shape_despite_wrong_rows() {
+        use crate::parse::parse_template;
+        // y = 3 * x^2 with two wrong rows.
+        let x: Vec<f64> = (1..=30).map(f64::from).collect();
+        let mut y: Vec<f64> = x.iter().map(|v| 3.0 * v * v).collect();
+        y[4] = 1.0;
+        y[17] = 999.0;
+        let table = Table {
+            names: vec!["x".into(), "y".into()],
+            columns: vec![x, y],
+            decimals: vec![Some(0), Some(0)],
+            units: vec![None, None],
+        };
+        let (shape, params) = parse_template("a * x^b", &["x", "y"]).unwrap();
+        assert_eq!(params, ["a", "b"]);
+        let fit = fit_shape(&table, 1, &shape, &ScanConfig::default()).unwrap();
+        assert_eq!(
+            fit.formula.display_with(&table.names).to_string(),
+            "3 * x^2"
+        );
+        assert_eq!(fit.exceptions, vec![4, 17]);
+    }
+
+    #[test]
+    fn a_few_wrong_rows_in_a_small_table() {
+        // 40 rows, 3 of them with 10% instead of 21% VAT: every row is in the
+        // single 40-row subset, so only the small samples find the rule.
+        let net: Vec<f64> = (1..=40).map(|i| 10.0 + 7.0 * i as f64).collect();
+        let vat: Vec<f64> = net
+            .iter()
+            .enumerate()
+            .map(|(i, n)| {
+                let rate = if (i + 1) % 13 == 0 { 0.1 } else { 0.21 };
+                (n * rate * 100.0).round() / 100.0
+            })
+            .collect();
+        let table = Table {
+            names: vec!["net".into(), "vat".into()],
+            columns: vec![net, vat],
+            decimals: vec![Some(0), Some(2)],
+            units: vec![None, None],
+        };
+        let found = explain_column(&table, 1, &ScanConfig::default()).expect("vat is derived");
+        assert_eq!(
+            found.formula.display_with(&table.names).to_string(),
+            "0.21 * net"
+        );
+        assert_eq!(found.exceptions, vec![12, 25, 38]);
+    }
+
+    #[test]
     fn independent_columns_are_not_reported() {
         let table = Table {
             names: vec!["a".into(), "b".into()],
@@ -543,6 +834,17 @@ mod tests {
         let d = explain_column(&table, 2, &ScanConfig::default()).unwrap();
         assert_eq!(d.formula_text, "price * quantity");
         assert_eq!(d.checked, 11);
+    }
+
+    #[test]
+    fn samples_are_distinct_and_reproducible() {
+        let rows: Vec<usize> = (0..40).collect();
+        let s = samples(&rows, 8, 4);
+        assert_eq!(s, samples(&rows, 8, 4));
+        assert!(s
+            .iter()
+            .all(|x| x.len() == 8 && x.windows(2).all(|w| w[0] < w[1])));
+        assert_ne!(s[0], s[1]);
     }
 
     #[test]

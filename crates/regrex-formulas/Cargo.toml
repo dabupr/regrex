@@ -1,6 +1,6 @@
 [package]
 name = "regrex-formulas"
-version = "0.0.1"
+version.workspace = true
 description = "Library of well-known formulas and constants, by domain, for Regrex"
 edition.workspace = true
 license.workspace = true

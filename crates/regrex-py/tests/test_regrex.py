@@ -31,6 +31,7 @@ def test_scan_file_reports_exceptions():
     vat = next(d for d in report["derived"] if d["column"] == "vat")
     assert vat["formula"] == "0.21 * net"
     assert vat["exception_rows"] == [42]
+    assert vat["exceptions"][0]["diagnosis"]["description"] == "used 0.1 instead of 0.21"
 
 
 def test_scan_mapping_with_missing_values():

@@ -527,6 +527,7 @@ dependencies = [
  "calamine",
  "csv",
  "regrex-core",
+ "regrex-formulas",
  "serde",
  "serde_json",
 ]
@@ -545,6 +546,7 @@ name = "regrex-wasm"
 version = "0.0.1"
 dependencies = [
  "regrex-core",
+ "regrex-formulas",
  "regrex-io",
  "serde",
  "serde_json",

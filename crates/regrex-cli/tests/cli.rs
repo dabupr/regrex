@@ -45,6 +45,13 @@ fn scan_csv_finds_formulas_and_exceptions() {
     assert_eq!(vat["formula"], "0.21 * net");
     assert_eq!(vat["exception_rows"], serde_json::json!([42]));
     assert_eq!(vat["exceptions"][0]["actual"], 29.97);
+    let why = &vat["exceptions"][0]["diagnosis"];
+    assert_eq!(why["kind"], "wrong_constant");
+    assert_eq!(why["description"], "used 0.1 instead of 0.21");
+    assert_eq!(why["formula"], "0.1 * net");
+    // Row 17 has a wrong total, which also breaks net = total - vat.
+    let net = derived(&report, "net");
+    assert_eq!(net["exceptions"][0]["diagnosis"]["kind"], "other_cell");
 
     let total = derived(&report, "total");
     assert_eq!(total["formula"], "net + vat");

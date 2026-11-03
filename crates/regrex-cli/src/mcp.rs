@@ -6,9 +6,9 @@
 //! reads the files it is asked about.
 
 use crate::{column_index, fit_column, load_file, scan_columns};
-use regrex_core::parse::parse_expr;
+use regrex_core::parse::{parse_expr, parse_template};
 use regrex_core::units::{dimension_of, parse_unit, Dim, Dimension};
-use regrex_core::{check_formula, search, ScanConfig, SearchConfig};
+use regrex_core::{fit_shape, search, ScanConfig, SearchConfig};
 use regrex_io::report::{DerivedJson, FitReport, ScanReport};
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
@@ -182,12 +182,12 @@ fn tools() -> Value {
         {
             "name": "check_formula",
             "title": "Check a formula against a file",
-            "description": "Checks how many rows of a column follow a given formula over other columns, and lists the rows that do not.",
+            "description": "Checks how many rows of a column follow a given formula over other columns, and lists the rows that do not. Names that are not columns are constants to fit: \"rate * net\" finds the rate.",
             "inputSchema": {
                 "type": "object",
                 "properties": with_file(json!({
                     "target": { "type": "string", "description": "The column the formula should compute." },
-                    "formula": { "type": "string", "description": "Formula over column names, such as \"0.21 * net\"." },
+                    "formula": { "type": "string", "description": "Formula over column names, such as \"0.21 * net\", or a shape with constants to fit, such as \"a * x^b\"." },
                 })),
                 "required": ["path", "target", "formula"],
             },
@@ -251,9 +251,17 @@ fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
             let table = &loaded.table;
             let target = column_index(table, &string(args, "target")?)?;
             let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
-            let formula =
-                parse_expr(&string(args, "formula")?, &names).map_err(|e| e.to_string())?;
-            let check = check_formula(table, target, &formula, &ScanConfig::default());
+            let (shape, params) =
+                parse_template(&string(args, "formula")?, &names).map_err(|e| e.to_string())?;
+            if params.len() > 4 {
+                return Err(format!(
+                    "unknown columns or too many constants to fit: {}",
+                    params.join(", ")
+                )
+                .into());
+            }
+            let check = fit_shape(table, target, &shape, &ScanConfig::default())
+                .ok_or_else(|| "could not fit the constants of this formula".to_string())?;
             to_value(&DerivedJson::new(table, &check))
         }
         "check_units" => check_units(args),

@@ -207,6 +207,26 @@ impl Expr {
         }
     }
 
+    /// The input columns the expression uses, sorted and without repeats.
+    pub fn vars(&self) -> Vec<usize> {
+        fn go(e: &Expr, out: &mut Vec<usize>) {
+            match e {
+                Expr::Var(i) => out.push(*i),
+                Expr::Const(_) | Expr::Param(_) => {}
+                Expr::Unary(_, a) => go(a, out),
+                Expr::Binary(_, a, b) => {
+                    go(a, out);
+                    go(b, out);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        go(self, &mut out);
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
     /// Renumbers parameters as `0, 1, 2, ...` in depth-first order.
     pub fn number_params(&self) -> Expr {
         fn go(e: &Expr, next: &mut usize) -> Expr {
@@ -309,6 +329,18 @@ impl fmt::Display for ExprDisplay<'_> {
     }
 }
 
+/// `e` with its leading negative constant made positive, for terms like
+/// `-3`, `-2 * x` or `-3 / a` (the minus is then written as a subtraction).
+fn negated_leading(e: &Expr) -> Option<Expr> {
+    match e {
+        Expr::Const(c) if *c < 0.0 => Some(Expr::Const(-c)),
+        Expr::Binary(op @ (BinaryOp::Mul | BinaryOp::Div), a, b) => {
+            negated_leading(a).map(|na| Expr::binary(*op, na, (**b).clone()))
+        }
+        _ => None,
+    }
+}
+
 /// Binding strength used to decide where parentheses are needed.
 fn binding(e: &Expr) -> u8 {
     match e {
@@ -355,16 +387,18 @@ fn write_expr(f: &mut fmt::Formatter<'_>, e: &Expr, names: Option<&[String]>) ->
             write_expr(f, a, names)?;
             write!(f, ")")
         }
-        // Show `a + (-3)` as `a - 3`.
-        Expr::Binary(BinaryOp::Add, a, b) if matches!(**b, Expr::Const(c) if c < 0.0) => {
-            let Expr::Const(c) = **b else { unreachable!() };
+        // Show `a + (-3)` as `a - 3` and `a + -2 * b` as `a - 2 * b`.
+        Expr::Binary(BinaryOp::Add, a, b) if negated_leading(b).is_some() => {
+            let nb = negated_leading(b).expect("checked");
             write_operand(f, a, names, 1)?;
-            write!(f, " - {}", format_number(-c))
+            write!(f, " - ")?;
+            write_operand(f, &nb, names, 2)
         }
-        Expr::Binary(BinaryOp::Add, a, b) if matches!(**a, Expr::Const(c) if c < 0.0) => {
-            let Expr::Const(c) = **a else { unreachable!() };
+        Expr::Binary(BinaryOp::Add, a, b) if negated_leading(a).is_some() => {
+            let na = negated_leading(a).expect("checked");
             write_operand(f, b, names, 1)?;
-            write!(f, " - {}", format_number(-c))
+            write!(f, " - ")?;
+            write_operand(f, &na, names, 2)
         }
         Expr::Binary(op, a, b) => {
             let p = op.precedence();

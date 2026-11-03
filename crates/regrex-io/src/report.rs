@@ -5,7 +5,7 @@
 
 use crate::Loaded;
 use regrex_core::expr::format_number;
-use regrex_core::{Candidate, DerivedColumn, Table};
+use regrex_core::{diagnose_exception, Candidate, DerivedColumn, ScanConfig, Table};
 use serde::Serialize;
 use std::fmt::Write;
 
@@ -50,6 +50,8 @@ pub struct DerivedJson {
     pub exception_rows: Vec<usize>,
     /// Details of the first [`MAX_EXCEPTION_DETAILS`] exceptions.
     pub exceptions: Vec<ExceptionJson>,
+    /// The well-known formula this is, if it is one.
+    pub known: Option<KnownJson>,
 }
 
 /// A row that does not follow the formula of its column.
@@ -61,6 +63,152 @@ pub struct ExceptionJson {
     pub actual: f64,
     /// The value the formula gives.
     pub expected: f64,
+    /// The most likely mistake that gives the value in the file, if a simple
+    /// one does.
+    pub diagnosis: Option<DiagnosisJson>,
+}
+
+/// A well-known formula that a result matches, from the built-in library
+/// (`regrex-formulas`).
+#[derive(Debug, Clone, Serialize)]
+pub struct KnownJson {
+    /// Library id, such as `kinetic_energy`.
+    pub id: String,
+    /// Name, such as `Kinetic energy`.
+    pub name: String,
+    /// Domain id, such as `physics`.
+    pub domain: String,
+    /// What it computes, when the library says.
+    pub description: Option<String>,
+    /// The library's expression, with its own symbols (`0.5 * m * v^2`).
+    pub expression: String,
+    /// What the formula computes, with its symbol and unit.
+    pub output: KnownQuantityJson,
+    /// Each variable of the formula and the column or value that gives it.
+    pub variables: Vec<KnownQuantityJson>,
+    /// A library constant with another value in the data, such as `g = 10`.
+    pub changed_constant: Option<ChangedConstantJson>,
+    /// Whether the result is exactly the library formula (every variable is a
+    /// column and constants have their usual values).
+    pub exact: bool,
+    /// Where the formula comes from.
+    pub source_title: String,
+    /// Link to read more about it.
+    pub source_url: Option<String>,
+}
+
+/// A quantity of a [`KnownJson`] formula.
+#[derive(Debug, Clone, Serialize)]
+pub struct KnownQuantityJson {
+    /// Symbol in the library expression.
+    pub symbol: String,
+    /// What it is.
+    pub name: String,
+    /// Its unit in the library.
+    pub unit: String,
+    /// The column that gives it, if any.
+    pub column: Option<String>,
+    /// The fixed value it takes in the data, if it is not a column.
+    pub value: Option<f64>,
+}
+
+/// A library constant with another value, in a [`KnownJson`].
+#[derive(Debug, Clone, Serialize)]
+pub struct ChangedConstantJson {
+    /// Constant id, such as `g`.
+    pub id: String,
+    /// Its usual value.
+    pub library_value: f64,
+    /// The value the data uses.
+    pub value: f64,
+}
+
+impl KnownJson {
+    /// Looks up a function of some named columns in the built-in library.
+    pub fn identify(
+        candidate: &dyn Fn(&[f64]) -> f64,
+        input_names: &[String],
+        output_name: &str,
+    ) -> Option<KnownJson> {
+        use regrex_formulas::{Binding, Library};
+        let names: Vec<&str> = input_names.iter().map(String::as_str).collect();
+        let found = Library::builtin().identify(candidate, &names, Some(output_name));
+        let m = found.into_iter().next()?;
+        let f = m.formula;
+        let quantity =
+            |q: &regrex_formulas::Quantity, column: Option<String>, value| KnownQuantityJson {
+                symbol: q.symbol.clone(),
+                name: q.name.clone(),
+                unit: q.unit.clone(),
+                column,
+                value,
+            };
+        Some(KnownJson {
+            id: f.id.clone(),
+            name: f.name.clone(),
+            domain: f.domain.clone(),
+            description: f.description.clone(),
+            expression: f.expr_text.clone(),
+            output: quantity(&f.output, Some(output_name.to_string()), None),
+            variables: f
+                .variables
+                .iter()
+                .zip(&m.variables)
+                .map(|(q, b)| match b {
+                    Binding::Input(i) => quantity(q, Some(input_names[*i].clone()), None),
+                    Binding::Value(v) => quantity(q, None, Some(*v)),
+                })
+                .collect(),
+            exact: m.is_exact(),
+            changed_constant: m.changed_constant.map(|c| ChangedConstantJson {
+                id: c.id,
+                library_value: c.library_value,
+                value: c.value,
+            }),
+            source_title: f.source.title.clone(),
+            source_url: f.source.url.clone(),
+        })
+    }
+
+    /// One line for text output: `kinetic energy (physics)`, with what
+    /// differs from the library.
+    pub fn summary(&self) -> String {
+        let mut s = format!("known formula: {}", self.name);
+        let fixed: Vec<String> = self
+            .variables
+            .iter()
+            .filter_map(|v| {
+                v.value
+                    .map(|x| format!("{} = {}", v.symbol, format_number(x)))
+            })
+            .collect();
+        if !fixed.is_empty() {
+            s += &format!(" with {}", fixed.join(", "));
+        }
+        if let Some(c) = &self.changed_constant {
+            s += &format!(
+                " but {} = {} instead of {}",
+                c.id,
+                format_number(c.value),
+                format_number(c.library_value)
+            );
+        }
+        s
+    }
+}
+
+/// A mistake that explains an exception, see [`regrex_core::diagnose`].
+#[derive(Debug, Clone, Serialize)]
+pub struct DiagnosisJson {
+    /// Kind of mistake: `rounding`, `typo`, `sign`, `factor`,
+    /// `wrong_constant`, `wrong_variable`, `swapped_variables`,
+    /// `missing_operation`, `missing_term`, `wrong_operation` or
+    /// `swapped_operands`.
+    pub kind: String,
+    /// What went wrong, such as `used 0.1 instead of 0.21`.
+    pub description: String,
+    /// The formula the row follows instead, when the mistake is in the formula.
+    pub formula: Option<String>,
 }
 
 /// At most this many exceptions are detailed in a report.
@@ -69,6 +217,12 @@ pub const MAX_EXCEPTION_DETAILS: usize = 100;
 impl DerivedJson {
     /// Converts a [`DerivedColumn`] found in `table`.
     pub fn new(table: &Table, d: &DerivedColumn) -> Self {
+        Self::with_context(table, d, &[])
+    }
+
+    /// Like [`DerivedJson::new`], with every column found in the same scan,
+    /// so a wrong cell that breaks several formulas is blamed only once.
+    pub fn with_context(table: &Table, d: &DerivedColumn, all: &[DerivedColumn]) -> Self {
         let names = &table.names;
         let exceptions = d
             .exceptions
@@ -76,10 +230,19 @@ impl DerivedJson {
             .take(MAX_EXCEPTION_DETAILS)
             .map(|&r| {
                 let row: Vec<f64> = table.columns.iter().map(|c| c[r]).collect();
+                let diagnosis = diagnose_exception(table, d, all, r, &ScanConfig::default())
+                    .into_iter()
+                    .next()
+                    .map(|m| DiagnosisJson {
+                        kind: m.kind.id().to_string(),
+                        description: m.description,
+                        formula: m.formula.map(|f| f.display_with(names).to_string()),
+                    });
                 ExceptionJson {
                     row: r + 1,
                     actual: table.columns[d.target][r],
                     expected: d.formula.eval_row(&row, &[]),
+                    diagnosis,
                 }
             })
             .collect();
@@ -93,8 +256,23 @@ impl DerivedJson {
             match_ratio: d.match_ratio(),
             exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
             exceptions,
+            known: known_column(table, d),
         }
     }
+}
+
+/// Looks up the formula of a derived column in the library.
+fn known_column(table: &Table, d: &DerivedColumn) -> Option<KnownJson> {
+    let n = table.columns.len();
+    let candidate = |values: &[f64]| {
+        let mut row = vec![0.0; n];
+        for (k, &c) in d.inputs.iter().enumerate() {
+            row[c] = values[k];
+        }
+        d.formula.eval_row(&row, &[])
+    };
+    let names: Vec<String> = d.inputs.iter().map(|&i| table.names[i].clone()).collect();
+    KnownJson::identify(&candidate, &names, &table.names[d.target])
 }
 
 impl ScanReport {
@@ -109,7 +287,7 @@ impl ScanReport {
             skipped_columns: loaded.skipped.clone(),
             derived: derived
                 .iter()
-                .map(|d| DerivedJson::new(&loaded.table, d))
+                .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
                 .collect(),
         }
     }
@@ -180,14 +358,29 @@ impl ScanReport {
                 "  {:<width$} = {:<fwidth$}   {}/{} rows",
                 d.column, d.formula, d.matched_rows, d.checked_rows
             );
+            let known = d
+                .known
+                .as_ref()
+                .map(|k| format!("\n  {:width$}   {}", "", k.summary()))
+                .unwrap_or_default();
+            let why = |x: &ExceptionJson| {
+                x.diagnosis
+                    .as_ref()
+                    .map(|m| format!(" ({})", m.description))
+                    .unwrap_or_default()
+            };
             if let [only] = d.exceptions.as_slice() {
                 let _ = writeln!(
                     s,
-                    "   exception: row {} is {}, formula gives {}",
+                    "   exception: row {} is {}, formula gives {}{}",
                     only.row,
                     format_number(only.actual),
-                    format_number(only.expected)
+                    format_number(only.expected),
+                    why(only)
                 );
+                if !known.is_empty() {
+                    let _ = writeln!(s, "{}", known.trim_start_matches('\n'));
+                }
                 continue;
             }
             if !d.exception_rows.is_empty() {
@@ -202,8 +395,24 @@ impl ScanReport {
                 if more > 0 {
                     let _ = write!(s, " and {more} more");
                 }
+                // Explain the first few, when there is something to say.
+                for x in d
+                    .exceptions
+                    .iter()
+                    .take(5)
+                    .filter(|x| x.diagnosis.is_some())
+                {
+                    let _ = write!(
+                        s,
+                        "\n      row {}: {} instead of {}{}",
+                        x.row,
+                        format_number(x.actual),
+                        format_number(x.expected),
+                        why(x)
+                    );
+                }
             }
-            let _ = writeln!(s);
+            let _ = writeln!(s, "{known}");
         }
         s
     }
@@ -239,6 +448,8 @@ pub struct CandidateJson {
     pub max_abs_error: f64,
     /// Whether the formula is exact (up to floating point error).
     pub exact: bool,
+    /// The well-known formula this is, if it is one.
+    pub known: Option<KnownJson>,
 }
 
 impl FitReport {
@@ -258,6 +469,11 @@ impl FitReport {
                     r2: c.r2,
                     max_abs_error: c.max_abs_error,
                     exact: c.exact,
+                    known: KnownJson::identify(
+                        &|x: &[f64]| c.expr.eval_row(x, &[]),
+                        inputs,
+                        target,
+                    ),
                 })
                 .collect(),
         }
@@ -281,9 +497,14 @@ impl FitReport {
         let _ = writeln!(s, "  {:>10}  {:>10}  formula", "complexity", "R²");
         for c in &self.candidates {
             let mark = if c.exact { "  (exact)" } else { "" };
+            let known = c
+                .known
+                .as_ref()
+                .map(|k| format!("  [{}]", k.summary()))
+                .unwrap_or_default();
             let _ = writeln!(
                 s,
-                "  {:>10}  {:>10.6}  {} = {}{mark}",
+                "  {:>10}  {:>10.6}  {} = {}{mark}{known}",
                 c.complexity, c.r2, self.target, c.formula
             );
         }

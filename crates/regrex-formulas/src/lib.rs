@@ -34,6 +34,7 @@
 #![warn(missing_docs)]
 
 pub mod expr;
+pub mod identify;
 pub mod units;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -43,6 +44,7 @@ use std::sync::OnceLock;
 use serde::Deserialize;
 
 pub use expr::{Expr, Func, Op};
+pub use identify::{Binding, ChangedConstant, Match};
 pub use units::{parse_unit, Dimension, Unit};
 
 /// The TOML files shipped with the crate, as `(file name, contents)`.

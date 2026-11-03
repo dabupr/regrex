@@ -80,6 +80,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --workspace --no-deps
 
+  package:
+    # The crates published to crates.io build on their own, from the packaged files.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo package --locked -p regrex-formulas -p regrex-core -p regrex-io -p regrex-cli
+
   deny:
     runs-on: ubuntu-latest
     steps:

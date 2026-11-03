@@ -231,6 +231,16 @@ source = { title = "Free fall (Wikipedia)", url = "https://en.wikipedia.org/wiki
 checks = [{ inputs = [4.903325], output = 9.80665 }]
 
 [[formula]]
+id = "free_fall_distance"
+name = "Distance fallen from rest"
+expr = "g * t^2 / 2"
+output = { symbol = "d", name = "distance fallen", unit = "m", aliases = ["distance", "height", "drop"] }
+variables = [{ symbol = "t", name = "time", unit = "s", aliases = ["time"] }]
+tags = ["mechanics", "kinematics", "gravity"]
+source = { title = "Free fall (Wikipedia)", url = "https://en.wikipedia.org/wiki/Free_fall" }
+checks = [{ inputs = [2], output = 19.6133 }]
+
+[[formula]]
 id = "projectile_range"
 name = "Range of a projectile on level ground"
 expr = "v^2 * sin(2 * θ) / g"

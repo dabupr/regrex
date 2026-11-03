@@ -12,7 +12,7 @@
     <header class="top">
       <div class="wrap top-inner">
         <a class="brand" href="./"><span class="logo" aria-hidden="true">f(x)</span> Regrex</a>
-        <a class="gh" href="https://github.com/dabupr/regrex">GitHub</a>
+        <nav class="nav"><a href="library.html">Formula library</a> <a class="gh" href="https://github.com/dabupr/regrex">GitHub</a></nav>
       </div>
     </header>
 
@@ -49,11 +49,53 @@
         </div>
         <p class="hint muted">Untick columns that are not data, such as IDs or invoice numbers.</p>
         <div class="table-wrap"><table id="preview"></table></div>
+
+        <details id="settings" class="panel">
+          <summary>Search settings <span id="settings-summary" class="muted"></span></summary>
+          <fieldset class="profiles">
+            <legend>How hard to search</legend>
+            <label><input type="radio" name="profile" value="fast" /> <b>Fast</b>
+              <span class="muted">Short formulas only. Best for big files.</span></label>
+            <label><input type="radio" name="profile" value="normal" /> <b>Normal</b>
+              <span class="muted">Formulas like price × quantity × 1.21, even with a few wrong rows.</span></label>
+            <label><input type="radio" name="profile" value="thorough" /> <b>Thorough</b>
+              <span class="muted">Also tries longer formulas for the columns Normal cannot explain. Can take minutes.</span></label>
+          </fieldset>
+          <label class="only">Explain <select id="only"></select></label>
+          <fieldset>
+            <legend>Operations formulas may use</legend>
+            <div id="operators" class="operators"></div>
+            <p class="hint muted">Fewer operations make the search faster and the formulas simpler.</p>
+          </fieldset>
+          <details id="advanced" class="advanced">
+            <summary>Advanced</summary>
+            <div id="advanced-fields"></div>
+          </details>
+          <button id="reset" type="button" class="link">Reset to the defaults</button>
+        </details>
+
+        <details id="own" class="panel">
+          <summary>Test your own formula</summary>
+          <form id="own-form" class="own-form">
+            <select id="own-column" aria-label="Column to test"></select>
+            <span aria-hidden="true">=</span>
+            <input id="own-formula" aria-label="Formula" placeholder="rate * net" autocomplete="off" required />
+            <button class="primary" type="submit">Check</button>
+          </form>
+          <p class="hint muted">
+            Use column names. Any other name, such as <code>rate</code>, is a constant that Regrex fits for you.
+          </p>
+          <p id="own-error" class="error" role="alert" hidden></p>
+          <div id="own-result"></div>
+        </details>
       </section>
 
       <section id="progress" hidden>
         <div class="meter"><div id="meter-fill"></div></div>
-        <p id="progress-text" class="muted"></p>
+        <div class="progress-line">
+          <p id="progress-text" class="muted"></p>
+          <button id="stop" type="button">Stop</button>
+        </div>
       </section>
 
       <section id="results" hidden>
@@ -61,8 +103,21 @@
           <h2>Results</h2>
           <button id="download" type="button">Download JSON</button>
         </div>
+        <div id="summary" class="summary" role="status"></div>
         <div id="cards"></div>
         <p id="independent" class="muted"></p>
+      </section>
+
+      <section id="suspicious" hidden>
+        <div class="bar">
+          <h2>Suspicious rows</h2>
+          <button id="export" type="button">Export as CSV</button>
+        </div>
+        <p class="hint muted">
+          These rows break a formula that almost every other row follows, so they are probably
+          typing or copy mistakes. The cell that breaks the rule is highlighted.
+        </p>
+        <div class="table-wrap"><table id="suspicious-table"></table></div>
       </section>
     </main>
 

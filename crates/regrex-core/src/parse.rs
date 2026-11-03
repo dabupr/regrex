@@ -43,12 +43,38 @@ impl std::error::Error for ParseError {}
 /// assert_eq!(e.eval_row(&[2.0, 3.0], &[]), 9.0);
 /// ```
 pub fn parse_expr(text: &str, variables: &[&str]) -> Result<Expr, ParseError> {
+    parse(text, variables, None)
+}
+
+/// Parses a formula shape with constants to fit, such as `a * x^b`: every
+/// name that is not a variable, a function, `pi` or `e` becomes a parameter
+/// (`Expr::Param`), numbered in order of first appearance. Returns the
+/// expression and the parameter names.
+///
+/// ```
+/// use regrex_core::parse::parse_template;
+/// let (e, params) = parse_template("a * x^b + a", &["x"]).unwrap();
+/// assert_eq!(params, ["a", "b"]);
+/// assert_eq!(e.eval_row(&[2.0], &[3.0, 2.0]), 15.0);
+/// ```
+pub fn parse_template(text: &str, variables: &[&str]) -> Result<(Expr, Vec<String>), ParseError> {
+    let mut params = Vec::new();
+    let e = parse(text, variables, Some(&mut params))?;
+    Ok((e, params))
+}
+
+fn parse(
+    text: &str,
+    variables: &[&str],
+    params: Option<&mut Vec<String>>,
+) -> Result<Expr, ParseError> {
     let normalized = text.replace('²', "^2").replace('³', "^3");
     let tokens = tokenize(&normalized)?;
     let mut p = Parser {
         tokens,
         pos: 0,
         variables,
+        params,
     };
     let e = p.expr()?;
     match p.peek() {
@@ -147,6 +173,8 @@ struct Parser<'a> {
     tokens: Vec<(Token, usize)>,
     pos: usize,
     variables: &'a [&'a str],
+    /// When parsing a template, the names of the parameters found so far.
+    params: Option<&'a mut Vec<String>>,
 }
 
 impl Parser<'_> {
@@ -268,6 +296,14 @@ impl Parser<'_> {
                 match name.as_str() {
                     "pi" | "π" => Ok(Expr::Const(std::f64::consts::PI)),
                     "e" => Ok(Expr::Const(std::f64::consts::E)),
+                    _ if self.params.is_some() => {
+                        let params = self.params.as_mut().expect("checked");
+                        let i = params.iter().position(|p| *p == name).unwrap_or_else(|| {
+                            params.push(name.clone());
+                            params.len() - 1
+                        });
+                        Ok(Expr::Param(i))
+                    }
                     _ => Err(ParseError {
                         message: format!("unknown variable {name:?}"),
                         position: at,

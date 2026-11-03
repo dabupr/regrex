@@ -1,6 +1,6 @@
 [package]
 name = "regrex-cli"
-version = "0.0.1"
+version.workspace = true
 description = "Command-line interface for Regrex: find the formulas behind your data"
 edition.workspace = true
 license.workspace = true
@@ -8,6 +8,8 @@ repository.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 readme = "../../README.md"
+homepage = "https://dabupr.github.io/regrex/"
+documentation = "https://docs.rs/regrex-cli"
 keywords = ["symbolic-regression", "csv", "excel", "formula", "cli"]
 categories = ["command-line-utilities", "science"]
 
