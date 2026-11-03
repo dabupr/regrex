@@ -55,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Advanced search settings in the web app, each explained with its default: rows that must follow the formula, tolerance, columns tried as inputs and a time limit. A running search can be stopped. Thorough only tries longer formulas for the columns Normal cannot explain, so the example takes 40 seconds instead of 4 minutes.
 - Search only among known formulas in the web app, optionally of one domain: every library formula is tried with the file's columns, fitting at most one constant (such as a tax rate).
 - "Test your own formula" in the web app, and the `check_formula` MCP tool, accept constants to fit: `vat = rate * net` finds `0.21 * net` and the rows that break it. In Rust: `parse::parse_template` and `fit_shape`.
+- Columns that mix two formulas: when many rows break a formula, the scan looks for a second formula among them and for a rule on another column that tells the rows apart (`vat = 0.1 * net` for 24 rows, where `year >= 2023`). A column is reported even when neither formula alone covers 90% of the rows, as long as both do together and a rule splits them. JSON reports gain `other`, exceptions that follow it are diagnosed as `other_formula`, and the CLI and web app show it. Example: `examples/data/tax_change.csv`.
+- When no formula matches enough rows, the shapes found are refitted on tiny samples, so rows of two kinds no longer hide both formulas.
+- JSON input: `.json` files with an array of objects, an object of columns or an array of arrays, and JSON lines (`.ndjson`, `.jsonl`); nested objects become columns such as `price.net`. Works in the CLI, Python, MCP and the web app.
+- The web app reads cells pasted from a spreadsheet (Ctrl+V).
 - `ScanConfig::small_samples`: when no formula fits every row, the scan also searches small random samples of rows, so a few wrong rows in a small table no longer hide its formula.
 
 ### Changed

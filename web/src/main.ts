@@ -295,7 +295,14 @@ let scanStop: (() => void) | undefined;
 
 /** Whether the rows that break a formula are few enough to be mistakes. */
 function fewExceptions(d: Derived): boolean {
-  return d.exception_rows.length > 0 && d.exception_rows.length <= MISTAKE_SHARE * d.checked_rows;
+  const wrong = wrongRows(d).length;
+  return wrong > 0 && wrong <= MISTAKE_SHARE * d.checked_rows;
+}
+
+/** Rows that follow neither the formula nor the column's other formula. */
+function wrongRows(d: Derived): number[] {
+  const other = new Set(d.other?.rows ?? []);
+  return d.exception_rows.filter((r) => !other.has(r));
 }
 
 /** Rows that break a formula followed by almost every other row, with their cells. */
@@ -303,7 +310,7 @@ async function findSuspects(derived: Derived[]): Promise<Suspect[]> {
   const reasons = new Map<number, Suspect["reasons"]>();
   for (const d of derived.filter(fewExceptions)) {
     const details = new Map(d.exceptions.map((x) => [x.row, x]));
-    for (const row of d.exception_rows) {
+    for (const row of wrongRows(d)) {
       const x = details.get(row);
       const why = x
         ? x.diagnosis?.kind === "other_cell"
@@ -323,7 +330,7 @@ function renderSuspects() {
   if (!state) return;
   const { suspects, info } = state;
   const n = suspects.length;
-  const segments = state.derived.filter((d) => d.exception_rows.length > 0 && !fewExceptions(d));
+  const segments = state.derived.filter((d) => !d.other && wrongRows(d).length > 0 && !fewExceptions(d));
   const found = state.derived.length;
   const parts: (Node | string)[] = [
     el("span", {}, found === 1 ? "1 formula found" : `${found} formulas found`),
@@ -434,10 +441,13 @@ function knownNode(k: Known): HTMLElement {
 /** The card for one formula: status, inputs, known formula and the rows that break it. */
 function derivedCard(d: Derived): HTMLElement {
   const exceptions = d.exception_rows.length;
+  const wrong = wrongRows(d).length;
   const status =
     exceptions === 0
       ? el("span", { class: "ok" }, `✓ all ${d.checked_rows} rows`)
-      : el("span", { class: "warn" }, `${d.matched_rows} of ${d.checked_rows} rows`);
+      : d.other
+        ? el("span", { class: wrong ? "warn" : "ok" }, `${d.matched_rows} of ${d.checked_rows} rows${wrong ? `, ${wrong} with neither formula` : ", the rest with a second formula"}`)
+        : el("span", { class: "warn" }, `${d.matched_rows} of ${d.checked_rows} rows`);
   const card = el(
     "article",
     { class: "card", "data-column": d.column },
@@ -445,7 +455,23 @@ function derivedCard(d: Derived): HTMLElement {
     el("div", { class: "meta" }, status, el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
   );
   if (d.known) card.append(knownNode(d.known));
-  if (exceptions > 0 && !fewExceptions(d) && d.matched_rows >= 0.5 * d.checked_rows) {
+  if (d.other) {
+    const o = d.other;
+    const n = o.rows.length === 1 ? "1 row" : `${o.rows.length} rows`;
+    card.append(
+      el(
+        "div",
+        { class: "other" },
+        el("span", { class: "badge other-badge" }, "Second formula"),
+        " ",
+        el("span", { class: "formula-inline" }, el("b", {}, d.column), ` = ${o.formula}`),
+        el("span", { class: "muted" }, o.split ? ` for ${n}, where ${o.split.rule}` : ` for ${n}`),
+      ),
+    );
+    if (!o.split) {
+      card.append(el("p", { class: "note" }, "No column tells these rows apart; a text column such as a product or region may."));
+    }
+  } else if (exceptions > 0 && !fewExceptions(d) && d.matched_rows >= 0.5 * d.checked_rows) {
     const share = Math.round((100 * exceptions) / d.checked_rows);
     card.append(
       el(
@@ -471,7 +497,13 @@ function derivedCard(d: Derived): HTMLElement {
       el(
         "details",
         {},
-        el("summary", {}, `${exceptions === 1 ? "1 row breaks" : `${exceptions} rows break`} the rule${more}`),
+        el(
+          "summary",
+          {},
+          d.other
+            ? `${exceptions} rows follow another formula${wrong ? `, ${wrong} of them neither` : ""}${more}`
+            : `${exceptions === 1 ? "1 row breaks" : `${exceptions} rows break`} the rule${more}`,
+        ),
         el(
           "table",
           {},
@@ -554,6 +586,14 @@ ui.drop.addEventListener("drop", (e) => {
 ui.example.addEventListener("click", async () => {
   const res = await fetch(`${import.meta.env.BASE_URL}invoices.csv`);
   await openFile("invoices.csv", await res.arrayBuffer());
+});
+// Cells copied from a spreadsheet arrive as tab-separated text.
+document.addEventListener("paste", (e) => {
+  if (e.target instanceof Element && e.target.closest("input, textarea, select, [contenteditable]")) return;
+  const text = e.clipboardData?.getData("text/plain") ?? "";
+  if (!text.trim()) return;
+  e.preventDefault();
+  void openFile("pasted cells", new TextEncoder().encode(text).buffer as ArrayBuffer);
 });
 ui.sheet.addEventListener("change", () => {
   if (state) void openFile(state.name, state.bytes, ui.sheet.value);

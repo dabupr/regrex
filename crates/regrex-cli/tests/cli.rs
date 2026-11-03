@@ -166,3 +166,30 @@ fn mcp_server_over_stdio() {
     assert_eq!(check["exception_rows"], serde_json::json!([42]));
     assert_eq!(check["checked_rows"], 60);
 }
+
+#[test]
+fn scan_finds_two_formulas_and_the_rule() {
+    let (ok, stdout, stderr) = regrex(&[
+        "scan",
+        "tests/tax_change.csv",
+        "--ignore",
+        "invoice",
+        "--json",
+    ]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let vat = derived(&report, "vat");
+    assert_eq!(vat["formula"], "0.21 * net");
+    assert_eq!(vat["matched_rows"], 36);
+    let other = &vat["other"];
+    assert_eq!(other["formula"], "0.1 * net");
+    assert_eq!(other["rows"].as_array().unwrap().len(), 24);
+    assert_eq!(other["split"]["rule"], "year >= 2023");
+    assert_eq!(vat["exceptions"][0]["diagnosis"]["kind"], "other_formula");
+
+    let (_, text, _) = regrex(&["scan", "tests/tax_change.csv", "--ignore", "invoice"]);
+    assert!(
+        text.contains("other rows: 0.1 * net (24 rows, where year >= 2023)"),
+        "{text}"
+    );
+}

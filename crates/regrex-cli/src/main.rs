@@ -58,7 +58,7 @@ enum Command {
 
 #[derive(Args)]
 struct FileArgs {
-    /// A CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row.
+    /// A CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row, or a JSON file (.json, .ndjson, .jsonl) with one object per row.
     file: PathBuf,
     /// Sheet to read from a spreadsheet (default: the first one).
     #[arg(long)]

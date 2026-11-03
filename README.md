@@ -23,7 +23,7 @@
 
 ## Web app
 
-Open [dabupr.github.io/regrex](https://dabupr.github.io/regrex/), drop a CSV or Excel file (or try the example), untick ID columns and press **Find derived columns**. Rows that break a formula are listed at the top with the cell to fix highlighted, and can be exported as CSV. The engine is the same Rust code as the command line, compiled to WebAssembly and run in a background thread, so files are never uploaded anywhere.
+Open [dabupr.github.io/regrex](https://dabupr.github.io/regrex/), drop a CSV, Excel or JSON file, or paste cells copied from a spreadsheet (or try the example), untick ID columns and press **Find derived columns**. Rows that break a formula are listed at the top with the cell to fix highlighted, and can be exported as CSV. The engine is the same Rust code as the command line, compiled to WebAssembly and run in a background thread, so files are never uploaded anywhere.
 
 ## Command line
 
@@ -43,7 +43,7 @@ Skipped (not numeric): product
 ```
 
 - Explains each exception when a simple mistake reproduces it exactly: a wrong constant (VAT at 10%, `g = 10`), a mistyped digit, a unit or percentage factor, a forgotten square, swapped or wrong columns, a missing term, or another wrong cell in the same row.
-- Reads CSV (comma, semicolon or tab; decimal point or comma) and spreadsheets (`.xlsx`, `.xls`, `.ods`, choose one with `--sheet`).
+- Reads CSV (comma, semicolon or tab; decimal point or comma), spreadsheets (`.xlsx`, `.xls`, `.ods`, choose one with `--sheet`) and JSON (`.json` with an array of objects or an object of columns, `.ndjson`/`.jsonl` with one object per line).
 - Put units in the headers (`time (s)`, `distance [m]`) and Regrex skips formulas that mix incompatible units, which is faster and avoids nonsense like adding seconds to metres.
 - `--json` prints a stable, versioned JSON report for scripts and AI agents ([format](docs/json-output.md)).
 - `--mermaid` prints the dependencies between columns as a diagram.
