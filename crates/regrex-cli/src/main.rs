@@ -58,9 +58,9 @@ enum Command {
 
 #[derive(Args)]
 struct FileArgs {
-    /// A CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row, or a JSON file (.json, .ndjson, .jsonl) with one object per row.
+    /// A CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row, a JSON file (.json, .ndjson, .jsonl) with one object per row, a Parquet or Arrow file (.parquet, .arrow, .feather), or a SQLite database (.sqlite, .db).
     file: PathBuf,
-    /// Sheet to read from a spreadsheet (default: the first one).
+    /// Sheet of a spreadsheet, or table of a SQLite database, to read (default: the first one).
     #[arg(long)]
     sheet: Option<String>,
     /// Columns to ignore (comma separated), for example IDs.
@@ -97,6 +97,19 @@ pub(crate) fn load_file(
         loaded.table.remove_column(index);
     }
     if loaded.table.columns.is_empty() {
+        let others: Vec<&str> = loaded
+            .sheets
+            .iter()
+            .map(String::as_str)
+            .filter(|s| Some(*s) != sheet)
+            .collect();
+        if sheet.is_none() && others.len() > 1 {
+            return Err(format!(
+                "no numeric columns found in {:?}; choose another sheet or table with --sheet: {}",
+                others[0],
+                others[1..].join(", ")
+            ));
+        }
         return Err("no numeric columns found".into());
     }
     Ok(loaded)

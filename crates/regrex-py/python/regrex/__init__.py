@@ -5,7 +5,8 @@ three functions:
 
 * :func:`search` finds formulas for one target from input columns;
 * :func:`scan` finds which columns of a table are computed from the others;
-* :func:`scan_file` does the same for a CSV or spreadsheet file.
+* :func:`scan_file` does the same for a file: CSV, spreadsheet, JSON,
+  Parquet, Arrow or SQLite.
 
 Results are plain dictionaries with the same fields as the JSON output of the
 ``regrex`` command-line tool (``schema_version`` 1).
@@ -118,9 +119,13 @@ def scan_file(
     min_match: float = 0.9,
     max_size: int = 5,
 ) -> "dict[str, Any]":
-    """Like :func:`scan`, for a CSV file or a spreadsheet (.xlsx, .xls, .ods).
+    """Like :func:`scan`, for a file: CSV, a spreadsheet (.xlsx, .xls, .ods),
+    JSON (.json, .ndjson, .jsonl), Parquet (.parquet), Arrow (.arrow,
+    .feather) or a SQLite database (.sqlite, .db).
 
-    Units can be given in the headers, as in ``time (s)``.
+    ``sheet`` picks the sheet of a spreadsheet or the table of a database
+    (default: the first one). Units can be given in the headers, as in
+    ``time (s)``.
     """
     report = _native.scan_file_json(str(path), sheet, list(ignore), min_match, max_size)
     return json.loads(report)
