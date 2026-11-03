@@ -344,7 +344,12 @@ fn plausible(m: &Match<'_>) -> bool {
         });
         return m.name_score >= 2 && positive;
     }
-    m.name_score >= 1 || (!is_generic(m.formula) && m.formula.operators().len() >= 2)
+    if is_generic(m.formula) {
+        // `a + b` is everywhere: one shared word such as "total" is not
+        // enough to call it "capacitors in parallel".
+        return m.name_score >= 2;
+    }
+    m.name_score >= 1 || m.formula.operators().len() >= 2
 }
 
 /// A formula with a single operation and no constants or numbers, such as
@@ -471,6 +476,15 @@ mod tests {
             .find(|m| m.changed_constant.as_ref().is_some_and(|c| c.id == "g"))
             .expect("a match with g changed");
         assert_eq!(m.changed_constant.as_ref().unwrap().value, 10.0);
+    }
+
+    #[test]
+    fn one_shared_word_does_not_name_a_generic_formula() {
+        // "total" appears in "total capacitance", but net + vat is not about
+        // capacitors.
+        let found = lib().identify(&|x| x[0] + x[1], &["net", "vat"], Some("total"));
+        let ids: Vec<&str> = found.iter().map(|m| m.formula.id.as_str()).collect();
+        assert!(!ids.contains(&"capacitors_in_parallel"), "{ids:?}");
     }
 
     #[test]
