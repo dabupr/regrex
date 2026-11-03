@@ -52,7 +52,8 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
         "exact": false,
         "source_title": "Value-added tax (Wikipedia)",
         "source_url": "https://en.wikipedia.org/wiki/Value-added_tax"
-      }
+      },
+      "other": null
     }
   ]
 }
@@ -74,10 +75,11 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `derived[].exception_rows` | Every row that breaks the formula. |
 | `derived[].exceptions` | Value in the file and value the formula gives, for the first 100 exceptions. |
 | `derived[].exceptions[].diagnosis` | The most likely mistake, or `null` when no simple mistake reproduces the value. |
-| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`. New kinds may be added. |
+| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`, `other_formula`. New kinds may be added. |
 | `….diagnosis.description` | What went wrong, in English. |
 | `….diagnosis.formula` | The formula the row follows instead, when the mistake is in the formula. |
 
+| `derived[].other` | A second formula followed by many of the exceptions, when the column mixes two kinds of rows, or `null`: its `formula`, the `rows` that follow it and the `split` rule that tells them apart (`column`, `rule` such as `year >= 2023`, `accuracy`), or `null` when no column does. |
 | `derived[].known` | The formula from the [library of known formulas](https://dabupr.github.io/regrex/library.html) that the column follows, or `null`. |
 | `known.id`, `known.name`, `known.domain` | Which library formula it is; see `crates/regrex-formulas/library/`. |
 | `known.expression` | The library formula, in its own symbols. |

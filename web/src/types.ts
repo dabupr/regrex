@@ -74,6 +74,12 @@ export interface Library {
   formulas: LibraryFormula[];
 }
 
+export interface OtherFormula {
+  formula: string;
+  rows: number[];
+  split: { column: string; rule: string; accuracy: number } | null;
+}
+
 export interface Derived {
   column: string;
   formula: string;
@@ -85,6 +91,7 @@ export interface Derived {
   exception_rows: number[];
   exceptions: ExceptionDetail[];
   known: Known | null;
+  other: OtherFormula | null;
 }
 
 export interface Candidate {
