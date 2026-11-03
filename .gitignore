@@ -2,3 +2,9 @@
 **/*.rs.bk
 node_modules/
 dist/
+
+# Python
+__pycache__/
+*.so
+*.pyd
+.venv/
