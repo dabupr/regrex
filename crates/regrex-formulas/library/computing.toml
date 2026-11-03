@@ -262,3 +262,134 @@ variables = [
 tags = ["probability", "hashing"]
 source = { title = "Birthday problem: approximations (Wikipedia)", url = "https://en.wikipedia.org/wiki/Birthday_problem" }
 checks = [{ inputs = [0, 365], output = 0 }]
+
+[[formula]]
+id = "cache_hit_rate"
+name = "Cache hit rate"
+expr = "h / (h + m)"
+output = { symbol = "HR", name = "hit rate", unit = "1", aliases = ["hit_rate", "hit_ratio"] }
+variables = [
+  { symbol = "h", name = "hits", unit = "1", aliases = ["hits"] },
+  { symbol = "m", name = "misses", unit = "1", aliases = ["misses"] },
+]
+tags = ["performance", "caching"]
+source = { title = "Cache (computing) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cache_(computing)" }
+checks = [{ inputs = [950, 50], output = 0.95 }]
+
+[[formula]]
+id = "error_rate"
+name = "Error rate"
+expr = "e / n"
+output = { symbol = "ER", name = "error rate", unit = "1", aliases = ["error_rate"] }
+variables = [
+  { symbol = "e", name = "errors", unit = "1", aliases = ["errors", "failures"] },
+  { symbol = "n", name = "requests", unit = "1", aliases = ["requests", "total"] },
+]
+tags = ["reliability", "kpi"]
+source = { title = "Error rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Error_rate" }
+checks = [{ inputs = [12, 4800], output = 0.0025 }]
+
+[[formula]]
+id = "requests_per_second"
+name = "Requests per second"
+expr = "n / t"
+output = { symbol = "RPS", name = "requests per second", unit = "1/s", aliases = ["rps", "qps", "throughput"] }
+variables = [
+  { symbol = "n", name = "requests", unit = "1", aliases = ["requests"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "duration"] },
+]
+tags = ["performance"]
+source = { title = "Queries per second (Wikipedia)", url = "https://en.wikipedia.org/wiki/Queries_per_second" }
+checks = [{ inputs = [36000, 60], output = 600 }]
+
+[[formula]]
+id = "mtbf_availability"
+name = "Availability from MTBF and MTTR"
+expr = "MTBF / (MTBF + MTTR)"
+output = { symbol = "A", name = "availability", unit = "1", aliases = ["availability", "uptime"] }
+variables = [
+  { symbol = "MTBF", name = "mean time between failures", unit = "s", aliases = ["mtbf"] },
+  { symbol = "MTTR", name = "mean time to repair", unit = "s", aliases = ["mttr"] },
+]
+tags = ["reliability"]
+source = { title = "Mean time between failures (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mean_time_between_failures" }
+checks = [{ inputs = [360000, 3600], output = 0.9900990099009901 }]
+
+[[formula]]
+id = "storage_cost"
+name = "Monthly storage cost"
+expr = "s * p"
+output = { symbol = "cost", name = "storage cost per month", unit = "currency", aliases = ["cost"] }
+variables = [
+  { symbol = "s", name = "stored gigabytes", unit = "1", aliases = ["gb", "storage", "size"] },
+  { symbol = "p", name = "price per gigabyte-month", unit = "currency", aliases = ["price"] },
+]
+tags = ["cloud", "cost"]
+source = { title = "Cloud storage (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cloud_storage" }
+checks = [{ inputs = [500, 0.023], output = 11.5 }]
+
+[[formula]]
+id = "compute_cost"
+name = "Compute cost"
+expr = "h * n * p"
+output = { symbol = "cost", name = "compute cost", unit = "currency", aliases = ["cost"] }
+variables = [
+  { symbol = "h", name = "hours", unit = "1", aliases = ["hours"] },
+  { symbol = "n", name = "instances", unit = "1", aliases = ["instances", "machines", "nodes"] },
+  { symbol = "p", name = "price per instance-hour", unit = "currency", aliases = ["price", "hourly_price"] },
+]
+tags = ["cloud", "cost"]
+source = { title = "Cloud computing (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cloud_computing" }
+checks = [{ inputs = [720, 3, 0.096], output = 207.36 }]
+
+[[formula]]
+id = "bandwidth_delay_product"
+name = "Bandwidth-delay product"
+expr = "B * RTT"
+output = { symbol = "BDP", name = "bandwidth-delay product in bits", unit = "bit", aliases = ["bdp"] }
+variables = [
+  { symbol = "B", name = "bandwidth", unit = "bit/s", aliases = ["bandwidth"] },
+  { symbol = "RTT", name = "round-trip time", unit = "s", aliases = ["rtt", "latency"] },
+]
+tags = ["networking"]
+source = { title = "Bandwidth-delay product (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bandwidth-delay_product" }
+checks = [{ inputs = [100000000, 0.05], output = 5000000 }]
+
+[[formula]]
+id = "utilization_law"
+name = "Utilization law"
+expr = "X * S"
+output = { symbol = "U", name = "utilization", unit = "1", aliases = ["utilization", "utilisation"] }
+variables = [
+  { symbol = "X", name = "throughput", unit = "1/s", aliases = ["throughput"] },
+  { symbol = "S", name = "service time", unit = "s", aliases = ["service_time"] },
+]
+tags = ["performance", "queues"]
+source = { title = "Operational laws (Wikipedia)", url = "https://en.wikipedia.org/wiki/Operational_laws" }
+checks = [{ inputs = [40, 0.02], output = 0.8 }]
+
+[[formula]]
+id = "mm1_response_time"
+name = "Response time of an M/M/1 queue"
+expr = "1 / (mu - lambda)"
+output = { symbol = "R", name = "mean response time", unit = "s", aliases = ["response_time", "latency"] }
+variables = [
+  { symbol = "mu", name = "service rate", unit = "1/s", aliases = ["service_rate"] },
+  { symbol = "lambda", name = "arrival rate", unit = "1/s", aliases = ["arrival_rate"] },
+]
+tags = ["performance", "queues"]
+source = { title = "M/M/1 queue (Wikipedia)", url = "https://en.wikipedia.org/wiki/M/M/1_queue" }
+checks = [{ inputs = [50, 40], output = 0.1 }]
+
+[[formula]]
+id = "password_entropy"
+name = "Entropy of a random password"
+expr = "L * log(N) / log(2)"
+output = { symbol = "H", name = "entropy in bits", unit = "1", aliases = ["entropy", "bits"] }
+variables = [
+  { symbol = "L", name = "length", unit = "1", aliases = ["length"] },
+  { symbol = "N", name = "symbols in the alphabet", unit = "1", aliases = ["alphabet", "symbols"] },
+]
+tags = ["security", "information_theory"]
+source = { title = "Password strength (Wikipedia)", url = "https://en.wikipedia.org/wiki/Password_strength" }
+checks = [{ inputs = [12, 62], output = 71.4503557246425 }]

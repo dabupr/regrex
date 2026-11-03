@@ -375,3 +375,181 @@ variables = [
 tags = ["accounting", "depreciation"]
 source = { title = "Depreciation: straight-line depreciation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Depreciation" }
 checks = [{ inputs = [10000, 2000, 4], output = 2000 }]
+
+[[formula]]
+id = "future_value_simple"
+name = "Future value with simple interest"
+expr = "P * (1 + r * t)"
+output = { symbol = "FV", name = "future value", unit = "currency", aliases = ["future_value", "fv"] }
+variables = [
+  { symbol = "P", name = "principal", unit = "currency", aliases = ["principal"] },
+  { symbol = "r", name = "annual rate", unit = "1/yr", aliases = ["rate"] },
+  { symbol = "t", name = "time", unit = "yr", aliases = ["years", "time"] },
+]
+tags = ["interest"]
+source = { title = "Interest (Wikipedia)", url = "https://en.wikipedia.org/wiki/Interest" }
+checks = [{ inputs = [1000, 0.05, 3], output = 1150 }]
+
+[[formula]]
+id = "loan_interest_portion"
+name = "Interest part of a loan payment"
+expr = "B * r"
+output = { symbol = "I", name = "interest of the period", unit = "currency", aliases = ["interest"] }
+variables = [
+  { symbol = "B", name = "outstanding balance", unit = "currency", aliases = ["balance"] },
+  { symbol = "r", name = "rate per period", unit = "1", aliases = ["rate"] },
+]
+tags = ["loans"]
+source = { title = "Amortization calculator (Wikipedia)", url = "https://en.wikipedia.org/wiki/Amortization_calculator" }
+checks = [{ inputs = [150000, 0.003], output = 450 }]
+
+[[formula]]
+id = "net_present_value_2"
+name = "Net present value of two cash flows"
+expr = "-I + c1 / (1 + r) + c2 / (1 + r)^2"
+output = { symbol = "NPV", name = "net present value", unit = "currency", aliases = ["npv"] }
+variables = [
+  { symbol = "I", name = "initial investment", unit = "currency", aliases = ["investment"] },
+  { symbol = "c1", name = "cash flow in year 1", unit = "currency" },
+  { symbol = "r", name = "discount rate per period", unit = "1", aliases = ["rate", "discount_rate"] },
+  { symbol = "c2", name = "cash flow in year 2", unit = "currency" },
+]
+tags = ["investing"]
+source = { title = "Net present value (Wikipedia)", url = "https://en.wikipedia.org/wiki/Net_present_value" }
+checks = [{ inputs = [1000, 600, 0.08, 600], output = 69.95884773662544 }]
+
+[[formula]]
+id = "sharpe_ratio"
+name = "Sharpe ratio"
+expr = "(R - Rf) / s"
+output = { symbol = "S", name = "Sharpe ratio", unit = "1", aliases = ["sharpe"] }
+variables = [
+  { symbol = "R", name = "portfolio return", unit = "1", aliases = ["return"] },
+  { symbol = "Rf", name = "risk-free rate", unit = "1", aliases = ["risk_free"] },
+  { symbol = "s", name = "standard deviation of returns", unit = "1", aliases = ["volatility", "std"] },
+]
+tags = ["investing", "risk"]
+source = { title = "Sharpe ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sharpe_ratio" }
+checks = [{ inputs = [0.1, 0.03, 0.15], output = 0.46666666666666673 }]
+
+[[formula]]
+id = "capm"
+name = "Capital asset pricing model"
+expr = "Rf + beta * (Rm - Rf)"
+output = { symbol = "ER", name = "expected return", unit = "1", aliases = ["expected_return"] }
+variables = [
+  { symbol = "Rf", name = "risk-free rate", unit = "1", aliases = ["risk_free"] },
+  { symbol = "beta", name = "beta", unit = "1", aliases = ["beta"] },
+  { symbol = "Rm", name = "market return", unit = "1", aliases = ["market_return"] },
+]
+tags = ["investing", "risk"]
+source = { title = "Capital asset pricing model (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capital_asset_pricing_model" }
+checks = [{ inputs = [0.03, 1.2, 0.08], output = 0.09 }]
+
+[[formula]]
+id = "holding_period_return"
+name = "Holding period return"
+expr = "(P1 - P0 + D) / P0"
+output = { symbol = "HPR", name = "holding period return", unit = "1", aliases = ["return", "hpr"] }
+variables = [
+  { symbol = "P1", name = "final price", unit = "currency", aliases = ["final_price"] },
+  { symbol = "P0", name = "initial price", unit = "currency", aliases = ["initial_price"] },
+  { symbol = "D", name = "dividends received", unit = "currency", aliases = ["dividends"] },
+]
+tags = ["investing"]
+source = { title = "Holding period return (Wikipedia)", url = "https://en.wikipedia.org/wiki/Holding_period_return" }
+checks = [{ inputs = [110, 100, 3], output = 0.13 }]
+
+[[formula]]
+id = "inflation_adjusted_value"
+name = "Value in today's money"
+expr = "V / (1 + i)^n"
+output = { symbol = "PV", name = "value in today's money", unit = "currency", aliases = ["real_value"] }
+variables = [
+  { symbol = "V", name = "nominal future value", unit = "currency", aliases = ["value", "nominal"] },
+  { symbol = "i", name = "inflation rate per year", unit = "1", aliases = ["inflation"] },
+  { symbol = "n", name = "years", unit = "1", aliases = ["years"] },
+]
+tags = ["inflation"]
+source = { title = "Real versus nominal value (economics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Real_versus_nominal_value_(economics)" }
+checks = [{ inputs = [1000, 0.03, 10], output = 744.093914896725 }]
+
+[[formula]]
+id = "declining_balance_depreciation"
+name = "Book value with declining balance depreciation"
+expr = "C * (1 - d)^n"
+output = { symbol = "BV", name = "book value", unit = "currency", aliases = ["book_value", "value"] }
+variables = [
+  { symbol = "C", name = "cost", unit = "currency", aliases = ["cost"] },
+  { symbol = "d", name = "depreciation rate per year", unit = "1", aliases = ["rate"] },
+  { symbol = "n", name = "years", unit = "1", aliases = ["years"] },
+]
+tags = ["accounting", "depreciation"]
+source = { title = "Depreciation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Depreciation" }
+checks = [{ inputs = [20000, 0.2, 3], output = 10240.000000000002 }]
+
+[[formula]]
+id = "tip_amount"
+name = "Tip amount"
+expr = "b * t"
+output = { symbol = "tip", name = "tip", unit = "currency", aliases = ["tip", "gratuity", "propina"] }
+variables = [
+  { symbol = "b", name = "bill", unit = "currency", aliases = ["bill", "total"] },
+  { symbol = "t", name = "tip rate", unit = "1", aliases = ["tip_rate"] },
+]
+tags = ["everyday"]
+source = { title = "Gratuity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gratuity" }
+checks = [{ inputs = [64, 0.15], output = 9.6 }]
+
+[[formula]]
+id = "split_bill"
+name = "Share of a split bill"
+expr = "b * (1 + t) / n"
+output = { symbol = "share", name = "amount per person", unit = "currency", aliases = ["per_person", "share"] }
+variables = [
+  { symbol = "b", name = "bill", unit = "currency", aliases = ["bill"] },
+  { symbol = "t", name = "tip rate", unit = "1", aliases = ["tip_rate"] },
+  { symbol = "n", name = "people", unit = "1", aliases = ["people", "persons", "diners"] },
+]
+tags = ["everyday"]
+source = { title = "Gratuity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gratuity" }
+checks = [{ inputs = [120, 0.1, 4], output = 33 }]
+
+[[formula]]
+id = "unit_price"
+name = "Unit price"
+expr = "p / q"
+output = { symbol = "u", name = "price per unit", unit = "currency", aliases = ["unit_price", "price_per_unit", "price_per_kg"] }
+variables = [
+  { symbol = "p", name = "pack price", unit = "currency", aliases = ["price"] },
+  { symbol = "q", name = "quantity in the pack", unit = "1", aliases = ["quantity", "size", "weight"] },
+]
+tags = ["everyday", "pricing"]
+source = { title = "Unit price (Wikipedia)", url = "https://en.wikipedia.org/wiki/Unit_price" }
+checks = [{ inputs = [3.6, 1.5], output = 2.4 }]
+
+[[formula]]
+id = "commission"
+name = "Sales commission"
+expr = "s * r"
+output = { symbol = "C", name = "commission", unit = "currency", aliases = ["commission"] }
+variables = [
+  { symbol = "s", name = "sales", unit = "currency", aliases = ["sales", "revenue"] },
+  { symbol = "r", name = "commission rate", unit = "1", aliases = ["rate", "commission_rate"] },
+]
+tags = ["sales"]
+source = { title = "Commission (remuneration) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Commission_(remuneration)" }
+checks = [{ inputs = [42000, 0.03], output = 1260 }]
+
+[[formula]]
+id = "loan_total_cost"
+name = "Total paid on an amortized loan"
+expr = "M * n"
+output = { symbol = "T", name = "total paid", unit = "currency", aliases = ["total", "total_paid"] }
+variables = [
+  { symbol = "M", name = "payment per period", unit = "currency", aliases = ["payment", "installment"] },
+  { symbol = "n", name = "number of payments", unit = "1", aliases = ["payments", "periods"] },
+]
+tags = ["loans"]
+source = { title = "Amortizing loan (Wikipedia)", url = "https://en.wikipedia.org/wiki/Amortizing_loan" }
+checks = [{ inputs = [536.82, 360], output = 193255.2 }]

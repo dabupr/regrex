@@ -62,6 +62,8 @@ pub const BUILTIN_FILES: &[(&str, &str)] = &[
     ("finance.toml", include_str!("../library/finance.toml")),
     ("computing.toml", include_str!("../library/computing.toml")),
     ("health.toml", include_str!("../library/health.toml")),
+    ("business.toml", include_str!("../library/business.toml")),
+    ("energy.toml", include_str!("../library/energy.toml")),
     (
         "conversions.toml",
         include_str!("../library/conversions.toml"),

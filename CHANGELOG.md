@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - When no formula matches enough rows, the shapes found are refitted on tiny samples, so rows of two kinds no longer hide both formulas.
 - JSON input: `.json` files with an array of objects, an object of columns or an array of arrays, and JSON lines (`.ndjson`, `.jsonl`); nested objects become columns such as `price.net`. Works in the CLI, Python, MCP and the web app.
 - The web app reads cells pasted from a spreadsheet (Ctrl+V).
+- The library of known formulas grows from 236 to 459 formulas, with two new domains: business and operations (marketing KPIs, accounting ratios, inventory, payroll, HR, hospitality) and energy and environment (electricity bills, solar, wind, hydro, heating, batteries, fuels and CO₂).
 - `ScanConfig::small_samples`: when no formula fits every row, the scan also searches small random samples of rows, so a few wrong rows in a small table no longer hide its formula.
 
 ### Changed

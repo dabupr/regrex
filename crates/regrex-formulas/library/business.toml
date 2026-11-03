@@ -1,0 +1,638 @@
+# Business operations: sales and marketing KPIs, accounting ratios, inventory,
+# operations, payroll and HR, logistics and hospitality.
+#
+# Money is the `currency` dimension. Rates and ratios are plain fractions.
+
+id = "business"
+name = "Business and operations"
+description = "Sales and marketing KPIs, accounting ratios, inventory, operations, payroll, HR, logistics and hospitality."
+
+[[formula]]
+id = "revenue"
+name = "Revenue (units sold × price)"
+expr = "n * p"
+output = { symbol = "R", name = "revenue", unit = "currency", aliases = ["revenue", "sales", "turnover", "ingressos", "vendes"] }
+variables = [
+  { symbol = "n", name = "units sold", unit = "1", aliases = ["units", "units_sold", "quantity", "qty"] },
+  { symbol = "p", name = "unit price", unit = "currency", aliases = ["price", "unit_price", "preu"] },
+]
+tags = ["sales"]
+source = { title = "Revenue (Wikipedia)", url = "https://en.wikipedia.org/wiki/Revenue" }
+checks = [{ inputs = [120, 2.5], output = 300 }]
+
+[[formula]]
+id = "average_order_value"
+name = "Average order value"
+expr = "R / n"
+output = { symbol = "AOV", name = "average order value", unit = "currency", aliases = ["aov", "average_order_value", "avg_order"] }
+variables = [
+  { symbol = "R", name = "revenue", unit = "currency", aliases = ["revenue", "sales"] },
+  { symbol = "n", name = "number of orders", unit = "1", aliases = ["orders", "order_count"] },
+]
+tags = ["sales", "kpi"]
+source = { title = "Average order value (Wikipedia)", url = "https://en.wikipedia.org/wiki/Average_order_value" }
+checks = [{ inputs = [5000, 125], output = 40 }]
+
+[[formula]]
+id = "conversion_rate"
+name = "Conversion rate"
+expr = "c / v"
+output = { symbol = "CR", name = "conversion rate", unit = "1", aliases = ["conversion_rate", "conversion", "cr"] }
+variables = [
+  { symbol = "c", name = "conversions", unit = "1", aliases = ["conversions", "purchases", "signups"] },
+  { symbol = "v", name = "visitors", unit = "1", aliases = ["visitors", "visits", "sessions", "clicks"] },
+]
+tags = ["marketing", "kpi"]
+source = { title = "Conversion rate optimization (Wikipedia)", url = "https://en.wikipedia.org/wiki/Conversion_rate_optimization" }
+checks = [{ inputs = [45, 1500], output = 0.03 }]
+
+[[formula]]
+id = "click_through_rate"
+name = "Click-through rate"
+expr = "k / i"
+output = { symbol = "CTR", name = "click-through rate", unit = "1", aliases = ["ctr", "click_through_rate"] }
+variables = [
+  { symbol = "k", name = "clicks", unit = "1", aliases = ["clicks"] },
+  { symbol = "i", name = "impressions", unit = "1", aliases = ["impressions", "views"] },
+]
+tags = ["marketing", "kpi"]
+source = { title = "Click-through rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Click-through_rate" }
+checks = [{ inputs = [30, 2000], output = 0.015 }]
+
+[[formula]]
+id = "cost_per_click"
+name = "Cost per click"
+expr = "C / k"
+output = { symbol = "CPC", name = "cost per click", unit = "currency", aliases = ["cpc", "cost_per_click"] }
+variables = [
+  { symbol = "C", name = "advertising cost", unit = "currency", aliases = ["cost", "spend", "ad_spend"] },
+  { symbol = "k", name = "clicks", unit = "1", aliases = ["clicks"] },
+]
+tags = ["marketing", "kpi"]
+source = { title = "Cost per click (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cost_per_click" }
+checks = [{ inputs = [150, 600], output = 0.25 }]
+
+[[formula]]
+id = "cost_per_mille"
+name = "Cost per thousand impressions (CPM)"
+expr = "1000 * C / i"
+output = { symbol = "CPM", name = "cost per thousand impressions", unit = "currency", aliases = ["cpm"] }
+variables = [
+  { symbol = "C", name = "advertising cost", unit = "currency", aliases = ["cost", "spend", "ad_spend"] },
+  { symbol = "i", name = "impressions", unit = "1", aliases = ["impressions", "views"] },
+]
+tags = ["marketing", "kpi"]
+source = { title = "Cost per mille (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cost_per_mille" }
+checks = [{ inputs = [90, 45000], output = 2 }]
+
+[[formula]]
+id = "cost_per_acquisition"
+name = "Cost per acquisition"
+expr = "C / a"
+output = { symbol = "CPA", name = "cost per acquisition", unit = "currency", aliases = ["cpa", "cac", "cost_per_acquisition"] }
+variables = [
+  { symbol = "C", name = "marketing cost", unit = "currency", aliases = ["cost", "spend", "marketing_cost"] },
+  { symbol = "a", name = "new customers", unit = "1", aliases = ["customers", "new_customers", "acquisitions"] },
+]
+tags = ["marketing", "kpi"]
+source = { title = "Cost per action (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cost_per_action" }
+checks = [{ inputs = [2400, 80], output = 30 }]
+
+[[formula]]
+id = "return_on_ad_spend"
+name = "Return on ad spend"
+expr = "R / C"
+output = { symbol = "ROAS", name = "return on ad spend", unit = "1", aliases = ["roas"] }
+variables = [
+  { symbol = "R", name = "revenue from ads", unit = "currency", aliases = ["revenue", "sales"] },
+  { symbol = "C", name = "advertising cost", unit = "currency", aliases = ["cost", "spend", "ad_spend"] },
+]
+tags = ["marketing", "kpi"]
+source = { title = "Return on advertising spend (Wikipedia)", url = "https://en.wikipedia.org/wiki/Return_on_advertising_spend" }
+checks = [{ inputs = [9000, 2000], output = 4.5 }]
+
+[[formula]]
+id = "churn_rate"
+name = "Churn rate"
+expr = "l / n"
+output = { symbol = "churn", name = "churn rate", unit = "1", aliases = ["churn", "churn_rate"] }
+variables = [
+  { symbol = "l", name = "customers lost", unit = "1", aliases = ["lost", "churned", "cancellations"] },
+  { symbol = "n", name = "customers at the start", unit = "1", aliases = ["customers", "start_customers", "subscribers"] },
+]
+tags = ["customers", "kpi"]
+source = { title = "Churn rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Churn_rate" }
+checks = [{ inputs = [12, 400], output = 0.03 }]
+
+[[formula]]
+id = "retention_rate"
+name = "Customer retention rate"
+expr = "(n1 - a) / s"
+output = { symbol = "CRR", name = "retention rate", unit = "1", aliases = ["retention", "retention_rate"] }
+variables = [
+  { symbol = "n1", name = "customers at the end", unit = "1", aliases = ["end_customers"] },
+  { symbol = "a", name = "customers acquired", unit = "1", aliases = ["new_customers", "acquired"] },
+  { symbol = "s", name = "customers at the start", unit = "1", aliases = ["start_customers"] },
+]
+tags = ["customers", "kpi"]
+source = { title = "Customer retention (Wikipedia)", url = "https://en.wikipedia.org/wiki/Customer_retention" }
+checks = [{ inputs = [450, 80, 400], output = 0.925 }]
+
+[[formula]]
+id = "customer_lifetime_value"
+name = "Customer lifetime value (simple)"
+expr = "a * m / c"
+output = { symbol = "CLV", name = "customer lifetime value", unit = "currency", aliases = ["clv", "ltv", "lifetime_value"] }
+variables = [
+  { symbol = "a", name = "average revenue per customer per period", unit = "currency", aliases = ["arpu", "arpa"] },
+  { symbol = "m", name = "gross margin", unit = "1", aliases = ["margin"] },
+  { symbol = "c", name = "churn rate per period", unit = "1", aliases = ["churn", "churn_rate"] },
+]
+tags = ["customers", "kpi"]
+source = { title = "Customer lifetime value (Wikipedia)", url = "https://en.wikipedia.org/wiki/Customer_lifetime_value" }
+checks = [{ inputs = [30, 0.7, 0.05], output = 420 }]
+
+[[formula]]
+id = "net_promoter_score"
+name = "Net promoter score"
+expr = "100 * (p - d) / n"
+output = { symbol = "NPS", name = "net promoter score", unit = "1", aliases = ["nps"] }
+variables = [
+  { symbol = "p", name = "promoters", unit = "1", aliases = ["promoters"] },
+  { symbol = "d", name = "detractors", unit = "1", aliases = ["detractors"] },
+  { symbol = "n", name = "responses", unit = "1", aliases = ["responses", "respondents"] },
+]
+tags = ["customers", "survey"]
+source = { title = "Net promoter score (Wikipedia)", url = "https://en.wikipedia.org/wiki/Net_promoter_score" }
+checks = [{ inputs = [120, 30, 200], output = 45 }]
+
+[[formula]]
+id = "gross_profit"
+name = "Gross profit"
+expr = "R - C"
+output = { symbol = "GP", name = "gross profit", unit = "currency", aliases = ["gross_profit", "benefici_brut"] }
+variables = [
+  { symbol = "R", name = "revenue", unit = "currency", aliases = ["revenue", "sales"] },
+  { symbol = "C", name = "cost of goods sold", unit = "currency", aliases = ["cogs", "cost"] },
+]
+tags = ["accounting"]
+source = { title = "Gross profit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gross_profit" }
+checks = [{ inputs = [10000, 6500], output = 3500 }]
+
+[[formula]]
+id = "operating_margin"
+name = "Operating margin"
+expr = "O / R"
+output = { symbol = "OM", name = "operating margin", unit = "1", aliases = ["operating_margin"] }
+variables = [
+  { symbol = "O", name = "operating income", unit = "currency", aliases = ["operating_income", "ebit"] },
+  { symbol = "R", name = "revenue", unit = "currency", aliases = ["revenue", "sales"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Operating margin (Wikipedia)", url = "https://en.wikipedia.org/wiki/Operating_margin" }
+checks = [{ inputs = [1500, 10000], output = 0.15 }]
+
+[[formula]]
+id = "net_profit_margin"
+name = "Net profit margin"
+expr = "N / R"
+output = { symbol = "NPM", name = "net profit margin", unit = "1", aliases = ["net_margin", "profit_margin"] }
+variables = [
+  { symbol = "N", name = "net income", unit = "currency", aliases = ["net_income", "profit"] },
+  { symbol = "R", name = "revenue", unit = "currency", aliases = ["revenue", "sales"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Profit margin (Wikipedia)", url = "https://en.wikipedia.org/wiki/Profit_margin" }
+checks = [{ inputs = [800, 10000], output = 0.08 }]
+
+[[formula]]
+id = "ebitda"
+name = "EBITDA"
+expr = "N + I + T + D"
+output = { symbol = "EBITDA", name = "earnings before interest, taxes, depreciation and amortization", unit = "currency", aliases = ["ebitda"] }
+variables = [
+  { symbol = "N", name = "net income", unit = "currency", aliases = ["net_income"] },
+  { symbol = "I", name = "interest", unit = "currency", aliases = ["interest"] },
+  { symbol = "T", name = "taxes", unit = "currency", aliases = ["taxes", "tax"] },
+  { symbol = "D", name = "depreciation and amortization", unit = "currency", aliases = ["depreciation", "amortization", "da"] },
+]
+tags = ["accounting"]
+source = { title = "Earnings before interest, taxes, depreciation, and amortization (Wikipedia)", url = "https://en.wikipedia.org/wiki/Earnings_before_interest,_taxes,_depreciation,_and_amortization" }
+checks = [{ inputs = [800, 100, 250, 300], output = 1450 }]
+
+[[formula]]
+id = "current_ratio"
+name = "Current ratio"
+expr = "A / L"
+output = { symbol = "CR", name = "current ratio", unit = "1", aliases = ["current_ratio"] }
+variables = [
+  { symbol = "A", name = "current assets", unit = "currency", aliases = ["current_assets"] },
+  { symbol = "L", name = "current liabilities", unit = "currency", aliases = ["current_liabilities"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Current ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Current_ratio" }
+checks = [{ inputs = [50000, 25000], output = 2 }]
+
+[[formula]]
+id = "quick_ratio"
+name = "Quick ratio (acid test)"
+expr = "(A - I) / L"
+output = { symbol = "QR", name = "quick ratio", unit = "1", aliases = ["quick_ratio", "acid_test"] }
+variables = [
+  { symbol = "A", name = "current assets", unit = "currency", aliases = ["current_assets"] },
+  { symbol = "I", name = "inventory", unit = "currency", aliases = ["inventory", "stock"] },
+  { symbol = "L", name = "current liabilities", unit = "currency", aliases = ["current_liabilities"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Quick ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Quick_ratio" }
+checks = [{ inputs = [50000, 20000, 25000], output = 1.2 }]
+
+[[formula]]
+id = "debt_to_equity"
+name = "Debt-to-equity ratio"
+expr = "D / E"
+output = { symbol = "DE", name = "debt-to-equity ratio", unit = "1", aliases = ["debt_to_equity", "leverage"] }
+variables = [
+  { symbol = "D", name = "total liabilities", unit = "currency", aliases = ["debt", "liabilities"] },
+  { symbol = "E", name = "shareholders' equity", unit = "currency", aliases = ["equity"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Debt-to-equity ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Debt-to-equity_ratio" }
+checks = [{ inputs = [30000, 60000], output = 0.5 }]
+
+[[formula]]
+id = "return_on_equity"
+name = "Return on equity"
+expr = "N / E"
+output = { symbol = "ROE", name = "return on equity", unit = "1", aliases = ["roe"] }
+variables = [
+  { symbol = "N", name = "net income", unit = "currency", aliases = ["net_income", "profit"] },
+  { symbol = "E", name = "shareholders' equity", unit = "currency", aliases = ["equity"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Return on equity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Return_on_equity" }
+checks = [{ inputs = [9000, 60000], output = 0.15 }]
+
+[[formula]]
+id = "return_on_assets"
+name = "Return on assets"
+expr = "N / A"
+output = { symbol = "ROA", name = "return on assets", unit = "1", aliases = ["roa"] }
+variables = [
+  { symbol = "N", name = "net income", unit = "currency", aliases = ["net_income", "profit"] },
+  { symbol = "A", name = "total assets", unit = "currency", aliases = ["assets", "total_assets"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Return on assets (Wikipedia)", url = "https://en.wikipedia.org/wiki/Return_on_assets" }
+checks = [{ inputs = [9000, 150000], output = 0.06 }]
+
+[[formula]]
+id = "earnings_per_share"
+name = "Earnings per share"
+expr = "(N - P) / S"
+output = { symbol = "EPS", name = "earnings per share", unit = "currency", aliases = ["eps"] }
+variables = [
+  { symbol = "N", name = "net income", unit = "currency", aliases = ["net_income"] },
+  { symbol = "P", name = "preferred dividends", unit = "currency", aliases = ["preferred_dividends"] },
+  { symbol = "S", name = "shares outstanding", unit = "1", aliases = ["shares"] },
+]
+tags = ["accounting", "investing"]
+source = { title = "Earnings per share (Wikipedia)", url = "https://en.wikipedia.org/wiki/Earnings_per_share" }
+checks = [{ inputs = [1000000, 100000, 450000], output = 2 }]
+
+[[formula]]
+id = "price_earnings_ratio"
+name = "Price-to-earnings ratio"
+expr = "P / E"
+output = { symbol = "PE", name = "price-to-earnings ratio", unit = "1", aliases = ["pe", "per", "price_earnings"] }
+variables = [
+  { symbol = "P", name = "share price", unit = "currency", aliases = ["price", "share_price"] },
+  { symbol = "E", name = "earnings per share", unit = "currency", aliases = ["eps"] },
+]
+tags = ["investing", "ratio"]
+source = { title = "Price–earnings ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Price–earnings_ratio" }
+checks = [{ inputs = [42, 2.1], output = 20 }]
+
+[[formula]]
+id = "dividend_yield"
+name = "Dividend yield"
+expr = "D / P"
+output = { symbol = "DY", name = "dividend yield", unit = "1", aliases = ["dividend_yield", "yield"] }
+variables = [
+  { symbol = "D", name = "annual dividend per share", unit = "currency", aliases = ["dividend"] },
+  { symbol = "P", name = "share price", unit = "currency", aliases = ["price", "share_price"] },
+]
+tags = ["investing", "ratio"]
+source = { title = "Dividend yield (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dividend_yield" }
+checks = [{ inputs = [1.2, 40], output = 0.03 }]
+
+[[formula]]
+id = "inventory_turnover"
+name = "Inventory turnover"
+expr = "C / I"
+output = { symbol = "IT", name = "inventory turnover", unit = "1", aliases = ["inventory_turnover", "stock_turnover"] }
+variables = [
+  { symbol = "C", name = "cost of goods sold", unit = "currency", aliases = ["cogs"] },
+  { symbol = "I", name = "average inventory", unit = "currency", aliases = ["inventory", "average_inventory", "stock"] },
+]
+tags = ["inventory", "ratio"]
+source = { title = "Inventory turnover (Wikipedia)", url = "https://en.wikipedia.org/wiki/Inventory_turnover" }
+checks = [{ inputs = [120000, 20000], output = 6 }]
+
+[[formula]]
+id = "days_sales_of_inventory"
+name = "Days sales of inventory"
+expr = "365 * I / C"
+output = { symbol = "DSI", name = "days of inventory", unit = "1", aliases = ["dsi", "days_of_inventory"] }
+variables = [
+  { symbol = "I", name = "average inventory", unit = "currency", aliases = ["inventory", "stock"] },
+  { symbol = "C", name = "cost of goods sold per year", unit = "currency", aliases = ["cogs"] },
+]
+tags = ["inventory", "ratio"]
+source = { title = "Days sales of inventory (Wikipedia)", url = "https://en.wikipedia.org/wiki/Days_sales_of_inventory" }
+checks = [{ inputs = [20000, 120000], output = 60.833333333333336 }]
+
+[[formula]]
+id = "days_sales_outstanding"
+name = "Days sales outstanding"
+expr = "365 * A / R"
+output = { symbol = "DSO", name = "days sales outstanding", unit = "1", aliases = ["dso"] }
+variables = [
+  { symbol = "A", name = "accounts receivable", unit = "currency", aliases = ["receivables", "accounts_receivable"] },
+  { symbol = "R", name = "annual credit sales", unit = "currency", aliases = ["revenue", "sales"] },
+]
+tags = ["accounting", "ratio"]
+source = { title = "Days sales outstanding (Wikipedia)", url = "https://en.wikipedia.org/wiki/Days_sales_outstanding" }
+checks = [{ inputs = [30000, 365000], output = 30 }]
+
+[[formula]]
+id = "economic_order_quantity"
+name = "Economic order quantity"
+expr = "sqrt(2 * D * S / H)"
+output = { symbol = "EOQ", name = "economic order quantity", unit = "1", aliases = ["eoq", "order_quantity"] }
+variables = [
+  { symbol = "D", name = "annual demand in units", unit = "1", aliases = ["demand", "annual_demand"] },
+  { symbol = "S", name = "cost per order", unit = "currency", aliases = ["order_cost", "setup_cost"] },
+  { symbol = "H", name = "holding cost per unit per year", unit = "currency", aliases = ["holding_cost"] },
+]
+tags = ["inventory", "operations"]
+source = { title = "Economic order quantity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Economic_order_quantity" }
+checks = [{ inputs = [10000, 50, 2], output = 707.1067811865476 }]
+
+[[formula]]
+id = "reorder_point"
+name = "Reorder point"
+expr = "d * L + s"
+output = { symbol = "ROP", name = "reorder point", unit = "1", aliases = ["reorder_point", "rop"] }
+variables = [
+  { symbol = "d", name = "daily demand in units", unit = "1", aliases = ["daily_demand", "demand"] },
+  { symbol = "L", name = "lead time in days", unit = "1", aliases = ["lead_time"] },
+  { symbol = "s", name = "safety stock", unit = "1", aliases = ["safety_stock"] },
+]
+tags = ["inventory", "operations"]
+source = { title = "Reorder point (Wikipedia)", url = "https://en.wikipedia.org/wiki/Reorder_point" }
+checks = [{ inputs = [40, 7, 60], output = 340 }]
+
+[[formula]]
+id = "safety_stock"
+name = "Safety stock (normal demand)"
+expr = "z * sigma * sqrt(L)"
+output = { symbol = "SS", name = "safety stock", unit = "1", aliases = ["safety_stock"] }
+variables = [
+  { symbol = "z", name = "service level z-score", unit = "1", aliases = ["z", "service_factor"] },
+  { symbol = "sigma", name = "standard deviation of daily demand", unit = "1", aliases = ["demand_std", "sigma"] },
+  { symbol = "L", name = "lead time in days", unit = "1", aliases = ["lead_time"] },
+]
+tags = ["inventory", "operations"]
+source = { title = "Safety stock (Wikipedia)", url = "https://en.wikipedia.org/wiki/Safety_stock" }
+checks = [{ inputs = [1.65, 12, 9], output = 59.39999999999999 }]
+
+[[formula]]
+id = "capacity_utilization"
+name = "Capacity utilization"
+expr = "a / c"
+output = { symbol = "U", name = "capacity utilization", unit = "1", aliases = ["utilization", "utilisation", "capacity_utilization"] }
+variables = [
+  { symbol = "a", name = "actual output", unit = "1", aliases = ["output", "actual_output"] },
+  { symbol = "c", name = "capacity", unit = "1", aliases = ["capacity", "max_output"] },
+]
+tags = ["operations", "kpi"]
+source = { title = "Capacity utilization (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capacity_utilization" }
+checks = [{ inputs = [850, 1000], output = 0.85 }]
+
+[[formula]]
+id = "overall_equipment_effectiveness"
+name = "Overall equipment effectiveness"
+expr = "A * P * Q"
+output = { symbol = "OEE", name = "overall equipment effectiveness", unit = "1", aliases = ["oee"] }
+variables = [
+  { symbol = "A", name = "availability", unit = "1", aliases = ["availability"] },
+  { symbol = "P", name = "performance", unit = "1", aliases = ["performance"] },
+  { symbol = "Q", name = "quality rate", unit = "1", aliases = ["quality"] },
+]
+tags = ["operations", "kpi"]
+source = { title = "Overall equipment effectiveness (Wikipedia)", url = "https://en.wikipedia.org/wiki/Overall_equipment_effectiveness" }
+checks = [{ inputs = [0.9, 0.95, 0.99], output = 0.8464499999999999 }]
+
+[[formula]]
+id = "defect_rate"
+name = "Defect rate"
+expr = "d / n"
+output = { symbol = "DR", name = "defect rate", unit = "1", aliases = ["defect_rate", "scrap_rate"] }
+variables = [
+  { symbol = "d", name = "defective units", unit = "1", aliases = ["defects", "defective"] },
+  { symbol = "n", name = "units produced", unit = "1", aliases = ["produced", "units"] },
+]
+tags = ["operations", "quality"]
+source = { title = "Defect (Wikipedia)", url = "https://en.wikipedia.org/wiki/Defect" }
+checks = [{ inputs = [7, 1400], output = 0.005 }]
+
+[[formula]]
+id = "gross_pay"
+name = "Gross pay (hours × rate)"
+expr = "h * r"
+output = { symbol = "pay", name = "gross pay", unit = "currency", aliases = ["gross_pay", "pay", "salary", "wage", "sou"] }
+variables = [
+  { symbol = "h", name = "hours worked", unit = "1", aliases = ["hours", "hours_worked", "hores"] },
+  { symbol = "r", name = "hourly rate", unit = "currency", aliases = ["rate", "hourly_rate", "wage_rate"] },
+]
+tags = ["payroll"]
+source = { title = "Wage (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wage" }
+checks = [{ inputs = [38.5, 14], output = 539 }]
+
+[[formula]]
+id = "overtime_pay"
+name = "Pay with overtime"
+expr = "r * h + k * r * o"
+output = { symbol = "pay", name = "gross pay", unit = "currency", aliases = ["gross_pay", "pay"] }
+variables = [
+  { symbol = "r", name = "hourly rate", unit = "currency", aliases = ["rate", "hourly_rate"] },
+  { symbol = "h", name = "regular hours", unit = "1", aliases = ["hours", "regular_hours"] },
+  { symbol = "k", name = "overtime multiplier (1.5 for time and a half)", unit = "1", aliases = ["multiplier"] },
+  { symbol = "o", name = "overtime hours", unit = "1", aliases = ["overtime", "overtime_hours"] },
+]
+tags = ["payroll"]
+source = { title = "Overtime (Wikipedia)", url = "https://en.wikipedia.org/wiki/Overtime" }
+checks = [{ inputs = [20, 40, 1.5, 6], output = 980 }]
+
+[[formula]]
+id = "net_pay"
+name = "Net pay after a flat tax rate"
+expr = "g * (1 - t)"
+output = { symbol = "net", name = "net pay", unit = "currency", aliases = ["net_pay", "net_salary", "take_home"] }
+variables = [
+  { symbol = "g", name = "gross pay", unit = "currency", aliases = ["gross", "gross_pay"] },
+  { symbol = "t", name = "tax rate", unit = "1", aliases = ["tax_rate", "withholding"] },
+]
+tags = ["payroll", "tax"]
+source = { title = "Net income (Wikipedia)", url = "https://en.wikipedia.org/wiki/Net_income" }
+checks = [{ inputs = [2500, 0.18], output = 2050 }]
+
+[[formula]]
+id = "employee_turnover"
+name = "Employee turnover rate"
+expr = "s / ((b + e) / 2)"
+output = { symbol = "T", name = "turnover rate", unit = "1", aliases = ["turnover", "attrition"] }
+variables = [
+  { symbol = "s", name = "separations", unit = "1", aliases = ["leavers", "separations"] },
+  { symbol = "b", name = "headcount at the start", unit = "1", aliases = ["start_headcount"] },
+  { symbol = "e", name = "headcount at the end", unit = "1", aliases = ["end_headcount"] },
+]
+tags = ["hr", "kpi"]
+source = { title = "Turnover (employment) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Turnover_(employment)" }
+checks = [{ inputs = [12, 110, 90], output = 0.12 }]
+
+[[formula]]
+id = "absenteeism_rate"
+name = "Absenteeism rate"
+expr = "a / w"
+output = { symbol = "AR", name = "absenteeism rate", unit = "1", aliases = ["absenteeism"] }
+variables = [
+  { symbol = "a", name = "days absent", unit = "1", aliases = ["absent_days", "absences"] },
+  { symbol = "w", name = "scheduled working days", unit = "1", aliases = ["working_days"] },
+]
+tags = ["hr", "kpi"]
+source = { title = "Absenteeism (Wikipedia)", url = "https://en.wikipedia.org/wiki/Absenteeism" }
+checks = [{ inputs = [6, 220], output = 0.02727272727272727 }]
+
+[[formula]]
+id = "revenue_per_employee"
+name = "Revenue per employee"
+expr = "R / n"
+output = { symbol = "RPE", name = "revenue per employee", unit = "currency", aliases = ["revenue_per_employee"] }
+variables = [
+  { symbol = "R", name = "revenue", unit = "currency", aliases = ["revenue", "sales"] },
+  { symbol = "n", name = "employees", unit = "1", aliases = ["employees", "headcount", "fte"] },
+]
+tags = ["hr", "kpi"]
+source = { title = "Revenue (Wikipedia)", url = "https://en.wikipedia.org/wiki/Revenue" }
+checks = [{ inputs = [2400000, 16], output = 150000 }]
+
+[[formula]]
+id = "fuel_cost_of_trip"
+name = "Fuel cost of a trip"
+expr = "d * c * p / 100"
+output = { symbol = "cost", name = "fuel cost", unit = "currency", aliases = ["fuel_cost", "cost"] }
+variables = [
+  { symbol = "d", name = "distance in km", unit = "1", aliases = ["distance", "km"] },
+  { symbol = "c", name = "consumption in litres per 100 km", unit = "1", aliases = ["consumption", "l_100km"] },
+  { symbol = "p", name = "fuel price per litre", unit = "currency", aliases = ["fuel_price", "price"] },
+]
+tags = ["logistics", "transport"]
+source = { title = "Fuel economy in automobiles (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fuel_economy_in_automobiles" }
+checks = [{ inputs = [350, 6.5, 1.6], output = 36.4 }]
+
+[[formula]]
+id = "load_factor"
+name = "Load factor (occupancy)"
+expr = "u / c"
+output = { symbol = "LF", name = "load factor", unit = "1", aliases = ["load_factor", "occupancy", "occupancy_rate"] }
+variables = [
+  { symbol = "u", name = "used seats or units", unit = "1", aliases = ["used", "sold_seats", "occupied", "nights_sold"] },
+  { symbol = "c", name = "available seats or units", unit = "1", aliases = ["available", "capacity", "seats"] },
+]
+tags = ["logistics", "kpi"]
+source = { title = "Passenger load factor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Passenger_load_factor" }
+checks = [{ inputs = [152, 180], output = 0.8444444444444444 }]
+
+[[formula]]
+id = "revpar"
+name = "Revenue per available room"
+expr = "R / r"
+output = { symbol = "RevPAR", name = "revenue per available room", unit = "currency", aliases = ["revpar"] }
+variables = [
+  { symbol = "R", name = "room revenue", unit = "currency", aliases = ["revenue", "room_revenue"] },
+  { symbol = "r", name = "available room nights", unit = "1", aliases = ["rooms", "available_rooms"] },
+]
+tags = ["hospitality", "kpi"]
+source = { title = "RevPAR (Wikipedia)", url = "https://en.wikipedia.org/wiki/RevPAR" }
+checks = [{ inputs = [45000, 600], output = 75 }]
+
+[[formula]]
+id = "average_daily_rate"
+name = "Average daily rate"
+expr = "R / s"
+output = { symbol = "ADR", name = "average daily rate", unit = "currency", aliases = ["adr"] }
+variables = [
+  { symbol = "R", name = "room revenue", unit = "currency", aliases = ["revenue", "room_revenue"] },
+  { symbol = "s", name = "rooms sold", unit = "1", aliases = ["rooms_sold", "nights_sold"] },
+]
+tags = ["hospitality", "kpi"]
+source = { title = "Average daily rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Average_daily_rate" }
+checks = [{ inputs = [45000, 450], output = 100 }]
+
+[[formula]]
+id = "weighted_average_cost"
+name = "Weighted average unit cost"
+expr = "(q1 * c1 + q2 * c2) / (q1 + q2)"
+output = { symbol = "cost", name = "average unit cost", unit = "currency", aliases = ["average_cost", "unit_cost"] }
+variables = [
+  { symbol = "q1", name = "units in the first lot", unit = "1" },
+  { symbol = "c1", name = "unit cost of the first lot", unit = "currency" },
+  { symbol = "q2", name = "units in the second lot", unit = "1" },
+  { symbol = "c2", name = "unit cost of the second lot", unit = "currency" },
+]
+tags = ["inventory", "accounting"]
+source = { title = "Average cost method (Wikipedia)", url = "https://en.wikipedia.org/wiki/Average_cost_method" }
+checks = [{ inputs = [100, 4, 300, 5], output = 4.75 }]
+
+[[formula]]
+id = "contribution_margin"
+name = "Contribution margin per unit"
+expr = "p - v"
+output = { symbol = "CM", name = "contribution margin", unit = "currency", aliases = ["contribution_margin"] }
+variables = [
+  { symbol = "p", name = "unit price", unit = "currency", aliases = ["price"] },
+  { symbol = "v", name = "variable cost per unit", unit = "currency", aliases = ["variable_cost", "unit_cost"] },
+]
+tags = ["accounting", "pricing"]
+source = { title = "Contribution margin (Wikipedia)", url = "https://en.wikipedia.org/wiki/Contribution_margin" }
+checks = [{ inputs = [25, 15], output = 10 }]
+
+[[formula]]
+id = "payback_period"
+name = "Payback period"
+expr = "I / c"
+output = { symbol = "PB", name = "payback period in periods", unit = "1", aliases = ["payback", "payback_period"] }
+variables = [
+  { symbol = "I", name = "initial investment", unit = "currency", aliases = ["investment", "capex"] },
+  { symbol = "c", name = "cash flow per period", unit = "currency", aliases = ["cash_flow"] },
+]
+tags = ["investing"]
+source = { title = "Payback period (Wikipedia)", url = "https://en.wikipedia.org/wiki/Payback_period" }
+checks = [{ inputs = [50000, 12500], output = 4 }]
+
+[[formula]]
+id = "price_elasticity"
+name = "Price elasticity of demand (arc)"
+expr = "((q2 - q1) / (q2 + q1)) / ((p2 - p1) / (p2 + p1))"
+output = { symbol = "E", name = "price elasticity", unit = "1", aliases = ["elasticity"] }
+variables = [
+  { symbol = "q1", name = "quantity before", unit = "1" },
+  { symbol = "q2", name = "quantity after", unit = "1" },
+  { symbol = "p1", name = "price before", unit = "currency" },
+  { symbol = "p2", name = "price after", unit = "currency" },
+]
+tags = ["pricing", "economics"]
+source = { title = "Price elasticity of demand (Wikipedia)", url = "https://en.wikipedia.org/wiki/Price_elasticity_of_demand" }
+checks = [{ inputs = [1000, 800, 10, 12], output = -1.222222222222222 }]

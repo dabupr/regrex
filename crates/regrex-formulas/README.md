@@ -12,7 +12,9 @@ Regrex uses it to give a **"known formula" badge** to a candidate found in the d
 | Electronics and signals | [`electronics.toml`](library/electronics.toml) | DC/AC circuits, components, filters, decibels, noise, sampling |
 | Finance and business | [`finance.toml`](library/finance.toml) | prices, VAT, margins, interest, loans, returns, depreciation |
 | Computing | [`computing.toml`](library/computing.toml) | data sizes, transfer, performance laws, queues, reliability, information theory |
-| Health and sport | [`health.toml`](library/health.toml) | BMI, metabolic rate, heart rate, nutrition |
+| Health and sport | [`health.toml`](library/health.toml) | BMI, metabolic rate, heart rate, blood pressure, nutrition, strength |
+| Business and operations | [`business.toml`](library/business.toml) | sales and marketing KPIs, accounting ratios, inventory, operations, payroll, HR, hospitality |
+| Energy and environment | [`energy.toml`](library/energy.toml) | electricity use and cost, solar, wind and hydro power, heating, batteries, fuels, CO₂ |
 | Unit conversions | [`conversions.toml`](library/conversions.toml) | temperature, length, mass, speed, energy, pressure, angle |
 
 Physical constants are the CODATA 2022 values published by NIST.
