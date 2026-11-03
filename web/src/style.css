@@ -170,3 +170,4 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .other-badge { background: var(--good); }
 .formula-inline { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .formula-inline b { color: var(--accent); }
+.drop .formats { font-size: 13px; color: var(--muted); margin-top: 6px; }

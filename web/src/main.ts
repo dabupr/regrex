@@ -1,4 +1,5 @@
 import { Engine } from "./engine";
+import { columnarFormat, readColumnar } from "./formats";
 import type { DatasetInfo, Derived, Known } from "./types";
 import {
   ADVANCED,
@@ -27,6 +28,7 @@ const ui = {
   fileName: $("file-name"),
   fileSummary: $("file-summary"),
   sheetWrap: $("sheet-wrap"),
+  sheetLabel: $("sheet-label"),
   sheet: $<HTMLSelectElement>("sheet"),
   scan: $<HTMLButtonElement>("scan"),
   preview: $<HTMLTableElement>("preview"),
@@ -79,6 +81,8 @@ interface State {
   ignored: Set<string>;
   derived: Derived[];
   suspects: Suspect[];
+  /** The sheet or table being shown, when the file has several. */
+  sheet?: string;
 }
 let state: State | undefined;
 
@@ -108,13 +112,34 @@ function looksLikeId(name: string, info: DatasetInfo): boolean {
   return /(^id$|_id$|^id_|number|^no\.?$|invoice|code|ref)/i.test(name) && info.columns.some((c) => c.name === name && c.decimals === 0);
 }
 
+/** Loads one sheet (or SQLite table) of a file into the engine. */
+async function loadSheet(name: string, bytes: ArrayBuffer, sheet?: string): Promise<DatasetInfo> {
+  const format = columnarFormat(name, bytes);
+  if (!format) return engine.load(name, bytes, sheet);
+  // Read in the page (the reader is loaded on demand), then handed over as JSON.
+  const table = await readColumnar(format, bytes, sheet);
+  const info = await engine.load(`${name}.json`, table.json);
+  return { ...info, sheets: table.sheets };
+}
+
 async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
   showError(null);
   try {
-    const info = await engine.load(name, bytes, sheet);
+    let info = await loadSheet(name, bytes, sheet);
+    // Without a choice, skip sheets or tables with no numbers (a list of customers).
+    if (info.columns.length === 0 && sheet === undefined) {
+      for (const other of info.sheets.slice(1)) {
+        const next = await loadSheet(name, bytes, other);
+        if (next.columns.length > 0) {
+          info = next;
+          sheet = other;
+          break;
+        }
+      }
+    }
     if (info.columns.length === 0) throw new Error("No numeric columns found in this file.");
     const ignored = new Set(info.columns.map((c) => c.name).filter((n) => looksLikeId(n, info)));
-    state = { name, bytes, info, ignored, derived: [], suspects: [] };
+    state = { name, bytes, info, ignored, derived: [], suspects: [], sheet };
     renderData();
   } catch (e) {
     showError(`Could not read ${name}: ${(e as Error).message}`);
@@ -133,7 +158,9 @@ function renderData() {
   ui.fileSummary.textContent = `${info.rows} rows, ${info.columns.length} numeric columns${text}`;
 
   ui.sheetWrap.hidden = info.sheets.length < 2;
+  ui.sheetLabel.textContent = columnarFormat(name, state.bytes) === "sqlite" ? "Table" : "Sheet";
   ui.sheet.replaceChildren(...info.sheets.map((s) => el("option", { value: s }, s)));
+  if (state.sheet && info.sheets.includes(state.sheet)) ui.sheet.value = state.sheet;
 
   const numeric = new Set(info.columns.map((c) => c.name));
   const head = el("tr", {}, el("th", { class: "text" }, "#"));

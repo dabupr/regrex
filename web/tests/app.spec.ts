@@ -227,3 +227,30 @@ test("reads JSON files and pasted cells", async ({ page }) => {
   await expect(page.locator("#file-name")).toHaveText("pasted cells");
   await expect(page.locator("#file-summary")).toHaveText("10 rows, 3 numeric columns");
 });
+
+test("reads Parquet, Arrow and SQLite files in the browser", async ({ page }) => {
+  const { readFile } = await import("node:fs/promises");
+  const fixture = (name: string) => readFile(new URL(`./fixtures/${name}`, import.meta.url));
+  await page.goto("./");
+  await expect(page.locator(".drop .formats")).toContainText("Parquet");
+
+  // Parquet compressed with zstd, and Arrow IPC: the same 60 invoices.
+  for (const name of ["invoices.parquet", "invoices.arrow"]) {
+    await page.goto("./");
+    await page.locator("#file").setInputFiles({ name, mimeType: "application/octet-stream", buffer: await fixture(name) });
+    await expect(page.locator("#file-summary")).toHaveText("60 rows, 8 numeric columns, 1 text");
+  }
+  await page.getByText("Search settings").click();
+  await page.locator("#only").selectOption("vat");
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await expect(page.locator('#cards article[data-column="vat"]')).toContainText("vat = 0.21 * net", { timeout: 45_000 });
+
+  // SQLite: each table is chosen like a sheet.
+  await page.goto("./");
+  await page.locator("#file").setInputFiles({ name: "shop.sqlite", mimeType: "application/octet-stream", buffer: await fixture("shop.sqlite") });
+  await expect(page.locator("#sheet-label")).toHaveText("Table");
+  await expect(page.locator("#file-summary")).toHaveText("1 rows, 1 numeric columns, 1 text");
+  await page.locator("#sheet").selectOption("invoices");
+  await expect(page.locator("#file-summary")).toHaveText("60 rows, 8 numeric columns, 1 text");
+  await expect(page.locator("#sheet")).toHaveValue("invoices");
+});
