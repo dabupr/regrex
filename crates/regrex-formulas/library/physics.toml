@@ -1589,3 +1589,1009 @@ variables = [
 tags = ["nuclear"]
 source = { title = "Radioactive decay (Wikipedia)", url = "https://en.wikipedia.org/wiki/Radioactive_decay" }
 checks = [{ inputs = [1e-05, 1000000000000], output = 10000000 }]
+
+[[formula]]
+id = "final_speed_from_distance"
+name = "Final speed from distance and acceleration"
+expr = "sqrt(u^2 + 2 * a * s)"
+output = { symbol = "v", name = "final speed", unit = "m/s", aliases = ["speed", "v", "final_speed"] }
+variables = [
+  { symbol = "u", name = "initial speed", unit = "m/s", aliases = ["initial_speed", "u", "v0"] },
+  { symbol = "a", name = "acceleration", unit = "m/s^2", aliases = ["acceleration", "a"] },
+  { symbol = "s", name = "distance", unit = "m", aliases = ["distance", "s"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Equations of motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Equations_of_motion" }
+checks = [{ inputs = [3, 2, 10], output = 7 }]
+
+[[formula]]
+id = "stopping_distance"
+name = "Braking distance"
+expr = "v^2 / (2 * a)"
+output = { symbol = "d", name = "braking distance", unit = "m", aliases = ["braking_distance", "stopping_distance", "distance"] }
+variables = [
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "a", name = "deceleration", unit = "m/s^2", aliases = ["deceleration", "a"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Braking distance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Braking_distance" }
+checks = [{ inputs = [20, 8], output = 25 }]
+
+[[formula]]
+id = "total_stopping_distance"
+name = "Total stopping distance"
+expr = "v * t + v^2 / (2 * a)"
+output = { symbol = "d", name = "stopping distance", unit = "m", aliases = ["stopping_distance", "distance"] }
+variables = [
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "t", name = "reaction time", unit = "s", aliases = ["reaction_time"] },
+  { symbol = "a", name = "deceleration", unit = "m/s^2", aliases = ["deceleration", "a"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Braking distance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Braking_distance" }
+checks = [{ inputs = [25, 1, 7], output = 69.64285714285714 }]
+
+[[formula]]
+id = "time_to_stop"
+name = "Time to stop"
+expr = "v / a"
+output = { symbol = "t", name = "time to stop", unit = "s", aliases = ["time", "stop_time"] }
+variables = [
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "a", name = "deceleration", unit = "m/s^2", aliases = ["deceleration", "a"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Acceleration (Wikipedia)", url = "https://en.wikipedia.org/wiki/Acceleration" }
+checks = [{ inputs = [30, 6], output = 5 }]
+
+[[formula]]
+id = "vertical_launch_height"
+name = "Maximum height of a vertical throw"
+expr = "v^2 / (2 * g)"
+output = { symbol = "h", name = "height", unit = "m", aliases = ["height", "max_height"] }
+variables = [
+  { symbol = "v", name = "launch speed", unit = "m/s", aliases = ["speed", "v0"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Projectile motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Projectile_motion" }
+checks = [{ inputs = [15], output = 11.471807396001694 }]
+
+[[formula]]
+id = "projectile_x"
+name = "Horizontal position of a projectile"
+expr = "v * cos(t) * s"
+output = { symbol = "x", name = "horizontal distance", unit = "m", aliases = ["x", "distance"] }
+variables = [
+  { symbol = "v", name = "launch speed", unit = "m/s", aliases = ["speed", "v0"] },
+  { symbol = "t", name = "launch angle", unit = "rad", aliases = ["angle", "theta"] },
+  { symbol = "s", name = "time", unit = "s", aliases = ["time", "t"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Projectile motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Projectile_motion" }
+checks = [{ inputs = [20, 0.6, 2], output = 33.01342459638713 }]
+
+[[formula]]
+id = "projectile_y"
+name = "Height of a projectile"
+expr = "v * sin(a) * t - g * t^2 / 2"
+output = { symbol = "y", name = "height", unit = "m", aliases = ["y", "height"] }
+variables = [
+  { symbol = "v", name = "launch speed", unit = "m/s", aliases = ["speed", "v0"] },
+  { symbol = "a", name = "launch angle", unit = "rad", aliases = ["angle", "theta"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "t"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Projectile motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Projectile_motion" }
+checks = [{ inputs = [20, 0.8, 1.5], output = 10.488201476985683 }]
+
+[[formula]]
+id = "horizontal_launch_range"
+name = "Range of a horizontal throw"
+expr = "v * sqrt(2 * h / g)"
+output = { symbol = "x", name = "range", unit = "m", aliases = ["range", "distance"] }
+variables = [
+  { symbol = "v", name = "launch speed", unit = "m/s", aliases = ["speed", "v0"] },
+  { symbol = "h", name = "launch height", unit = "m", aliases = ["height", "h"] },
+]
+tags = ["mechanics", "kinematics"]
+source = { title = "Projectile motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Projectile_motion" }
+checks = [{ inputs = [5, 20], output = 10.098099885512761 }]
+
+[[formula]]
+id = "angular_velocity_from_rpm"
+name = "Angular velocity from rpm"
+expr = "2 * pi * n / 60"
+output = { symbol = "w", name = "angular velocity", unit = "rad/s", aliases = ["omega", "angular_velocity"] }
+variables = [
+  { symbol = "n", name = "revolutions per minute", unit = "1/s", aliases = ["rpm"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "Revolutions per minute (Wikipedia)", url = "https://en.wikipedia.org/wiki/Revolutions_per_minute" }
+checks = [{ inputs = [3000], output = 314.1592653589793 }]
+
+[[formula]]
+id = "centripetal_force_omega"
+name = "Centripetal force from angular velocity"
+expr = "m * w^2 * r"
+output = { symbol = "F", name = "centripetal force", unit = "N", aliases = ["force"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "w", name = "angular velocity", unit = "rad/s", aliases = ["omega"] },
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius", "r"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "Centripetal force (Wikipedia)", url = "https://en.wikipedia.org/wiki/Centripetal_force" }
+checks = [{ inputs = [2, 3, 0.5], output = 9 }]
+
+[[formula]]
+id = "angular_acceleration"
+name = "Angular acceleration from torque"
+expr = "T / I"
+output = { symbol = "a", name = "angular acceleration", unit = "rad/s^2", aliases = ["alpha", "angular_acceleration"] }
+variables = [
+  { symbol = "T", name = "torque", unit = "N*m", aliases = ["torque"] },
+  { symbol = "I", name = "moment of inertia", unit = "kg*m^2", aliases = ["inertia", "I"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "Angular acceleration (Wikipedia)", url = "https://en.wikipedia.org/wiki/Angular_acceleration" }
+checks = [{ inputs = [12, 0.4], output = 30 }]
+
+[[formula]]
+id = "moment_of_inertia_ring"
+name = "Moment of inertia of a ring"
+expr = "m * r^2"
+output = { symbol = "I", name = "moment of inertia", unit = "kg*m^2", aliases = ["inertia"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius", "r"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "List of moments of inertia (Wikipedia)", url = "https://en.wikipedia.org/wiki/List_of_moments_of_inertia" }
+checks = [{ inputs = [2, 0.3], output = 0.18 }]
+
+[[formula]]
+id = "moment_of_inertia_rod_end"
+name = "Moment of inertia of a rod about its end"
+expr = "m * L^2 / 3"
+output = { symbol = "I", name = "moment of inertia", unit = "kg*m^2", aliases = ["inertia"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "L", name = "length", unit = "m", aliases = ["length", "L"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "List of moments of inertia (Wikipedia)", url = "https://en.wikipedia.org/wiki/List_of_moments_of_inertia" }
+checks = [{ inputs = [3, 2], output = 4 }]
+
+[[formula]]
+id = "moment_of_inertia_hollow_sphere"
+name = "Moment of inertia of a hollow sphere"
+expr = "2 / 3 * m * r^2"
+output = { symbol = "I", name = "moment of inertia", unit = "kg*m^2", aliases = ["inertia"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius", "r"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "List of moments of inertia (Wikipedia)", url = "https://en.wikipedia.org/wiki/List_of_moments_of_inertia" }
+checks = [{ inputs = [0.6, 0.12], output = 0.0057599999999999995 }]
+
+[[formula]]
+id = "parallel_axis"
+name = "Parallel axis theorem"
+expr = "I + m * d^2"
+output = { symbol = "J", name = "moment of inertia about the new axis", unit = "kg*m^2", aliases = ["inertia"] }
+variables = [
+  { symbol = "I", name = "moment of inertia about the centre", unit = "kg*m^2", aliases = ["inertia_cm"] },
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "d", name = "distance between axes", unit = "m", aliases = ["distance", "d"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "Parallel axis theorem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Parallel_axis_theorem" }
+checks = [{ inputs = [0.5, 2, 0.3], output = 0.6799999999999999 }]
+
+[[formula]]
+id = "rolling_speed_incline"
+name = "Speed of a ball rolling down a slope"
+expr = "sqrt(10 / 7 * g * h)"
+output = { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] }
+variables = [
+  { symbol = "h", name = "height dropped", unit = "m", aliases = ["height", "h"] },
+]
+tags = ["mechanics", "rotation"]
+source = { title = "Rolling (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rolling" }
+checks = [{ inputs = [2], output = 5.293297648914144 }]
+
+[[formula]]
+id = "work_at_angle"
+name = "Work done by a force at an angle"
+expr = "F * d * cos(t)"
+output = { symbol = "W", name = "work", unit = "J", aliases = ["work", "energy"] }
+variables = [
+  { symbol = "F", name = "force", unit = "N", aliases = ["force", "F"] },
+  { symbol = "d", name = "distance", unit = "m", aliases = ["distance", "d"] },
+  { symbol = "t", name = "angle", unit = "rad", aliases = ["angle", "theta"] },
+]
+tags = ["mechanics", "energy"]
+source = { title = "Work (physics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Work_(physics)" }
+checks = [{ inputs = [50, 10, 0.5], output = 438.7912809451864 }]
+
+[[formula]]
+id = "lever_force"
+name = "Lever balance (effort force)"
+expr = "L * a / b"
+output = { symbol = "F", name = "effort force", unit = "N", aliases = ["effort", "force"] }
+variables = [
+  { symbol = "L", name = "load", unit = "N", aliases = ["load"] },
+  { symbol = "a", name = "load arm", unit = "m", aliases = ["load_arm"] },
+  { symbol = "b", name = "effort arm", unit = "m", aliases = ["effort_arm"] },
+]
+tags = ["mechanics", "statics"]
+source = { title = "Lever (Wikipedia)", url = "https://en.wikipedia.org/wiki/Lever" }
+checks = [{ inputs = [600, 0.5, 2], output = 150 }]
+
+[[formula]]
+id = "pulley_mechanical_advantage"
+name = "Force needed with a pulley system"
+expr = "W / n"
+output = { symbol = "F", name = "pulling force", unit = "N", aliases = ["force", "effort"] }
+variables = [
+  { symbol = "W", name = "load weight", unit = "N", aliases = ["load", "weight"] },
+  { symbol = "n", name = "supporting ropes", unit = "1", aliases = ["ropes", "n"] },
+]
+tags = ["mechanics", "statics"]
+source = { title = "Block and tackle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Block_and_tackle" }
+checks = [{ inputs = [800, 4], output = 200 }]
+
+[[formula]]
+id = "static_friction_angle"
+name = "Angle at which a block starts sliding"
+expr = "atan(u)"
+output = { symbol = "t", name = "angle", unit = "rad", aliases = ["angle", "theta"] }
+variables = [
+  { symbol = "u", name = "coefficient of static friction", unit = "1", aliases = ["mu", "friction"] },
+]
+tags = ["mechanics", "statics"]
+source = { title = "Friction (Wikipedia)", url = "https://en.wikipedia.org/wiki/Friction" }
+checks = [{ inputs = [0.4], output = 0.3805063771123649 }]
+
+[[formula]]
+id = "spring_constants_parallel"
+name = "Springs in parallel"
+expr = "k1 + k2"
+output = { symbol = "k", name = "combined spring constant", unit = "N/m", aliases = ["k", "stiffness"] }
+variables = [
+  { symbol = "k1", name = "first spring constant", unit = "N/m", aliases = ["k1"] },
+  { symbol = "k2", name = "second spring constant", unit = "N/m", aliases = ["k2"] },
+]
+tags = ["mechanics", "oscillations"]
+source = { title = "Series and parallel springs (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_springs" }
+checks = [{ inputs = [200, 300], output = 500 }]
+
+[[formula]]
+id = "pendulum_frequency"
+name = "Frequency of a pendulum"
+expr = "sqrt(g / L) / (2 * pi)"
+output = { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] }
+variables = [
+  { symbol = "L", name = "length", unit = "m", aliases = ["length", "L"] },
+]
+tags = ["mechanics", "oscillations"]
+source = { title = "Pendulum (mechanics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pendulum_(mechanics)" }
+checks = [{ inputs = [1], output = 0.49840279532877113 }]
+
+[[formula]]
+id = "spring_mass_frequency"
+name = "Frequency of a mass on a spring"
+expr = "sqrt(k / m) / (2 * pi)"
+output = { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] }
+variables = [
+  { symbol = "k", name = "spring constant", unit = "N/m", aliases = ["k", "stiffness"] },
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+]
+tags = ["mechanics", "oscillations"]
+source = { title = "Harmonic oscillator (Wikipedia)", url = "https://en.wikipedia.org/wiki/Harmonic_oscillator" }
+checks = [{ inputs = [100, 0.25], output = 3.183098861837907 }]
+
+[[formula]]
+id = "simple_harmonic_position"
+name = "Simple harmonic motion"
+expr = "A * cos(w * t)"
+output = { symbol = "x", name = "displacement", unit = "m", aliases = ["x", "displacement"] }
+variables = [
+  { symbol = "A", name = "amplitude", unit = "m", aliases = ["amplitude", "A"] },
+  { symbol = "w", name = "angular frequency", unit = "rad/s", aliases = ["omega"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "t"] },
+]
+tags = ["mechanics", "oscillations"]
+source = { title = "Simple harmonic motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Simple_harmonic_motion" }
+checks = [{ inputs = [0.1, 4, 0.5], output = -0.04161468365471424 }]
+
+[[formula]]
+id = "shm_max_speed"
+name = "Maximum speed in simple harmonic motion"
+expr = "A * w"
+output = { symbol = "v", name = "maximum speed", unit = "m/s", aliases = ["speed", "vmax"] }
+variables = [
+  { symbol = "A", name = "amplitude", unit = "m", aliases = ["amplitude", "A"] },
+  { symbol = "w", name = "angular frequency", unit = "rad/s", aliases = ["omega"] },
+]
+tags = ["mechanics", "oscillations"]
+source = { title = "Simple harmonic motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Simple_harmonic_motion" }
+checks = [{ inputs = [0.2, 5], output = 1 }]
+
+[[formula]]
+id = "damped_amplitude"
+name = "Amplitude of a damped oscillator"
+expr = "A * exp(-b * t)"
+output = { symbol = "a", name = "amplitude", unit = "m", aliases = ["amplitude"] }
+variables = [
+  { symbol = "A", name = "initial amplitude", unit = "m", aliases = ["amplitude0", "A"] },
+  { symbol = "b", name = "damping rate", unit = "1/s", aliases = ["damping"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "t"] },
+]
+tags = ["mechanics", "oscillations"]
+source = { title = "Damping (Wikipedia)", url = "https://en.wikipedia.org/wiki/Damping" }
+checks = [{ inputs = [0.1, 0.3, 4], output = 0.030119421191220214 }]
+
+[[formula]]
+id = "gravity_at_altitude"
+name = "Gravity at an altitude"
+expr = "g * (R / (R + h))^2"
+output = { symbol = "a", name = "gravitational acceleration", unit = "m/s^2", aliases = ["gravity", "g_h"] }
+variables = [
+  { symbol = "R", name = "planet radius", unit = "m", aliases = ["radius", "R"] },
+  { symbol = "h", name = "altitude", unit = "m", aliases = ["altitude", "h"] },
+]
+tags = ["mechanics", "gravitation"]
+source = { title = "Gravity of Earth (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gravity_of_Earth" }
+checks = [{ inputs = [6371000, 400000], output = 8.682209441571484 }]
+
+[[formula]]
+id = "geostationary_radius"
+name = "Radius of a circular orbit with a given period"
+expr = "cbrt(G * M * T^2 / (4 * pi^2))"
+output = { symbol = "r", name = "orbit radius", unit = "m", aliases = ["radius", "orbit"] }
+variables = [
+  { symbol = "M", name = "central mass", unit = "kg", aliases = ["mass", "M"] },
+  { symbol = "T", name = "orbital period", unit = "s", aliases = ["period", "T"] },
+]
+tags = ["mechanics", "gravitation"]
+source = { title = "Geostationary orbit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Geostationary_orbit" }
+checks = [{ inputs = [5.97e+24, 86164], output = 42159036.21663062 }]
+
+[[formula]]
+id = "roche_limit"
+name = "Roche limit (rigid body)"
+expr = "1.26 * R * cbrt(p / q)"
+output = { symbol = "d", name = "Roche limit", unit = "m", aliases = ["roche_limit", "distance"] }
+variables = [
+  { symbol = "R", name = "radius of the primary", unit = "m", aliases = ["radius", "R"] },
+  { symbol = "p", name = "density of the primary", unit = "kg/m^3", aliases = ["density_primary"] },
+  { symbol = "q", name = "density of the satellite", unit = "kg/m^3", aliases = ["density_satellite"] },
+]
+tags = ["mechanics", "gravitation"]
+source = { title = "Roche limit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Roche_limit" }
+checks = [{ inputs = [6371000, 5514, 3344], output = 9483711.07453988 }]
+
+[[formula]]
+id = "pressure_at_depth_absolute"
+name = "Absolute pressure at a depth"
+expr = "p + r * g * h"
+output = { symbol = "P", name = "absolute pressure", unit = "Pa", aliases = ["pressure", "absolute_pressure"] }
+variables = [
+  { symbol = "p", name = "surface pressure", unit = "Pa", aliases = ["surface_pressure", "p0"] },
+  { symbol = "r", name = "fluid density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "h", name = "depth", unit = "m", aliases = ["depth", "h"] },
+]
+tags = ["fluids"]
+source = { title = "Hydrostatics (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hydrostatics" }
+checks = [{ inputs = [101325, 1000, 10], output = 199391.5 }]
+
+[[formula]]
+id = "mass_flow_rate"
+name = "Mass flow rate"
+expr = "r * A * v"
+output = { symbol = "m", name = "mass flow rate", unit = "kg/s", aliases = ["mass_flow"] }
+variables = [
+  { symbol = "r", name = "density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "A", name = "cross-section area", unit = "m^2", aliases = ["area", "A"] },
+  { symbol = "v", name = "flow speed", unit = "m/s", aliases = ["speed", "v"] },
+]
+tags = ["fluids"]
+source = { title = "Mass flow rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mass_flow_rate" }
+checks = [{ inputs = [1000, 0.01, 2], output = 20 }]
+
+[[formula]]
+id = "dynamic_pressure"
+name = "Dynamic pressure"
+expr = "r * v^2 / 2"
+output = { symbol = "q", name = "dynamic pressure", unit = "Pa", aliases = ["dynamic_pressure", "q"] }
+variables = [
+  { symbol = "r", name = "density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+]
+tags = ["fluids"]
+source = { title = "Dynamic pressure (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dynamic_pressure" }
+checks = [{ inputs = [1.2, 30], output = 540 }]
+
+[[formula]]
+id = "lift_equation"
+name = "Lift force"
+expr = "r * v^2 * S * c / 2"
+output = { symbol = "L", name = "lift", unit = "N", aliases = ["lift", "force"] }
+variables = [
+  { symbol = "r", name = "air density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "S", name = "wing area", unit = "m^2", aliases = ["area", "wing_area"] },
+  { symbol = "c", name = "lift coefficient", unit = "1", aliases = ["cl", "lift_coefficient"] },
+]
+tags = ["fluids", "aerodynamics"]
+source = { title = "Lift coefficient (Wikipedia)", url = "https://en.wikipedia.org/wiki/Lift_coefficient" }
+checks = [{ inputs = [1.2, 60, 16, 0.5], output = 17280 }]
+
+[[formula]]
+id = "pitot_speed"
+name = "Airspeed from a Pitot tube"
+expr = "sqrt(2 * q / r)"
+output = { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "airspeed"] }
+variables = [
+  { symbol = "q", name = "dynamic pressure", unit = "Pa", aliases = ["dynamic_pressure", "q"] },
+  { symbol = "r", name = "air density", unit = "kg/m^3", aliases = ["density", "rho"] },
+]
+tags = ["fluids", "aerodynamics"]
+source = { title = "Pitot tube (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pitot_tube" }
+checks = [{ inputs = [600, 1.2], output = 31.622776601683793 }]
+
+[[formula]]
+id = "mach_number"
+name = "Mach number"
+expr = "v / a"
+output = { symbol = "M", name = "Mach number", unit = "1", aliases = ["mach"] }
+variables = [
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "a", name = "speed of sound", unit = "m/s", aliases = ["speed_of_sound", "a"] },
+]
+tags = ["fluids", "aerodynamics"]
+source = { title = "Mach number (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mach_number" }
+checks = [{ inputs = [680, 340], output = 2 }]
+
+[[formula]]
+id = "froude_number"
+name = "Froude number"
+expr = "v / sqrt(g * L)"
+output = { symbol = "Fr", name = "Froude number", unit = "1", aliases = ["froude"] }
+variables = [
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "L", name = "characteristic length", unit = "m", aliases = ["length", "depth"] },
+]
+tags = ["fluids"]
+source = { title = "Froude number (Wikipedia)", url = "https://en.wikipedia.org/wiki/Froude_number" }
+checks = [{ inputs = [3, 2], output = 0.6774011336276814 }]
+
+[[formula]]
+id = "capillary_rise"
+name = "Capillary rise (Jurin's law)"
+expr = "2 * s * cos(t) / (r * g * a)"
+output = { symbol = "h", name = "rise height", unit = "m", aliases = ["height", "rise"] }
+variables = [
+  { symbol = "s", name = "surface tension", unit = "N/m", aliases = ["surface_tension", "gamma"] },
+  { symbol = "t", name = "contact angle", unit = "rad", aliases = ["angle", "theta"] },
+  { symbol = "r", name = "density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "a", name = "tube radius", unit = "m", aliases = ["radius", "r"] },
+]
+tags = ["fluids"]
+source = { title = "Jurin's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Jurin's_law" }
+checks = [{ inputs = [0.072, 0, 1000, 0.0005], output = 0.029367826933764333 }]
+
+[[formula]]
+id = "deep_water_wave_speed"
+name = "Speed of deep-water waves"
+expr = "sqrt(g * L / (2 * pi))"
+output = { symbol = "v", name = "wave speed", unit = "m/s", aliases = ["speed", "celerity"] }
+variables = [
+  { symbol = "L", name = "wavelength", unit = "m", aliases = ["wavelength", "L"] },
+]
+tags = ["fluids", "waves"]
+source = { title = "Dispersion (water waves) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dispersion_(water_waves)" }
+checks = [{ inputs = [50], output = 8.83395953882554 }]
+
+[[formula]]
+id = "shallow_water_wave_speed"
+name = "Speed of shallow-water waves"
+expr = "sqrt(g * d)"
+output = { symbol = "v", name = "wave speed", unit = "m/s", aliases = ["speed", "celerity"] }
+variables = [
+  { symbol = "d", name = "water depth", unit = "m", aliases = ["depth", "d"] },
+]
+tags = ["fluids", "waves"]
+source = { title = "Shallow water equations (Wikipedia)", url = "https://en.wikipedia.org/wiki/Shallow_water_equations" }
+checks = [{ inputs = [4], output = 6.2631142413339385 }]
+
+[[formula]]
+id = "heat_from_power"
+name = "Heat delivered by a heater"
+expr = "P * t"
+output = { symbol = "Q", name = "heat", unit = "J", aliases = ["heat", "energy"] }
+variables = [
+  { symbol = "P", name = "power", unit = "W", aliases = ["power", "P"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "t"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Joule heating (Wikipedia)", url = "https://en.wikipedia.org/wiki/Joule_heating" }
+checks = [{ inputs = [2000, 600], output = 1200000 }]
+
+[[formula]]
+id = "heating_time"
+name = "Time to heat a mass"
+expr = "m * c * d / P"
+output = { symbol = "t", name = "time", unit = "s", aliases = ["time"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "c", name = "specific heat capacity", unit = "J/(kg*K)", aliases = ["specific_heat", "c"] },
+  { symbol = "d", name = "temperature rise", unit = "K", aliases = ["delta_t", "dt"] },
+  { symbol = "P", name = "power", unit = "W", aliases = ["power", "P"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Specific heat capacity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Specific_heat_capacity" }
+checks = [{ inputs = [1.5, 4186, 80, 2000], output = 251.16 }]
+
+[[formula]]
+id = "volumetric_thermal_expansion"
+name = "Volumetric thermal expansion"
+expr = "b * V * d"
+output = { symbol = "dV", name = "change in volume", unit = "m^3", aliases = ["volume_change", "dv"] }
+variables = [
+  { symbol = "b", name = "volumetric expansion coefficient", unit = "1/K", aliases = ["beta", "coefficient"] },
+  { symbol = "V", name = "initial volume", unit = "m^3", aliases = ["volume", "V"] },
+  { symbol = "d", name = "temperature change", unit = "K", aliases = ["delta_t", "dt"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Thermal expansion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Thermal_expansion" }
+checks = [{ inputs = [0.00021, 0.002, 30], output = 1.26e-05 }]
+
+[[formula]]
+id = "isothermal_work"
+name = "Work in an isothermal expansion"
+expr = "n * R * T * ln(v2 / v1)"
+output = { symbol = "W", name = "work", unit = "J", aliases = ["work"] }
+variables = [
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] },
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+  { symbol = "v2", name = "final volume", unit = "m^3", aliases = ["v2", "final_volume"] },
+  { symbol = "v1", name = "initial volume", unit = "m^3", aliases = ["v1", "initial_volume"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Isothermal process (Wikipedia)", url = "https://en.wikipedia.org/wiki/Isothermal_process" }
+checks = [{ inputs = [1, 300, 0.02, 0.01], output = 1728.9438964613287 }]
+
+[[formula]]
+id = "adiabatic_pressure"
+name = "Adiabatic process (pressure)"
+expr = "p * (v1 / v2)^k"
+output = { symbol = "P", name = "final pressure", unit = "Pa", aliases = ["pressure", "p2"] }
+variables = [
+  { symbol = "p", name = "initial pressure", unit = "Pa", aliases = ["p1", "pressure0"] },
+  { symbol = "v1", name = "initial volume", unit = "m^3", aliases = ["v1"] },
+  { symbol = "v2", name = "final volume", unit = "m^3", aliases = ["v2"] },
+  { symbol = "k", name = "heat capacity ratio", unit = "1", aliases = ["gamma"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Adiabatic process (Wikipedia)", url = "https://en.wikipedia.org/wiki/Adiabatic_process" }
+checks = [{ inputs = [100000, 2, 1, 1.4], output = 263901.5821545788 }]
+
+[[formula]]
+id = "entropy_change_heat"
+name = "Entropy change from heat at constant temperature"
+expr = "Q / T"
+output = { symbol = "S", name = "entropy change", unit = "J/K", aliases = ["entropy", "ds"] }
+variables = [
+  { symbol = "Q", name = "heat", unit = "J", aliases = ["heat", "Q"] },
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Entropy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Entropy" }
+checks = [{ inputs = [3000, 300], output = 10 }]
+
+[[formula]]
+id = "thermal_energy_ideal_gas"
+name = "Internal energy of a monatomic ideal gas"
+expr = "3 / 2 * n * R * T"
+output = { symbol = "U", name = "internal energy", unit = "J", aliases = ["internal_energy", "energy"] }
+variables = [
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] },
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Internal energy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Internal_energy" }
+checks = [{ inputs = [2, 300], output = 7483.016356200001 }]
+
+[[formula]]
+id = "rms_speed_gas"
+name = "Root-mean-square speed of gas molecules"
+expr = "sqrt(3 * k_B * T / m)"
+output = { symbol = "v", name = "rms speed", unit = "m/s", aliases = ["speed", "vrms"] }
+variables = [
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+  { symbol = "m", name = "mass of a molecule", unit = "kg", aliases = ["mass", "m"] },
+]
+tags = ["thermodynamics", "kinetic_theory"]
+source = { title = "Root-mean-square speed (Wikipedia)", url = "https://en.wikipedia.org/wiki/Root-mean-square_speed" }
+checks = [{ inputs = [300, 4.65e-26], output = 516.9355734487366 }]
+
+[[formula]]
+id = "heat_transfer_convection"
+name = "Convective heat transfer"
+expr = "h * A * d"
+output = { symbol = "Q", name = "heat flow", unit = "W", aliases = ["heat_flow", "power"] }
+variables = [
+  { symbol = "h", name = "heat transfer coefficient", unit = "W/(m^2*K)", aliases = ["h", "coefficient"] },
+  { symbol = "A", name = "area", unit = "m^2", aliases = ["area", "A"] },
+  { symbol = "d", name = "temperature difference", unit = "K", aliases = ["delta_t", "dt"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Heat transfer coefficient (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heat_transfer_coefficient" }
+checks = [{ inputs = [25, 2, 15], output = 750 }]
+
+[[formula]]
+id = "otto_efficiency"
+name = "Efficiency of the Otto cycle"
+expr = "1 - 1 / r^(k - 1)"
+output = { symbol = "n", name = "efficiency", unit = "1", aliases = ["efficiency", "eta"] }
+variables = [
+  { symbol = "r", name = "compression ratio", unit = "1", aliases = ["compression_ratio", "r"] },
+  { symbol = "k", name = "heat capacity ratio", unit = "1", aliases = ["gamma"] },
+]
+tags = ["thermodynamics", "engines"]
+source = { title = "Otto cycle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Otto_cycle" }
+checks = [{ inputs = [10, 1.4], output = 0.6018928294465027 }]
+
+[[formula]]
+id = "refrigerator_cop_carnot"
+name = "Carnot COP of a refrigerator"
+expr = "c / (h - c)"
+output = { symbol = "COP", name = "coefficient of performance", unit = "1", aliases = ["cop"] }
+variables = [
+  { symbol = "c", name = "cold temperature", unit = "K", aliases = ["cold", "t_cold"] },
+  { symbol = "h", name = "hot temperature", unit = "K", aliases = ["hot", "t_hot"] },
+]
+tags = ["thermodynamics"]
+source = { title = "Coefficient of performance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Coefficient_of_performance" }
+checks = [{ inputs = [268, 300], output = 8.375 }]
+
+[[formula]]
+id = "wavelength_from_frequency"
+name = "Wavelength of a wave"
+expr = "v / f"
+output = { symbol = "L", name = "wavelength", unit = "m", aliases = ["wavelength", "lambda"] }
+variables = [
+  { symbol = "v", name = "wave speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+]
+tags = ["waves"]
+source = { title = "Wavelength (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wavelength" }
+checks = [{ inputs = [340, 440], output = 0.7727272727272727 }]
+
+[[formula]]
+id = "closed_pipe_frequency"
+name = "Frequency of a closed pipe"
+expr = "n * v / (4 * L)"
+output = { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] }
+variables = [
+  { symbol = "n", name = "odd harmonic number", unit = "1", aliases = ["harmonic", "n"] },
+  { symbol = "v", name = "speed of sound", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "L", name = "pipe length", unit = "m", aliases = ["length", "L"] },
+]
+tags = ["waves", "sound"]
+source = { title = "Acoustic resonance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Acoustic_resonance" }
+checks = [{ inputs = [1, 343, 0.5], output = 171.5 }]
+
+[[formula]]
+id = "speed_of_sound_air"
+name = "Speed of sound in air"
+expr = "331.3 * sqrt(1 + t / 273.15)"
+output = { symbol = "v", name = "speed of sound in m/s", unit = "1", aliases = ["speed", "speed_of_sound"] }
+variables = [
+  { symbol = "t", name = "air temperature in °C", unit = "1", aliases = ["temperature", "celsius", "t"] },
+]
+tags = ["waves", "sound"]
+source = { title = "Speed of sound (Wikipedia)", url = "https://en.wikipedia.org/wiki/Speed_of_sound" }
+checks = [{ inputs = [20], output = 343.21462268256795 }]
+
+[[formula]]
+id = "sound_pressure_level"
+name = "Sound pressure level"
+expr = "20 * log10(p / q)"
+output = { symbol = "L", name = "sound pressure level", unit = "1", aliases = ["spl", "db", "level"] }
+variables = [
+  { symbol = "p", name = "sound pressure", unit = "Pa", aliases = ["pressure", "p"] },
+  { symbol = "q", name = "reference pressure", unit = "Pa", aliases = ["reference", "p0"] },
+]
+tags = ["waves", "sound"]
+source = { title = "Sound pressure (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sound_pressure" }
+checks = [{ inputs = [0.2, 2e-05], output = 80 }]
+
+[[formula]]
+id = "refractive_index"
+name = "Refractive index"
+expr = "c / v"
+output = { symbol = "n", name = "refractive index", unit = "1", aliases = ["refractive_index", "n"] }
+variables = [
+  { symbol = "v", name = "speed of light in the medium", unit = "m/s", aliases = ["speed", "v"] },
+]
+tags = ["optics"]
+source = { title = "Refractive index (Wikipedia)", url = "https://en.wikipedia.org/wiki/Refractive_index" }
+checks = [{ inputs = [225000000], output = 1.3324109244444444 }]
+
+[[formula]]
+id = "mirror_equation"
+name = "Mirror and lens equation (image distance)"
+expr = "1 / (1 / f - 1 / d)"
+output = { symbol = "i", name = "image distance", unit = "m", aliases = ["image_distance", "di"] }
+variables = [
+  { symbol = "f", name = "focal length", unit = "m", aliases = ["focal_length", "f"] },
+  { symbol = "d", name = "object distance", unit = "m", aliases = ["object_distance", "do"] },
+]
+tags = ["optics"]
+source = { title = "Curved mirror (Wikipedia)", url = "https://en.wikipedia.org/wiki/Curved_mirror" }
+checks = [{ inputs = [0.1, 0.3], output = 0.15000000000000002 }]
+
+[[formula]]
+id = "brewster_angle"
+name = "Brewster's angle"
+expr = "atan(n2 / n1)"
+output = { symbol = "t", name = "Brewster angle", unit = "rad", aliases = ["angle", "theta"] }
+variables = [
+  { symbol = "n2", name = "refractive index of the second medium", unit = "1", aliases = ["n2"] },
+  { symbol = "n1", name = "refractive index of the first medium", unit = "1", aliases = ["n1"] },
+]
+tags = ["optics"]
+source = { title = "Brewster's angle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Brewster's_angle" }
+checks = [{ inputs = [1.5, 1], output = 0.982793723247329 }]
+
+[[formula]]
+id = "malus_law"
+name = "Malus's law"
+expr = "I * cos(t)^2"
+output = { symbol = "J", name = "transmitted intensity", unit = "W/m^2", aliases = ["intensity"] }
+variables = [
+  { symbol = "I", name = "incident intensity", unit = "W/m^2", aliases = ["intensity0", "I"] },
+  { symbol = "t", name = "angle between polarizers", unit = "rad", aliases = ["angle", "theta"] },
+]
+tags = ["optics"]
+source = { title = "Polarizer (Wikipedia)", url = "https://en.wikipedia.org/wiki/Polarizer" }
+checks = [{ inputs = [100, 0.5], output = 77.01511529340699 }]
+
+[[formula]]
+id = "double_slit_fringe_spacing"
+name = "Fringe spacing of a double slit"
+expr = "L * D / d"
+output = { symbol = "y", name = "fringe spacing", unit = "m", aliases = ["spacing"] }
+variables = [
+  { symbol = "L", name = "wavelength", unit = "m", aliases = ["wavelength", "lambda"] },
+  { symbol = "D", name = "distance to the screen", unit = "m", aliases = ["distance", "D"] },
+  { symbol = "d", name = "slit separation", unit = "m", aliases = ["separation", "d"] },
+]
+tags = ["optics"]
+source = { title = "Double-slit experiment (Wikipedia)", url = "https://en.wikipedia.org/wiki/Double-slit_experiment" }
+checks = [{ inputs = [6.5e-07, 2, 0.0005], output = 0.0026 }]
+
+[[formula]]
+id = "rayleigh_criterion"
+name = "Angular resolution (Rayleigh)"
+expr = "1.22 * L / D"
+output = { symbol = "t", name = "angular resolution", unit = "rad", aliases = ["resolution", "theta"] }
+variables = [
+  { symbol = "L", name = "wavelength", unit = "m", aliases = ["wavelength", "lambda"] },
+  { symbol = "D", name = "aperture diameter", unit = "m", aliases = ["aperture", "diameter"] },
+]
+tags = ["optics"]
+source = { title = "Angular resolution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Angular_resolution" }
+checks = [{ inputs = [5.5e-07, 0.1], output = 6.71e-06 }]
+
+[[formula]]
+id = "lensmaker_equation"
+name = "Lensmaker's equation (thin lens)"
+expr = "1 / ((n - 1) * (1 / a - 1 / b))"
+output = { symbol = "f", name = "focal length", unit = "m", aliases = ["focal_length", "f"] }
+variables = [
+  { symbol = "n", name = "refractive index", unit = "1", aliases = ["refractive_index", "n"] },
+  { symbol = "a", name = "first radius", unit = "m", aliases = ["r1"] },
+  { symbol = "b", name = "second radius", unit = "m", aliases = ["r2"] },
+]
+tags = ["optics"]
+source = { title = "Lens (Wikipedia)", url = "https://en.wikipedia.org/wiki/Lens" }
+checks = [{ inputs = [1.5, 0.2, -0.2], output = 0.2 }]
+
+[[formula]]
+id = "capacitance_from_charge"
+name = "Capacitance"
+expr = "Q / V"
+output = { symbol = "C", name = "capacitance", unit = "F", aliases = ["capacitance"] }
+variables = [
+  { symbol = "Q", name = "charge", unit = "C", aliases = ["charge", "Q"] },
+  { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage", "V"] },
+]
+tags = ["electromagnetism"]
+source = { title = "Capacitance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capacitance" }
+checks = [{ inputs = [0.002, 10], output = 0.0002 }]
+
+[[formula]]
+id = "magnetic_flux"
+name = "Magnetic flux"
+expr = "B * A * cos(t)"
+output = { symbol = "P", name = "magnetic flux", unit = "Wb", aliases = ["flux"] }
+variables = [
+  { symbol = "B", name = "magnetic field", unit = "T", aliases = ["field", "B"] },
+  { symbol = "A", name = "area", unit = "m^2", aliases = ["area", "A"] },
+  { symbol = "t", name = "angle", unit = "rad", aliases = ["angle", "theta"] },
+]
+tags = ["electromagnetism"]
+source = { title = "Magnetic flux (Wikipedia)", url = "https://en.wikipedia.org/wiki/Magnetic_flux" }
+checks = [{ inputs = [0.5, 0.2, 0.3], output = 0.09553364891256061 }]
+
+[[formula]]
+id = "magnetic_force_on_charge_angle"
+name = "Magnetic force on a moving charge"
+expr = "q * v * B * sin(t)"
+output = { symbol = "F", name = "force", unit = "N", aliases = ["force"] }
+variables = [
+  { symbol = "q", name = "charge", unit = "C", aliases = ["charge", "q"] },
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+  { symbol = "B", name = "magnetic field", unit = "T", aliases = ["field", "B"] },
+  { symbol = "t", name = "angle", unit = "rad", aliases = ["angle", "theta"] },
+]
+tags = ["electromagnetism"]
+source = { title = "Lorentz force (Wikipedia)", url = "https://en.wikipedia.org/wiki/Lorentz_force" }
+checks = [{ inputs = [1.6e-19, 2000000, 0.1, 1.2], output = 2.982525075095124e-14 }]
+
+[[formula]]
+id = "energy_density_electric_field"
+name = "Energy density of an electric field"
+expr = "epsilon_0 * E^2 / 2"
+output = { symbol = "u", name = "energy density", unit = "J/m^3", aliases = ["energy_density"] }
+variables = [
+  { symbol = "E", name = "electric field", unit = "V/m", aliases = ["field", "E"] },
+]
+tags = ["electromagnetism"]
+source = { title = "Energy density (Wikipedia)", url = "https://en.wikipedia.org/wiki/Energy_density" }
+checks = [{ inputs = [1000000], output = 4.4270939094 }]
+
+[[formula]]
+id = "energy_density_magnetic_field"
+name = "Energy density of a magnetic field"
+expr = "B^2 / (2 * mu_0)"
+output = { symbol = "u", name = "energy density", unit = "J/m^3", aliases = ["energy_density"] }
+variables = [
+  { symbol = "B", name = "magnetic field", unit = "T", aliases = ["field", "B"] },
+]
+tags = ["electromagnetism"]
+source = { title = "Energy density (Wikipedia)", url = "https://en.wikipedia.org/wiki/Energy_density" }
+checks = [{ inputs = [0.5], output = 99471.83944556813 }]
+
+[[formula]]
+id = "hall_voltage"
+name = "Hall voltage"
+expr = "I * B / (n * q_e * t)"
+output = { symbol = "V", name = "Hall voltage", unit = "V", aliases = ["hall_voltage", "voltage"] }
+variables = [
+  { symbol = "I", name = "current", unit = "A", aliases = ["current", "I"] },
+  { symbol = "B", name = "magnetic field", unit = "T", aliases = ["field", "B"] },
+  { symbol = "n", name = "charge carrier density", unit = "1/m^3", aliases = ["carrier_density", "n"] },
+  { symbol = "t", name = "thickness", unit = "m", aliases = ["thickness", "t"] },
+]
+tags = ["electromagnetism"]
+source = { title = "Hall effect (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hall_effect" }
+checks = [{ inputs = [2, 0.5, 8.5e+28, 0.0001], output = 7.34295185230678e-07 }]
+
+[[formula]]
+id = "gravitational_redshift"
+name = "Gravitational time dilation factor"
+expr = "sqrt(1 - 2 * G * M / (r * c^2))"
+output = { symbol = "f", name = "time dilation factor", unit = "1", aliases = ["factor"] }
+variables = [
+  { symbol = "M", name = "mass", unit = "kg", aliases = ["mass", "M"] },
+  { symbol = "r", name = "distance", unit = "m", aliases = ["radius", "r"] },
+]
+tags = ["relativity"]
+source = { title = "Gravitational time dilation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gravitational_time_dilation" }
+checks = [{ inputs = [5.97e+24, 6371000], output = 0.9999999993041253 }]
+
+[[formula]]
+id = "schwarzschild_radius"
+name = "Schwarzschild radius"
+expr = "2 * G * M / c^2"
+output = { symbol = "r", name = "Schwarzschild radius", unit = "m", aliases = ["radius"] }
+variables = [
+  { symbol = "M", name = "mass", unit = "kg", aliases = ["mass", "M"] },
+]
+tags = ["relativity"]
+source = { title = "Schwarzschild radius (Wikipedia)", url = "https://en.wikipedia.org/wiki/Schwarzschild_radius" }
+checks = [{ inputs = [1.989e+30], output = 2954.126555055405 }]
+
+[[formula]]
+id = "length_contraction"
+name = "Length contraction"
+expr = "L * sqrt(1 - v^2 / c^2)"
+output = { symbol = "l", name = "contracted length", unit = "m", aliases = ["length"] }
+variables = [
+  { symbol = "L", name = "proper length", unit = "m", aliases = ["length0", "L"] },
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+]
+tags = ["relativity"]
+source = { title = "Length contraction (Wikipedia)", url = "https://en.wikipedia.org/wiki/Length_contraction" }
+checks = [{ inputs = [100, 200000000], output = 74.49429357867304 }]
+
+[[formula]]
+id = "relativistic_momentum"
+name = "Relativistic momentum"
+expr = "m * v / sqrt(1 - v^2 / c^2)"
+output = { symbol = "p", name = "momentum", unit = "kg*m/s", aliases = ["momentum", "p"] }
+variables = [
+  { symbol = "m", name = "rest mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "v"] },
+]
+tags = ["relativity"]
+source = { title = "Momentum (Wikipedia)", url = "https://en.wikipedia.org/wiki/Momentum" }
+checks = [{ inputs = [9.11e-31, 200000000], output = 2.4458249249330695e-22 }]
+
+[[formula]]
+id = "compton_shift"
+name = "Compton wavelength shift"
+expr = "h / (m_e * c) * (1 - cos(t))"
+output = { symbol = "d", name = "wavelength shift", unit = "m", aliases = ["shift"] }
+variables = [
+  { symbol = "t", name = "scattering angle", unit = "rad", aliases = ["angle", "theta"] },
+]
+tags = ["quantum"]
+source = { title = "Compton scattering (Wikipedia)", url = "https://en.wikipedia.org/wiki/Compton_scattering" }
+checks = [{ inputs = [1.5], output = 2.254679838951808e-12 }]
+
+[[formula]]
+id = "hydrogen_energy_level"
+name = "Energy level of the hydrogen atom"
+expr = "-13.6 / n^2"
+output = { symbol = "E", name = "energy in eV", unit = "1", aliases = ["energy", "ev"] }
+variables = [
+  { symbol = "n", name = "principal quantum number", unit = "1", aliases = ["n", "level"] },
+]
+tags = ["quantum", "atomic"]
+source = { title = "Hydrogen atom (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hydrogen_atom" }
+checks = [{ inputs = [2], output = -3.4 }]
+
+[[formula]]
+id = "heisenberg_minimum_momentum"
+name = "Minimum momentum uncertainty"
+expr = "hbar / (2 * x)"
+output = { symbol = "p", name = "momentum uncertainty", unit = "kg*m/s", aliases = ["dp", "momentum"] }
+variables = [
+  { symbol = "x", name = "position uncertainty", unit = "m", aliases = ["dx", "position"] },
+]
+tags = ["quantum"]
+source = { title = "Uncertainty principle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Uncertainty_principle" }
+checks = [{ inputs = [1e-10], output = 5.272859085e-25 }]
+
+[[formula]]
+id = "thermal_de_broglie_wavelength"
+name = "Thermal de Broglie wavelength"
+expr = "h / sqrt(2 * pi * m * k_B * T)"
+output = { symbol = "L", name = "wavelength", unit = "m", aliases = ["wavelength", "lambda"] }
+variables = [
+  { symbol = "m", name = "particle mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+]
+tags = ["quantum", "thermodynamics"]
+source = { title = "Thermal de Broglie wavelength (Wikipedia)", url = "https://en.wikipedia.org/wiki/Thermal_de_Broglie_wavelength" }
+checks = [{ inputs = [6.6e-27, 300], output = 5.055822971107622e-11 }]
+
+[[formula]]
+id = "remaining_after_half_lives"
+name = "Fraction left after some half-lives"
+expr = "0.5^(t / h)"
+output = { symbol = "f", name = "fraction remaining", unit = "1", aliases = ["fraction", "remaining"] }
+variables = [
+  { symbol = "t", name = "elapsed time", unit = "s", aliases = ["time", "t"] },
+  { symbol = "h", name = "half-life", unit = "s", aliases = ["half_life"] },
+]
+tags = ["nuclear"]
+source = { title = "Half-life (Wikipedia)", url = "https://en.wikipedia.org/wiki/Half-life" }
+checks = [{ inputs = [30, 10], output = 0.125 }]

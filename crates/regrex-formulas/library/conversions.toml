@@ -257,3 +257,464 @@ variables = [{ symbol = "t", name = "time in hours", unit = "h", aliases = ["hou
 tags = ["time", "unit_conversion"]
 source = { title = "Hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hour" }
 checks = [{ inputs = [2], output = 7200 }]
+
+[[formula]]
+id = "kelvin_to_celsius"
+name = "Kelvin to Celsius"
+expr = "k - 273.15"
+output = { symbol = "c", name = "temperature in °C", unit = "1", aliases = ["celsius", "c"] }
+variables = [
+  { symbol = "k", name = "temperature in kelvin", unit = "1", aliases = ["kelvin", "k"] },
+]
+tags = ["temperature"]
+source = { title = "Kelvin (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kelvin" }
+checks = [{ inputs = [300], output = 26.850000000000023 }]
+
+[[formula]]
+id = "kelvin_to_fahrenheit"
+name = "Kelvin to Fahrenheit"
+expr = "k * 9 / 5 - 459.67"
+output = { symbol = "f", name = "temperature in °F", unit = "1", aliases = ["fahrenheit", "f"] }
+variables = [
+  { symbol = "k", name = "temperature in kelvin", unit = "1", aliases = ["kelvin", "k"] },
+]
+tags = ["temperature"]
+source = { title = "Kelvin (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kelvin" }
+checks = [{ inputs = [300], output = 80.32999999999998 }]
+
+[[formula]]
+id = "fahrenheit_to_kelvin"
+name = "Fahrenheit to kelvin"
+expr = "(f + 459.67) * 5 / 9"
+output = { symbol = "k", name = "temperature in kelvin", unit = "1", aliases = ["kelvin", "k"] }
+variables = [
+  { symbol = "f", name = "temperature in °F", unit = "1", aliases = ["fahrenheit", "f"] },
+]
+tags = ["temperature"]
+source = { title = "Fahrenheit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fahrenheit" }
+checks = [{ inputs = [68], output = 293.15000000000003 }]
+
+[[formula]]
+id = "cm_to_inches"
+name = "Centimetres to inches"
+expr = "c / 2.54"
+output = { symbol = "i", name = "inches", unit = "1", aliases = ["inches", "in"] }
+variables = [
+  { symbol = "c", name = "centimetres", unit = "1", aliases = ["cm", "centimetres"] },
+]
+tags = ["length"]
+source = { title = "Inch (Wikipedia)", url = "https://en.wikipedia.org/wiki/Inch" }
+checks = [{ inputs = [30], output = 11.811023622047244 }]
+
+[[formula]]
+id = "metres_to_feet"
+name = "Metres to feet"
+expr = "m / 0.3048"
+output = { symbol = "f", name = "feet", unit = "1", aliases = ["feet", "ft"] }
+variables = [
+  { symbol = "m", name = "metres", unit = "1", aliases = ["metres", "meters", "m"] },
+]
+tags = ["length"]
+source = { title = "Foot (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Foot_(unit)" }
+checks = [{ inputs = [10], output = 32.808398950131235 }]
+
+[[formula]]
+id = "yards_to_metres"
+name = "Yards to metres"
+expr = "y * 0.9144"
+output = { symbol = "m", name = "metres", unit = "1", aliases = ["metres", "meters"] }
+variables = [
+  { symbol = "y", name = "yards", unit = "1", aliases = ["yards", "yd"] },
+]
+tags = ["length"]
+source = { title = "Yard (Wikipedia)", url = "https://en.wikipedia.org/wiki/Yard" }
+checks = [{ inputs = [100], output = 91.44 }]
+
+[[formula]]
+id = "nautical_miles_to_km"
+name = "Nautical miles to kilometres"
+expr = "n * 1.852"
+output = { symbol = "k", name = "kilometres", unit = "1", aliases = ["km", "kilometres"] }
+variables = [
+  { symbol = "n", name = "nautical miles", unit = "1", aliases = ["nmi", "nautical_miles"] },
+]
+tags = ["length"]
+source = { title = "Nautical mile (Wikipedia)", url = "https://en.wikipedia.org/wiki/Nautical_mile" }
+checks = [{ inputs = [50], output = 92.60000000000001 }]
+
+[[formula]]
+id = "feet_inches_to_cm"
+name = "Feet and inches to centimetres"
+expr = "30.48 * f + 2.54 * i"
+output = { symbol = "c", name = "centimetres", unit = "1", aliases = ["cm", "height"] }
+variables = [
+  { symbol = "f", name = "feet", unit = "1", aliases = ["feet", "ft"] },
+  { symbol = "i", name = "inches", unit = "1", aliases = ["inches", "in"] },
+]
+tags = ["length"]
+source = { title = "Imperial units (Wikipedia)", url = "https://en.wikipedia.org/wiki/Imperial_units" }
+checks = [{ inputs = [5, 10], output = 177.8 }]
+
+[[formula]]
+id = "square_feet_to_square_metres"
+name = "Square feet to square metres"
+expr = "f * 0.09290304"
+output = { symbol = "m", name = "square metres", unit = "1", aliases = ["m2", "square_metres"] }
+variables = [
+  { symbol = "f", name = "square feet", unit = "1", aliases = ["sqft", "square_feet"] },
+]
+tags = ["area"]
+source = { title = "Square foot (Wikipedia)", url = "https://en.wikipedia.org/wiki/Square_foot" }
+checks = [{ inputs = [1000], output = 92.90304 }]
+
+[[formula]]
+id = "acres_to_hectares"
+name = "Acres to hectares"
+expr = "a * 0.40468564"
+output = { symbol = "h", name = "hectares", unit = "1", aliases = ["hectares", "ha"] }
+variables = [
+  { symbol = "a", name = "acres", unit = "1", aliases = ["acres"] },
+]
+tags = ["area"]
+source = { title = "Acre (Wikipedia)", url = "https://en.wikipedia.org/wiki/Acre" }
+checks = [{ inputs = [10], output = 4.0468564 }]
+
+[[formula]]
+id = "hectares_to_square_metres"
+name = "Hectares to square metres"
+expr = "10000 * h"
+output = { symbol = "m", name = "square metres", unit = "1", aliases = ["m2", "square_metres"] }
+variables = [
+  { symbol = "h", name = "hectares", unit = "1", aliases = ["hectares", "ha"] },
+]
+tags = ["area"]
+source = { title = "Hectare (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hectare" }
+checks = [{ inputs = [2.5], output = 25000 }]
+
+[[formula]]
+id = "us_gallons_to_litres"
+name = "US gallons to litres"
+expr = "g * 3.785411784"
+output = { symbol = "l", name = "litres", unit = "1", aliases = ["litres", "liters"] }
+variables = [
+  { symbol = "g", name = "US gallons", unit = "1", aliases = ["gallons", "gal"] },
+]
+tags = ["volume"]
+source = { title = "Gallon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gallon" }
+checks = [{ inputs = [5], output = 18.92705892 }]
+
+[[formula]]
+id = "imperial_gallons_to_litres"
+name = "Imperial gallons to litres"
+expr = "g * 4.54609"
+output = { symbol = "l", name = "litres", unit = "1", aliases = ["litres", "liters"] }
+variables = [
+  { symbol = "g", name = "imperial gallons", unit = "1", aliases = ["gallons", "gal"] },
+]
+tags = ["volume"]
+source = { title = "Gallon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gallon" }
+checks = [{ inputs = [5], output = 22.73045 }]
+
+[[formula]]
+id = "fluid_ounces_to_ml"
+name = "US fluid ounces to millilitres"
+expr = "o * 29.5735295625"
+output = { symbol = "m", name = "millilitres", unit = "1", aliases = ["ml", "millilitres"] }
+variables = [
+  { symbol = "o", name = "US fluid ounces", unit = "1", aliases = ["fl_oz", "ounces"] },
+]
+tags = ["volume", "cooking"]
+source = { title = "Fluid ounce (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fluid_ounce" }
+checks = [{ inputs = [12], output = 354.88235475 }]
+
+[[formula]]
+id = "cups_to_ml"
+name = "US cups to millilitres"
+expr = "c * 236.5882365"
+output = { symbol = "m", name = "millilitres", unit = "1", aliases = ["ml", "millilitres"] }
+variables = [
+  { symbol = "c", name = "US cups", unit = "1", aliases = ["cups"] },
+]
+tags = ["volume", "cooking"]
+source = { title = "Cup (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cup_(unit)" }
+checks = [{ inputs = [2], output = 473.176473 }]
+
+[[formula]]
+id = "cubic_feet_to_cubic_metres"
+name = "Cubic feet to cubic metres"
+expr = "f * 0.028316846592"
+output = { symbol = "m", name = "cubic metres", unit = "1", aliases = ["m3", "cubic_metres"] }
+variables = [
+  { symbol = "f", name = "cubic feet", unit = "1", aliases = ["cubic_feet", "cuft"] },
+]
+tags = ["volume"]
+source = { title = "Cubic foot (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cubic_foot" }
+checks = [{ inputs = [100], output = 2.8316846592 }]
+
+[[formula]]
+id = "ounces_to_grams"
+name = "Ounces to grams"
+expr = "o * 28.349523125"
+output = { symbol = "g", name = "grams", unit = "1", aliases = ["grams", "g"] }
+variables = [
+  { symbol = "o", name = "ounces", unit = "1", aliases = ["ounces", "oz"] },
+]
+tags = ["mass"]
+source = { title = "Ounce (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ounce" }
+checks = [{ inputs = [8], output = 226.796185 }]
+
+[[formula]]
+id = "grams_to_ounces"
+name = "Grams to ounces"
+expr = "g / 28.349523125"
+output = { symbol = "o", name = "ounces", unit = "1", aliases = ["ounces", "oz"] }
+variables = [
+  { symbol = "g", name = "grams", unit = "1", aliases = ["grams", "g"] },
+]
+tags = ["mass"]
+source = { title = "Ounce (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ounce" }
+checks = [{ inputs = [250], output = 8.818490487395103 }]
+
+[[formula]]
+id = "stones_to_kg"
+name = "Stones to kilograms"
+expr = "s * 6.35029318"
+output = { symbol = "k", name = "kilograms", unit = "1", aliases = ["kg", "kilograms"] }
+variables = [
+  { symbol = "s", name = "stones", unit = "1", aliases = ["stones", "st"] },
+]
+tags = ["mass"]
+source = { title = "Stone (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Stone_(unit)" }
+checks = [{ inputs = [11], output = 69.85322498000001 }]
+
+[[formula]]
+id = "short_tons_to_tonnes"
+name = "Short tons to tonnes"
+expr = "t * 0.90718474"
+output = { symbol = "m", name = "tonnes", unit = "1", aliases = ["tonnes"] }
+variables = [
+  { symbol = "t", name = "short tons", unit = "1", aliases = ["tons", "short_tons"] },
+]
+tags = ["mass"]
+source = { title = "Short ton (Wikipedia)", url = "https://en.wikipedia.org/wiki/Short_ton" }
+checks = [{ inputs = [20], output = 18.143694800000002 }]
+
+[[formula]]
+id = "kmh_to_mph"
+name = "Kilometres per hour to miles per hour"
+expr = "k / 1.609344"
+output = { symbol = "m", name = "miles per hour", unit = "1", aliases = ["mph"] }
+variables = [
+  { symbol = "k", name = "kilometres per hour", unit = "1", aliases = ["kmh", "kph"] },
+]
+tags = ["speed"]
+source = { title = "Miles per hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Miles_per_hour" }
+checks = [{ inputs = [100], output = 62.13711922373339 }]
+
+[[formula]]
+id = "ms_to_knots"
+name = "Metres per second to knots"
+expr = "v * 3600 / 1852"
+output = { symbol = "k", name = "knots", unit = "1", aliases = ["knots", "kn"] }
+variables = [
+  { symbol = "v", name = "metres per second", unit = "1", aliases = ["ms", "speed"] },
+]
+tags = ["speed"]
+source = { title = "Knot (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Knot_(unit)" }
+checks = [{ inputs = [10], output = 19.43844492440605 }]
+
+[[formula]]
+id = "min_per_km_to_min_per_mile"
+name = "Pace per km to pace per mile"
+expr = "p * 1.609344"
+output = { symbol = "m", name = "minutes per mile", unit = "1", aliases = ["pace_mile"] }
+variables = [
+  { symbol = "p", name = "minutes per km", unit = "1", aliases = ["pace_km", "pace"] },
+]
+tags = ["speed", "sport"]
+source = { title = "Pace (speed) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pace_(speed)" }
+checks = [{ inputs = [5], output = 8.04672 }]
+
+[[formula]]
+id = "bar_to_psi"
+name = "Bar to psi"
+expr = "b * 14.503773773"
+output = { symbol = "p", name = "psi", unit = "1", aliases = ["psi"] }
+variables = [
+  { symbol = "b", name = "bar", unit = "1", aliases = ["bar"] },
+]
+tags = ["pressure"]
+source = { title = "Bar (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bar_(unit)" }
+checks = [{ inputs = [2.2], output = 31.908302300600003 }]
+
+[[formula]]
+id = "kpa_to_bar"
+name = "Kilopascals to bar"
+expr = "k / 100"
+output = { symbol = "b", name = "bar", unit = "1", aliases = ["bar"] }
+variables = [
+  { symbol = "k", name = "kilopascals", unit = "1", aliases = ["kpa"] },
+]
+tags = ["pressure"]
+source = { title = "Pascal (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pascal_(unit)" }
+checks = [{ inputs = [250], output = 2.5 }]
+
+[[formula]]
+id = "inhg_to_hpa"
+name = "Inches of mercury to hectopascals"
+expr = "i * 33.8638866667"
+output = { symbol = "h", name = "hectopascals", unit = "1", aliases = ["hpa", "mbar"] }
+variables = [
+  { symbol = "i", name = "inches of mercury", unit = "1", aliases = ["inhg"] },
+]
+tags = ["pressure", "weather"]
+source = { title = "Inch of mercury (Wikipedia)", url = "https://en.wikipedia.org/wiki/Inch_of_mercury" }
+checks = [{ inputs = [29.92], output = 1013.207489067664 }]
+
+[[formula]]
+id = "joules_to_calories"
+name = "Joules to calories"
+expr = "j / 4.184"
+output = { symbol = "c", name = "calories", unit = "1", aliases = ["calories", "cal"] }
+variables = [
+  { symbol = "j", name = "joules", unit = "1", aliases = ["joules", "j"] },
+]
+tags = ["energy"]
+source = { title = "Calorie (Wikipedia)", url = "https://en.wikipedia.org/wiki/Calorie" }
+checks = [{ inputs = [1000], output = 239.0057361376673 }]
+
+[[formula]]
+id = "btu_to_kwh"
+name = "BTU to kilowatt-hours"
+expr = "b * 0.00029307107"
+output = { symbol = "k", name = "kilowatt-hours", unit = "1", aliases = ["kwh"] }
+variables = [
+  { symbol = "b", name = "BTU", unit = "1", aliases = ["btu"] },
+]
+tags = ["energy"]
+source = { title = "British thermal unit (Wikipedia)", url = "https://en.wikipedia.org/wiki/British_thermal_unit" }
+checks = [{ inputs = [10000], output = 2.9307107 }]
+
+[[formula]]
+id = "therms_to_kwh"
+name = "Therms to kilowatt-hours"
+expr = "t * 29.307107"
+output = { symbol = "k", name = "kilowatt-hours", unit = "1", aliases = ["kwh"] }
+variables = [
+  { symbol = "t", name = "therms", unit = "1", aliases = ["therms"] },
+]
+tags = ["energy"]
+source = { title = "Therm (Wikipedia)", url = "https://en.wikipedia.org/wiki/Therm" }
+checks = [{ inputs = [50], output = 1465.3553499999998 }]
+
+[[formula]]
+id = "kw_to_horsepower"
+name = "Kilowatts to horsepower"
+expr = "k / 0.745699872"
+output = { symbol = "h", name = "horsepower", unit = "1", aliases = ["hp", "horsepower"] }
+variables = [
+  { symbol = "k", name = "kilowatts", unit = "1", aliases = ["kw"] },
+]
+tags = ["power"]
+source = { title = "Horsepower (Wikipedia)", url = "https://en.wikipedia.org/wiki/Horsepower" }
+checks = [{ inputs = [100], output = 134.10220888438076 }]
+
+[[formula]]
+id = "dbm_to_mw"
+name = "dBm to milliwatts"
+expr = "10^(d / 10)"
+output = { symbol = "m", name = "milliwatts", unit = "1", aliases = ["mw"] }
+variables = [
+  { symbol = "d", name = "dBm", unit = "1", aliases = ["dbm"] },
+]
+tags = ["power"]
+source = { title = "DBm (Wikipedia)", url = "https://en.wikipedia.org/wiki/DBm" }
+checks = [{ inputs = [13], output = 19.952623149688797 }]
+
+[[formula]]
+id = "gradians_to_degrees"
+name = "Gradians to degrees"
+expr = "g * 0.9"
+output = { symbol = "d", name = "degrees", unit = "1", aliases = ["degrees", "deg"] }
+variables = [
+  { symbol = "g", name = "gradians", unit = "1", aliases = ["gradians", "gon"] },
+]
+tags = ["angle"]
+source = { title = "Gradian (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gradian" }
+checks = [{ inputs = [50], output = 45 }]
+
+[[formula]]
+id = "minutes_to_hours"
+name = "Minutes to hours"
+expr = "m / 60"
+output = { symbol = "h", name = "hours", unit = "1", aliases = ["hours"] }
+variables = [
+  { symbol = "m", name = "minutes", unit = "1", aliases = ["minutes", "min"] },
+]
+tags = ["time"]
+source = { title = "Minute (Wikipedia)", url = "https://en.wikipedia.org/wiki/Minute" }
+checks = [{ inputs = [135], output = 2.25 }]
+
+[[formula]]
+id = "days_to_hours"
+name = "Days to hours"
+expr = "24 * d"
+output = { symbol = "h", name = "hours", unit = "1", aliases = ["hours"] }
+variables = [
+  { symbol = "d", name = "days", unit = "1", aliases = ["days"] },
+]
+tags = ["time"]
+source = { title = "Day (Wikipedia)", url = "https://en.wikipedia.org/wiki/Day" }
+checks = [{ inputs = [3.5], output = 84 }]
+
+[[formula]]
+id = "weeks_to_days"
+name = "Weeks to days"
+expr = "7 * w"
+output = { symbol = "d", name = "days", unit = "1", aliases = ["days"] }
+variables = [
+  { symbol = "w", name = "weeks", unit = "1", aliases = ["weeks"] },
+]
+tags = ["time"]
+source = { title = "Week (Wikipedia)", url = "https://en.wikipedia.org/wiki/Week" }
+checks = [{ inputs = [6], output = 42 }]
+
+[[formula]]
+id = "hms_to_seconds"
+name = "Hours, minutes and seconds to seconds"
+expr = "3600 * h + 60 * m + s"
+output = { symbol = "t", name = "seconds", unit = "1", aliases = ["seconds", "total_seconds"] }
+variables = [
+  { symbol = "h", name = "hours", unit = "1", aliases = ["hours"] },
+  { symbol = "m", name = "minutes", unit = "1", aliases = ["minutes"] },
+  { symbol = "s", name = "seconds", unit = "1", aliases = ["seconds", "secs"] },
+]
+tags = ["time"]
+source = { title = "Second (Wikipedia)", url = "https://en.wikipedia.org/wiki/Second" }
+checks = [{ inputs = [1, 25, 30], output = 5130 }]
+
+[[formula]]
+id = "decimal_degrees"
+name = "Degrees, minutes and seconds to decimal degrees"
+expr = "d + m / 60 + s / 3600"
+output = { symbol = "D", name = "decimal degrees", unit = "1", aliases = ["decimal_degrees"] }
+variables = [
+  { symbol = "d", name = "degrees", unit = "1", aliases = ["degrees", "deg"] },
+  { symbol = "m", name = "arcminutes", unit = "1", aliases = ["minutes"] },
+  { symbol = "s", name = "arcseconds", unit = "1", aliases = ["seconds"] },
+]
+tags = ["angle", "geography"]
+source = { title = "Decimal degrees (Wikipedia)", url = "https://en.wikipedia.org/wiki/Decimal_degrees" }
+checks = [{ inputs = [41, 23, 24], output = 41.39 }]
+
+[[formula]]
+id = "gigabytes_to_gibibytes"
+name = "Gigabytes to gibibytes"
+expr = "g * 1000000000 / 1073741824"
+output = { symbol = "G", name = "gibibytes", unit = "1", aliases = ["gib"] }
+variables = [
+  { symbol = "g", name = "gigabytes", unit = "1", aliases = ["gb"] },
+]
+tags = ["data"]
+source = { title = "Gigabyte (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gigabyte" }
+checks = [{ inputs = [500], output = 465.66128730773926 }]

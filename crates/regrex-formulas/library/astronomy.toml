@@ -1,0 +1,441 @@
+# Astronomy: stars, planets, orbits, telescopes and cosmology.
+#
+# Physical laws use SI units; observational quantities (magnitudes, parsecs,
+# light years) are plain numbers with the unit in the name.
+
+id = "astronomy"
+name = "Astronomy"
+description = "Stellar magnitudes and luminosity, orbits, telescopes, distances and cosmology."
+
+[[formula]]
+id = "distance_modulus"
+name = "Distance modulus"
+expr = "5 * log10(d) - 5"
+output = { symbol = "mu", name = "distance modulus", unit = "1", aliases = ["distance_modulus"] }
+variables = [
+  { symbol = "d", name = "distance in parsecs", unit = "1", aliases = ["distance", "parsecs"] },
+]
+tags = ["distances"]
+source = { title = "Distance modulus (Wikipedia)", url = "https://en.wikipedia.org/wiki/Distance_modulus" }
+checks = [{ inputs = [100], output = 5 }]
+
+[[formula]]
+id = "distance_from_parallax"
+name = "Distance from parallax"
+expr = "1 / p"
+output = { symbol = "d", name = "distance in parsecs", unit = "1", aliases = ["distance", "parsecs"] }
+variables = [
+  { symbol = "p", name = "parallax in arcseconds", unit = "1", aliases = ["parallax"] },
+]
+tags = ["distances"]
+source = { title = "Parallax (Wikipedia)", url = "https://en.wikipedia.org/wiki/Parallax" }
+checks = [{ inputs = [0.1], output = 10 }]
+
+[[formula]]
+id = "absolute_magnitude"
+name = "Absolute magnitude"
+expr = "m - 5 * log10(d) + 5"
+output = { symbol = "M", name = "absolute magnitude", unit = "1", aliases = ["absolute_magnitude"] }
+variables = [
+  { symbol = "m", name = "apparent magnitude", unit = "1", aliases = ["apparent_magnitude", "m"] },
+  { symbol = "d", name = "distance in parsecs", unit = "1", aliases = ["distance", "parsecs"] },
+]
+tags = ["stars", "magnitudes"]
+source = { title = "Absolute magnitude (Wikipedia)", url = "https://en.wikipedia.org/wiki/Absolute_magnitude" }
+checks = [{ inputs = [10, 100], output = 5 }]
+
+[[formula]]
+id = "magnitude_difference_flux"
+name = "Flux ratio from a magnitude difference"
+expr = "10^(0.4 * d)"
+output = { symbol = "r", name = "flux ratio", unit = "1", aliases = ["flux_ratio", "ratio"] }
+variables = [
+  { symbol = "d", name = "magnitude difference", unit = "1", aliases = ["delta_m"] },
+]
+tags = ["magnitudes"]
+source = { title = "Apparent magnitude (Wikipedia)", url = "https://en.wikipedia.org/wiki/Apparent_magnitude" }
+checks = [{ inputs = [5], output = 100 }]
+
+[[formula]]
+id = "magnitude_from_flux_ratio"
+name = "Magnitude difference from a flux ratio"
+expr = "-2.5 * log10(f)"
+output = { symbol = "d", name = "magnitude difference", unit = "1", aliases = ["delta_m"] }
+variables = [
+  { symbol = "f", name = "flux ratio", unit = "1", aliases = ["flux_ratio", "ratio"] },
+]
+tags = ["magnitudes"]
+source = { title = "Apparent magnitude (Wikipedia)", url = "https://en.wikipedia.org/wiki/Apparent_magnitude" }
+checks = [{ inputs = [0.01], output = 5 }]
+
+[[formula]]
+id = "stellar_luminosity"
+name = "Luminosity of a star"
+expr = "4 * pi * R^2 * sigma_SB * T^4"
+output = { symbol = "L", name = "luminosity", unit = "W", aliases = ["luminosity"] }
+variables = [
+  { symbol = "R", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "T", name = "surface temperature", unit = "K", aliases = ["temperature", "teff"] },
+]
+tags = ["stars"]
+source = { title = "Luminosity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Luminosity" }
+checks = [{ inputs = [696000000, 5772], output = 3.831293030152977e+26 }]
+
+[[formula]]
+id = "luminosity_solar"
+name = "Luminosity in solar units"
+expr = "r^2 * (t / 5772)^4"
+output = { symbol = "L", name = "luminosity in solar units", unit = "1", aliases = ["luminosity"] }
+variables = [
+  { symbol = "r", name = "radius in solar radii", unit = "1", aliases = ["radius"] },
+  { symbol = "t", name = "temperature in kelvin", unit = "1", aliases = ["temperature", "teff"] },
+]
+tags = ["stars"]
+source = { title = "Luminosity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Luminosity" }
+checks = [{ inputs = [2, 7000], output = 8.652604671373036 }]
+
+[[formula]]
+id = "flux_from_luminosity"
+name = "Flux received from a star"
+expr = "L / (4 * pi * d^2)"
+output = { symbol = "F", name = "flux", unit = "W/m^2", aliases = ["flux"] }
+variables = [
+  { symbol = "L", name = "luminosity", unit = "W", aliases = ["luminosity"] },
+  { symbol = "d", name = "distance", unit = "m", aliases = ["distance"] },
+]
+tags = ["stars"]
+source = { title = "Flux (Wikipedia)", url = "https://en.wikipedia.org/wiki/Flux" }
+checks = [{ inputs = [3.828e+26, 149600000000], output = 1361.127717933597 }]
+
+[[formula]]
+id = "mass_luminosity"
+name = "Mass-luminosity relation"
+expr = "m^3.5"
+output = { symbol = "L", name = "luminosity in solar units", unit = "1", aliases = ["luminosity"] }
+variables = [
+  { symbol = "m", name = "mass in solar masses", unit = "1", aliases = ["mass"] },
+]
+tags = ["stars"]
+source = { title = "Mass–luminosity relation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mass–luminosity_relation" }
+checks = [{ inputs = [2], output = 11.313708498984761 }]
+
+[[formula]]
+id = "main_sequence_lifetime"
+name = "Main-sequence lifetime"
+expr = "10 * m^(-2.5)"
+output = { symbol = "t", name = "lifetime in billions of years", unit = "1", aliases = ["lifetime"] }
+variables = [
+  { symbol = "m", name = "mass in solar masses", unit = "1", aliases = ["mass"] },
+]
+tags = ["stars"]
+source = { title = "Stellar evolution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Stellar_evolution" }
+checks = [{ inputs = [2], output = 1.7677669529663689 }]
+
+[[formula]]
+id = "equilibrium_temperature"
+name = "Planet equilibrium temperature"
+expr = "T * sqrt(R / (2 * d)) * (1 - a)^0.25"
+output = { symbol = "t", name = "equilibrium temperature", unit = "K", aliases = ["temperature"] }
+variables = [
+  { symbol = "T", name = "star temperature", unit = "K", aliases = ["star_temperature"] },
+  { symbol = "R", name = "star radius", unit = "m", aliases = ["star_radius"] },
+  { symbol = "d", name = "orbital distance", unit = "m", aliases = ["distance"] },
+  { symbol = "a", name = "albedo", unit = "1", aliases = ["albedo"] },
+]
+tags = ["planets"]
+source = { title = "Planetary equilibrium temperature (Wikipedia)", url = "https://en.wikipedia.org/wiki/Planetary_equilibrium_temperature" }
+checks = [{ inputs = [5772, 696000000, 149600000000, 0.3], output = 254.63884611704373 }]
+
+[[formula]]
+id = "kepler_third_law_solar"
+name = "Kepler's third law in years and AU"
+expr = "a^1.5"
+output = { symbol = "T", name = "orbital period in years", unit = "1", aliases = ["period", "years"] }
+variables = [
+  { symbol = "a", name = "semi-major axis in AU", unit = "1", aliases = ["semi_major", "au"] },
+]
+tags = ["orbits"]
+source = { title = "Kepler's laws of planetary motion (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kepler's_laws_of_planetary_motion" }
+checks = [{ inputs = [5.2], output = 11.857824421031035 }]
+
+[[formula]]
+id = "vis_viva"
+name = "Vis-viva equation"
+expr = "sqrt(G * M * (2 / r - 1 / a))"
+output = { symbol = "v", name = "orbital speed", unit = "m/s", aliases = ["speed"] }
+variables = [
+  { symbol = "M", name = "central mass", unit = "kg", aliases = ["mass"] },
+  { symbol = "r", name = "distance", unit = "m", aliases = ["distance", "r"] },
+  { symbol = "a", name = "semi-major axis", unit = "m", aliases = ["semi_major"] },
+]
+tags = ["orbits"]
+source = { title = "Vis-viva equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Vis-viva_equation" }
+checks = [{ inputs = [1.989e+30, 150000000000, 160000000000], output = 30664.72633580805 }]
+
+[[formula]]
+id = "hill_sphere"
+name = "Hill sphere radius"
+expr = "a * cbrt(m / (3 * M))"
+output = { symbol = "r", name = "Hill radius", unit = "m", aliases = ["hill_radius"] }
+variables = [
+  { symbol = "a", name = "semi-major axis", unit = "m", aliases = ["semi_major"] },
+  { symbol = "m", name = "planet mass", unit = "kg", aliases = ["planet_mass"] },
+  { symbol = "M", name = "star mass", unit = "kg", aliases = ["star_mass"] },
+]
+tags = ["orbits"]
+source = { title = "Hill sphere (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hill_sphere" }
+checks = [{ inputs = [149600000000, 5.97e+24, 1.989e+30], output = 1496250670.2459788 }]
+
+[[formula]]
+id = "synodic_period"
+name = "Synodic period"
+expr = "1 / abs(1 / a - 1 / b)"
+output = { symbol = "S", name = "synodic period", unit = "1", aliases = ["synodic"] }
+variables = [
+  { symbol = "a", name = "first orbital period", unit = "1", aliases = ["period1"] },
+  { symbol = "b", name = "second orbital period", unit = "1", aliases = ["period2"] },
+]
+tags = ["orbits"]
+source = { title = "Orbital period (Wikipedia)", url = "https://en.wikipedia.org/wiki/Orbital_period" }
+checks = [{ inputs = [1, 1.881], output = 2.135073779795687 }]
+
+[[formula]]
+id = "orbital_eccentricity"
+name = "Eccentricity from apsides"
+expr = "(a - p) / (a + p)"
+output = { symbol = "e", name = "eccentricity", unit = "1", aliases = ["eccentricity"] }
+variables = [
+  { symbol = "a", name = "apoapsis distance", unit = "m", aliases = ["apoapsis"] },
+  { symbol = "p", name = "periapsis distance", unit = "m", aliases = ["periapsis"] },
+]
+tags = ["orbits"]
+source = { title = "Orbital eccentricity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Orbital_eccentricity" }
+checks = [{ inputs = [152100000000, 147100000000], output = 0.016711229946524065 }]
+
+[[formula]]
+id = "hohmann_delta_v1"
+name = "First burn of a Hohmann transfer"
+expr = "sqrt(G * M / a) * (sqrt(2 * b / (a + b)) - 1)"
+output = { symbol = "v", name = "delta-v", unit = "m/s", aliases = ["delta_v", "dv"] }
+variables = [
+  { symbol = "M", name = "central mass", unit = "kg", aliases = ["mass"] },
+  { symbol = "a", name = "initial orbit radius", unit = "m", aliases = ["r1"] },
+  { symbol = "b", name = "target orbit radius", unit = "m", aliases = ["r2"] },
+]
+tags = ["orbits", "spaceflight"]
+source = { title = "Hohmann transfer orbit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hohmann_transfer_orbit" }
+checks = [{ inputs = [5.97e+24, 6678000, 42164000], output = 2425.328590017488 }]
+
+[[formula]]
+id = "rocket_equation"
+name = "Tsiolkovsky rocket equation"
+expr = "v * ln(a / b)"
+output = { symbol = "d", name = "delta-v", unit = "m/s", aliases = ["delta_v", "dv"] }
+variables = [
+  { symbol = "v", name = "exhaust speed", unit = "m/s", aliases = ["exhaust_velocity", "ve"] },
+  { symbol = "a", name = "initial mass", unit = "kg", aliases = ["initial_mass", "m0"] },
+  { symbol = "b", name = "final mass", unit = "kg", aliases = ["final_mass", "mf"] },
+]
+tags = ["spaceflight"]
+source = { title = "Tsiolkovsky rocket equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Tsiolkovsky_rocket_equation" }
+checks = [{ inputs = [3000, 500000, 150000], output = 3611.918412977808 }]
+
+[[formula]]
+id = "specific_impulse_exhaust"
+name = "Exhaust speed from specific impulse"
+expr = "i * g"
+output = { symbol = "v", name = "exhaust speed", unit = "m/s", aliases = ["exhaust_velocity", "ve"] }
+variables = [
+  { symbol = "i", name = "specific impulse", unit = "s", aliases = ["isp"] },
+]
+tags = ["spaceflight"]
+source = { title = "Specific impulse (Wikipedia)", url = "https://en.wikipedia.org/wiki/Specific_impulse" }
+checks = [{ inputs = [300], output = 2941.995 }]
+
+[[formula]]
+id = "thrust"
+name = "Rocket thrust"
+expr = "m * v"
+output = { symbol = "F", name = "thrust", unit = "N", aliases = ["thrust"] }
+variables = [
+  { symbol = "m", name = "mass flow rate", unit = "kg/s", aliases = ["mass_flow"] },
+  { symbol = "v", name = "exhaust speed", unit = "m/s", aliases = ["exhaust_velocity", "ve"] },
+]
+tags = ["spaceflight"]
+source = { title = "Thrust (Wikipedia)", url = "https://en.wikipedia.org/wiki/Thrust" }
+checks = [{ inputs = [250, 3000], output = 750000 }]
+
+[[formula]]
+id = "telescope_magnification"
+name = "Telescope magnification"
+expr = "F / f"
+output = { symbol = "M", name = "magnification", unit = "1", aliases = ["magnification"] }
+variables = [
+  { symbol = "F", name = "telescope focal length", unit = "m", aliases = ["focal_length", "telescope"] },
+  { symbol = "f", name = "eyepiece focal length", unit = "m", aliases = ["eyepiece"] },
+]
+tags = ["telescopes"]
+source = { title = "Magnification (Wikipedia)", url = "https://en.wikipedia.org/wiki/Magnification" }
+checks = [{ inputs = [1.2, 0.025], output = 47.99999999999999 }]
+
+[[formula]]
+id = "focal_ratio"
+name = "Focal ratio"
+expr = "f / D"
+output = { symbol = "N", name = "focal ratio", unit = "1", aliases = ["f_ratio"] }
+variables = [
+  { symbol = "f", name = "focal length", unit = "m", aliases = ["focal_length"] },
+  { symbol = "D", name = "aperture", unit = "m", aliases = ["aperture", "diameter"] },
+]
+tags = ["telescopes"]
+source = { title = "F-number (Wikipedia)", url = "https://en.wikipedia.org/wiki/F-number" }
+checks = [{ inputs = [1.2, 0.2], output = 5.999999999999999 }]
+
+[[formula]]
+id = "light_gathering_power"
+name = "Light gathering compared with the eye"
+expr = "(D / d)^2"
+output = { symbol = "g", name = "light gathering ratio", unit = "1", aliases = ["light_gathering"] }
+variables = [
+  { symbol = "D", name = "aperture", unit = "m", aliases = ["aperture", "diameter"] },
+  { symbol = "d", name = "pupil diameter", unit = "m", aliases = ["pupil"] },
+]
+tags = ["telescopes"]
+source = { title = "Optical telescope (Wikipedia)", url = "https://en.wikipedia.org/wiki/Optical_telescope" }
+checks = [{ inputs = [0.2, 0.007], output = 816.3265306122449 }]
+
+[[formula]]
+id = "limiting_magnitude"
+name = "Limiting magnitude of a telescope"
+expr = "2 + 5 * log10(d)"
+output = { symbol = "m", name = "limiting magnitude", unit = "1", aliases = ["limiting_magnitude"] }
+variables = [
+  { symbol = "d", name = "aperture in mm", unit = "1", aliases = ["aperture"] },
+]
+tags = ["telescopes"]
+source = { title = "Limiting magnitude (Wikipedia)", url = "https://en.wikipedia.org/wiki/Limiting_magnitude" }
+checks = [{ inputs = [200], output = 13.505149978319906 }]
+
+[[formula]]
+id = "dawes_limit"
+name = "Dawes' limit"
+expr = "116 / d"
+output = { symbol = "r", name = "resolution in arcseconds", unit = "1", aliases = ["resolution"] }
+variables = [
+  { symbol = "d", name = "aperture in mm", unit = "1", aliases = ["aperture"] },
+]
+tags = ["telescopes"]
+source = { title = "Dawes' limit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dawes'_limit" }
+checks = [{ inputs = [200], output = 0.58 }]
+
+[[formula]]
+id = "angular_size"
+name = "Angular size"
+expr = "2 * atan(D / (2 * d))"
+output = { symbol = "t", name = "angular size", unit = "rad", aliases = ["angular_size", "angle"] }
+variables = [
+  { symbol = "D", name = "diameter", unit = "m", aliases = ["diameter", "size"] },
+  { symbol = "d", name = "distance", unit = "m", aliases = ["distance"] },
+]
+tags = ["observation"]
+source = { title = "Angular diameter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Angular_diameter" }
+checks = [{ inputs = [3474800, 384400000], output = 0.009039480590103257 }]
+
+[[formula]]
+id = "hubble_law"
+name = "Hubble's law"
+expr = "H * d"
+output = { symbol = "v", name = "recession speed in km/s", unit = "1", aliases = ["speed", "velocity"] }
+variables = [
+  { symbol = "H", name = "Hubble constant in km/s/Mpc", unit = "1", aliases = ["hubble", "h0"] },
+  { symbol = "d", name = "distance in Mpc", unit = "1", aliases = ["distance", "mpc"] },
+]
+tags = ["cosmology"]
+source = { title = "Hubble's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hubble's_law" }
+checks = [{ inputs = [70, 100], output = 7000 }]
+
+[[formula]]
+id = "redshift_velocity"
+name = "Speed from a small redshift"
+expr = "z * c"
+output = { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed", "velocity"] }
+variables = [
+  { symbol = "z", name = "redshift", unit = "1", aliases = ["redshift", "z"] },
+]
+tags = ["cosmology"]
+source = { title = "Redshift (Wikipedia)", url = "https://en.wikipedia.org/wiki/Redshift" }
+checks = [{ inputs = [0.01], output = 2997924.58 }]
+
+[[formula]]
+id = "redshift_from_wavelengths"
+name = "Redshift from wavelengths"
+expr = "(o - e) / e"
+output = { symbol = "z", name = "redshift", unit = "1", aliases = ["redshift", "z"] }
+variables = [
+  { symbol = "o", name = "observed wavelength", unit = "m", aliases = ["observed"] },
+  { symbol = "e", name = "emitted wavelength", unit = "m", aliases = ["emitted", "rest"] },
+]
+tags = ["cosmology"]
+source = { title = "Redshift (Wikipedia)", url = "https://en.wikipedia.org/wiki/Redshift" }
+checks = [{ inputs = [6.6e-07, 6.563e-07], output = 0.005637665701660927 }]
+
+[[formula]]
+id = "hubble_time"
+name = "Hubble time"
+expr = "977.8 / H"
+output = { symbol = "t", name = "Hubble time in billions of years", unit = "1", aliases = ["age"] }
+variables = [
+  { symbol = "H", name = "Hubble constant in km/s/Mpc", unit = "1", aliases = ["hubble", "h0"] },
+]
+tags = ["cosmology"]
+source = { title = "Hubble's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hubble's_law" }
+checks = [{ inputs = [70], output = 13.968571428571428 }]
+
+[[formula]]
+id = "light_travel_distance"
+name = "Distance light travels"
+expr = "c * t"
+output = { symbol = "d", name = "distance", unit = "m", aliases = ["distance"] }
+variables = [
+  { symbol = "t", name = "time", unit = "s", aliases = ["time"] },
+]
+tags = ["distances"]
+source = { title = "Light-year (Wikipedia)", url = "https://en.wikipedia.org/wiki/Light-year" }
+checks = [{ inputs = [31557600], output = 9460730472580800.0 }]
+
+[[formula]]
+id = "parsecs_to_light_years"
+name = "Parsecs to light years"
+expr = "3.26156 * p"
+output = { symbol = "l", name = "light years", unit = "1", aliases = ["light_years", "ly"] }
+variables = [
+  { symbol = "p", name = "parsecs", unit = "1", aliases = ["parsecs", "pc"] },
+]
+tags = ["distances", "conversion"]
+source = { title = "Parsec (Wikipedia)", url = "https://en.wikipedia.org/wiki/Parsec" }
+checks = [{ inputs = [10], output = 32.6156 }]
+
+[[formula]]
+id = "au_to_km"
+name = "Astronomical units to kilometres"
+expr = "149597870.7 * a"
+output = { symbol = "k", name = "kilometres", unit = "1", aliases = ["km"] }
+variables = [
+  { symbol = "a", name = "astronomical units", unit = "1", aliases = ["au"] },
+]
+tags = ["distances", "conversion"]
+source = { title = "Astronomical unit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Astronomical_unit" }
+checks = [{ inputs = [5.2], output = 777908927.64 }]
+
+[[formula]]
+id = "sidereal_day_rotation"
+name = "Rotation speed at the equator"
+expr = "2 * pi * R / T"
+output = { symbol = "v", name = "speed", unit = "m/s", aliases = ["speed"] }
+variables = [
+  { symbol = "R", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "T", name = "rotation period", unit = "s", aliases = ["period"] },
+]
+tags = ["planets"]
+source = { title = "Rotation period (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rotation_period" }
+checks = [{ inputs = [6378000, 86164], output = 465.09163791364614 }]

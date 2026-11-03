@@ -526,3 +526,541 @@ variables = [
 tags = ["solutions"]
 source = { title = "Boiling-point elevation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Boiling-point_elevation" }
 checks = [{ inputs = [2, 0.512, 0.5], output = 0.512 }]
+
+[[formula]]
+id = "mass_from_amount"
+name = "Mass from amount of substance"
+expr = "n * M"
+output = { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] }
+variables = [
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] },
+  { symbol = "M", name = "molar mass", unit = "kg/mol", aliases = ["molar_mass", "M"] },
+]
+tags = ["stoichiometry"]
+source = { title = "Molar mass (Wikipedia)", url = "https://en.wikipedia.org/wiki/Molar_mass" }
+checks = [{ inputs = [2, 0.018], output = 0.036 }]
+
+[[formula]]
+id = "molar_mass_from_mass"
+name = "Molar mass"
+expr = "m / n"
+output = { symbol = "M", name = "molar mass", unit = "kg/mol", aliases = ["molar_mass"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] },
+]
+tags = ["stoichiometry"]
+source = { title = "Molar mass (Wikipedia)", url = "https://en.wikipedia.org/wiki/Molar_mass" }
+checks = [{ inputs = [0.088, 2], output = 0.044 }]
+
+[[formula]]
+id = "amount_from_molarity"
+name = "Amount from concentration and volume"
+expr = "c * V"
+output = { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] }
+variables = [
+  { symbol = "c", name = "molar concentration", unit = "mol/m^3", aliases = ["concentration", "molarity", "c"] },
+  { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume", "V"] },
+]
+tags = ["solutions"]
+source = { title = "Molar concentration (Wikipedia)", url = "https://en.wikipedia.org/wiki/Molar_concentration" }
+checks = [{ inputs = [500, 0.002], output = 1 }]
+
+[[formula]]
+id = "mass_to_dissolve"
+name = "Mass of solute for a solution"
+expr = "c * V * M"
+output = { symbol = "m", name = "mass of solute", unit = "kg", aliases = ["mass", "solute"] }
+variables = [
+  { symbol = "c", name = "molar concentration", unit = "mol/m^3", aliases = ["concentration", "c"] },
+  { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume", "V"] },
+  { symbol = "M", name = "molar mass", unit = "kg/mol", aliases = ["molar_mass", "M"] },
+]
+tags = ["solutions"]
+source = { title = "Molar concentration (Wikipedia)", url = "https://en.wikipedia.org/wiki/Molar_concentration" }
+checks = [{ inputs = [100, 0.5, 0.05844], output = 2.922 }]
+
+[[formula]]
+id = "dilution_final_volume"
+name = "Final volume of a dilution"
+expr = "c1 * v1 / c2"
+output = { symbol = "v2", name = "final volume", unit = "m^3", aliases = ["v2", "final_volume"] }
+variables = [
+  { symbol = "c1", name = "initial concentration", unit = "mol/m^3", aliases = ["c1"] },
+  { symbol = "v1", name = "initial volume", unit = "m^3", aliases = ["v1"] },
+  { symbol = "c2", name = "final concentration", unit = "mol/m^3", aliases = ["c2"] },
+]
+tags = ["solutions"]
+source = { title = "Concentration (Wikipedia)", url = "https://en.wikipedia.org/wiki/Concentration" }
+checks = [{ inputs = [1000, 0.01, 100], output = 0.1 }]
+
+[[formula]]
+id = "volume_percent"
+name = "Volume concentration in percent"
+expr = "100 * v / V"
+output = { symbol = "p", name = "volume percent", unit = "1", aliases = ["percent", "abv", "vol_percent"] }
+variables = [
+  { symbol = "v", name = "solute volume", unit = "m^3", aliases = ["solute_volume", "v"] },
+  { symbol = "V", name = "solution volume", unit = "m^3", aliases = ["volume", "total"] },
+]
+tags = ["solutions"]
+source = { title = "Volume fraction (Wikipedia)", url = "https://en.wikipedia.org/wiki/Volume_fraction" }
+checks = [{ inputs = [0.0005, 0.004], output = 12.5 }]
+
+[[formula]]
+id = "ppm_from_mass_volume"
+name = "Parts per million in water (mg/L)"
+expr = "1000000 * m / V"
+output = { symbol = "c", name = "concentration in ppm", unit = "1", aliases = ["ppm"] }
+variables = [
+  { symbol = "m", name = "solute mass in kg", unit = "1", aliases = ["mass", "m"] },
+  { symbol = "V", name = "water volume in litres", unit = "1", aliases = ["volume", "litres"] },
+]
+tags = ["solutions"]
+source = { title = "Parts-per notation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Parts-per_notation" }
+checks = [{ inputs = [0.003, 1000], output = 3 }]
+
+[[formula]]
+id = "normality"
+name = "Normality"
+expr = "c * n"
+output = { symbol = "N", name = "normality", unit = "mol/m^3", aliases = ["normality"] }
+variables = [
+  { symbol = "c", name = "molar concentration", unit = "mol/m^3", aliases = ["molarity", "c"] },
+  { symbol = "n", name = "equivalents per mole", unit = "1", aliases = ["equivalents", "n"] },
+]
+tags = ["solutions"]
+source = { title = "Equivalent concentration (Wikipedia)", url = "https://en.wikipedia.org/wiki/Equivalent_concentration" }
+checks = [{ inputs = [500, 2], output = 1000 }]
+
+[[formula]]
+id = "ph_from_hydrogen_ion"
+name = "pH from hydrogen ion concentration (mol/L)"
+expr = "-log10(h)"
+output = { symbol = "pH", name = "pH", unit = "1", aliases = ["ph"] }
+variables = [
+  { symbol = "h", name = "hydrogen ion concentration in mol/L", unit = "1", aliases = ["h", "hplus", "h3o"] },
+]
+tags = ["acids_bases"]
+source = { title = "PH (Wikipedia)", url = "https://en.wikipedia.org/wiki/PH" }
+checks = [{ inputs = [0.0001], output = 4 }]
+
+[[formula]]
+id = "poh"
+name = "pOH from hydroxide concentration (mol/L)"
+expr = "-log10(o)"
+output = { symbol = "pOH", name = "pOH", unit = "1", aliases = ["poh"] }
+variables = [
+  { symbol = "o", name = "hydroxide concentration in mol/L", unit = "1", aliases = ["oh", "hydroxide"] },
+]
+tags = ["acids_bases"]
+source = { title = "PH (Wikipedia)", url = "https://en.wikipedia.org/wiki/PH" }
+checks = [{ inputs = [0.001], output = 3 }]
+
+[[formula]]
+id = "pka_from_ka"
+name = "pKa"
+expr = "-log10(k)"
+output = { symbol = "pKa", name = "pKa", unit = "1", aliases = ["pka"] }
+variables = [
+  { symbol = "k", name = "acid dissociation constant", unit = "1", aliases = ["ka"] },
+]
+tags = ["acids_bases"]
+source = { title = "Acid dissociation constant (Wikipedia)", url = "https://en.wikipedia.org/wiki/Acid_dissociation_constant" }
+checks = [{ inputs = [1.8e-05], output = 4.7447274948966935 }]
+
+[[formula]]
+id = "weak_acid_ph"
+name = "pH of a weak acid"
+expr = "(p - log10(c)) / 2"
+output = { symbol = "pH", name = "pH", unit = "1", aliases = ["ph"] }
+variables = [
+  { symbol = "p", name = "pKa", unit = "1", aliases = ["pka"] },
+  { symbol = "c", name = "concentration in mol/L", unit = "1", aliases = ["concentration", "c"] },
+]
+tags = ["acids_bases"]
+source = { title = "PH (Wikipedia)", url = "https://en.wikipedia.org/wiki/PH" }
+checks = [{ inputs = [4.76, 0.1], output = 2.88 }]
+
+[[formula]]
+id = "buffer_ratio"
+name = "Base to acid ratio of a buffer"
+expr = "10^(h - p)"
+output = { symbol = "r", name = "base to acid ratio", unit = "1", aliases = ["ratio"] }
+variables = [
+  { symbol = "h", name = "target pH", unit = "1", aliases = ["ph"] },
+  { symbol = "p", name = "pKa", unit = "1", aliases = ["pka"] },
+]
+tags = ["acids_bases"]
+source = { title = "Henderson–Hasselbalch equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Henderson–Hasselbalch_equation" }
+checks = [{ inputs = [5, 4.76], output = 1.7378008287493762 }]
+
+[[formula]]
+id = "ideal_gas_volume"
+name = "Volume of an ideal gas"
+expr = "n * R * T / p"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] },
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+  { symbol = "p", name = "pressure", unit = "Pa", aliases = ["pressure", "p"] },
+]
+tags = ["gases"]
+source = { title = "Ideal gas law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ideal_gas_law" }
+checks = [{ inputs = [1, 273.15, 101325], output = 0.022413969544601037 }]
+
+[[formula]]
+id = "ideal_gas_temperature"
+name = "Temperature of an ideal gas"
+expr = "p * V / (n * R)"
+output = { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature"] }
+variables = [
+  { symbol = "p", name = "pressure", unit = "Pa", aliases = ["pressure", "p"] },
+  { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume", "V"] },
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] },
+]
+tags = ["gases"]
+source = { title = "Ideal gas law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ideal_gas_law" }
+checks = [{ inputs = [101325, 0.0224, 1], output = 272.97975879840556 }]
+
+[[formula]]
+id = "gas_molar_mass"
+name = "Molar mass of a gas from its density"
+expr = "d * R * T / p"
+output = { symbol = "M", name = "molar mass", unit = "kg/mol", aliases = ["molar_mass"] }
+variables = [
+  { symbol = "d", name = "density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+  { symbol = "p", name = "pressure", unit = "Pa", aliases = ["pressure", "p"] },
+]
+tags = ["gases"]
+source = { title = "Ideal gas law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ideal_gas_law" }
+checks = [{ inputs = [1.25, 273.15, 101325], output = 0.028017461930751292 }]
+
+[[formula]]
+id = "gay_lussac_law"
+name = "Gay-Lussac's law"
+expr = "p * t2 / t1"
+output = { symbol = "P", name = "final pressure", unit = "Pa", aliases = ["p2", "pressure"] }
+variables = [
+  { symbol = "p", name = "initial pressure", unit = "Pa", aliases = ["p1"] },
+  { symbol = "t2", name = "final temperature", unit = "K", aliases = ["t2"] },
+  { symbol = "t1", name = "initial temperature", unit = "K", aliases = ["t1"] },
+]
+tags = ["gases"]
+source = { title = "Gay-Lussac's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gay-Lussac's_law" }
+checks = [{ inputs = [100000, 350, 300], output = 116666.66666666667 }]
+
+[[formula]]
+id = "avogadro_law"
+name = "Avogadro's law"
+expr = "v * n2 / n1"
+output = { symbol = "V", name = "final volume", unit = "m^3", aliases = ["v2", "volume"] }
+variables = [
+  { symbol = "v", name = "initial volume", unit = "m^3", aliases = ["v1"] },
+  { symbol = "n2", name = "final amount", unit = "mol", aliases = ["n2"] },
+  { symbol = "n1", name = "initial amount", unit = "mol", aliases = ["n1"] },
+]
+tags = ["gases"]
+source = { title = "Avogadro's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Avogadro's_law" }
+checks = [{ inputs = [0.01, 3, 2], output = 0.015 }]
+
+[[formula]]
+id = "mean_free_path"
+name = "Mean free path of a gas"
+expr = "k_B * T / (sqrt(2) * pi * d^2 * p)"
+output = { symbol = "l", name = "mean free path", unit = "m", aliases = ["mean_free_path"] }
+variables = [
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+  { symbol = "d", name = "molecule diameter", unit = "m", aliases = ["diameter", "d"] },
+  { symbol = "p", name = "pressure", unit = "Pa", aliases = ["pressure", "p"] },
+]
+tags = ["gases"]
+source = { title = "Mean free path (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mean_free_path" }
+checks = [{ inputs = [300, 3.7e-10, 101325], output = 6.720778870538731e-08 }]
+
+[[formula]]
+id = "henry_law"
+name = "Henry's law"
+expr = "k * p"
+output = { symbol = "c", name = "dissolved concentration", unit = "mol/m^3", aliases = ["concentration"] }
+variables = [
+  { symbol = "k", name = "Henry constant", unit = "mol/(m^3*Pa)", aliases = ["henry", "kh"] },
+  { symbol = "p", name = "partial pressure", unit = "Pa", aliases = ["partial_pressure", "p"] },
+]
+tags = ["gases", "solutions"]
+source = { title = "Henry's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Henry's_law" }
+checks = [{ inputs = [3.3e-05, 40000], output = 1.32 }]
+
+[[formula]]
+id = "second_order_kinetics"
+name = "Second-order reaction"
+expr = "a / (1 + k * a * t)"
+output = { symbol = "c", name = "concentration", unit = "mol/m^3", aliases = ["concentration"] }
+variables = [
+  { symbol = "a", name = "initial concentration", unit = "mol/m^3", aliases = ["c0", "initial"] },
+  { symbol = "k", name = "rate constant", unit = "m^3/(mol*s)", aliases = ["k", "rate_constant"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "t"] },
+]
+tags = ["kinetics"]
+source = { title = "Rate equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rate_equation" }
+checks = [{ inputs = [2, 0.01, 30], output = 1.25 }]
+
+[[formula]]
+id = "rate_law_first_order"
+name = "First-order rate law"
+expr = "k * c"
+output = { symbol = "r", name = "reaction rate", unit = "mol/(m^3*s)", aliases = ["rate"] }
+variables = [
+  { symbol = "k", name = "rate constant", unit = "1/s", aliases = ["k", "rate_constant"] },
+  { symbol = "c", name = "concentration", unit = "mol/m^3", aliases = ["concentration", "c"] },
+]
+tags = ["kinetics"]
+source = { title = "Rate equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rate_equation" }
+checks = [{ inputs = [0.05, 20], output = 1 }]
+
+[[formula]]
+id = "rate_law_second_order"
+name = "Second-order rate law (two reactants)"
+expr = "k * a * b"
+output = { symbol = "r", name = "reaction rate", unit = "mol/(m^3*s)", aliases = ["rate"] }
+variables = [
+  { symbol = "k", name = "rate constant", unit = "m^3/(mol*s)", aliases = ["k"] },
+  { symbol = "a", name = "concentration of A", unit = "mol/m^3", aliases = ["ca", "a"] },
+  { symbol = "b", name = "concentration of B", unit = "mol/m^3", aliases = ["cb", "b"] },
+]
+tags = ["kinetics"]
+source = { title = "Rate equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rate_equation" }
+checks = [{ inputs = [0.002, 10, 20], output = 0.4 }]
+
+[[formula]]
+id = "arrhenius_two_temperatures"
+name = "Rate constant at a new temperature"
+expr = "k * exp(E / R * (1 / a - 1 / b))"
+output = { symbol = "k2", name = "rate constant at T2", unit = "1/s", aliases = ["k2", "rate_constant"] }
+variables = [
+  { symbol = "k", name = "rate constant at T1", unit = "1/s", aliases = ["k1"] },
+  { symbol = "E", name = "activation energy", unit = "J/mol", aliases = ["activation_energy", "ea"] },
+  { symbol = "a", name = "first temperature", unit = "K", aliases = ["t1"] },
+  { symbol = "b", name = "second temperature", unit = "K", aliases = ["t2"] },
+]
+tags = ["kinetics"]
+source = { title = "Arrhenius equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Arrhenius_equation" }
+checks = [{ inputs = [0.001, 50000, 300, 310], output = 0.001909087854228518 }]
+
+[[formula]]
+id = "q10_rule"
+name = "Q10 temperature coefficient (rate)"
+expr = "r * q^((b - a) / 10)"
+output = { symbol = "R2", name = "rate at the new temperature", unit = "1", aliases = ["rate"] }
+variables = [
+  { symbol = "r", name = "rate at T1", unit = "1", aliases = ["rate1"] },
+  { symbol = "q", name = "Q10 coefficient", unit = "1", aliases = ["q10"] },
+  { symbol = "b", name = "new temperature in °C", unit = "1", aliases = ["t2"] },
+  { symbol = "a", name = "old temperature in °C", unit = "1", aliases = ["t1"] },
+]
+tags = ["kinetics"]
+source = { title = "Q10 (temperature coefficient) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Q10_(temperature_coefficient)" }
+checks = [{ inputs = [4, 2, 37, 27], output = 8 }]
+
+[[formula]]
+id = "equilibrium_constant_simple"
+name = "Equilibrium constant (A ⇌ B)"
+expr = "b / a"
+output = { symbol = "K", name = "equilibrium constant", unit = "1", aliases = ["k", "keq"] }
+variables = [
+  { symbol = "b", name = "product concentration", unit = "mol/m^3", aliases = ["product", "b"] },
+  { symbol = "a", name = "reactant concentration", unit = "mol/m^3", aliases = ["reactant", "a"] },
+]
+tags = ["equilibrium"]
+source = { title = "Equilibrium constant (Wikipedia)", url = "https://en.wikipedia.org/wiki/Equilibrium_constant" }
+checks = [{ inputs = [30, 10], output = 3 }]
+
+[[formula]]
+id = "reaction_quotient_2"
+name = "Reaction quotient (A + B ⇌ C)"
+expr = "c / (a * b)"
+output = { symbol = "Q", name = "reaction quotient", unit = "m^3/mol", aliases = ["q", "quotient"] }
+variables = [
+  { symbol = "c", name = "product concentration", unit = "mol/m^3", aliases = ["c"] },
+  { symbol = "a", name = "concentration of A", unit = "mol/m^3", aliases = ["a"] },
+  { symbol = "b", name = "concentration of B", unit = "mol/m^3", aliases = ["b"] },
+]
+tags = ["equilibrium"]
+source = { title = "Reaction quotient (Wikipedia)", url = "https://en.wikipedia.org/wiki/Reaction_quotient" }
+checks = [{ inputs = [2, 4, 5], output = 0.1 }]
+
+[[formula]]
+id = "reaction_enthalpy_heat"
+name = "Heat released by a reaction"
+expr = "n * h"
+output = { symbol = "Q", name = "heat", unit = "J", aliases = ["heat", "q"] }
+variables = [
+  { symbol = "n", name = "amount", unit = "mol", aliases = ["moles", "n"] },
+  { symbol = "h", name = "molar enthalpy", unit = "J/mol", aliases = ["enthalpy", "dh"] },
+]
+tags = ["thermochemistry"]
+source = { title = "Enthalpy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Enthalpy" }
+checks = [{ inputs = [2, -890000], output = -1780000 }]
+
+[[formula]]
+id = "calorimetry"
+name = "Heat absorbed in a calorimeter"
+expr = "m * c * d"
+output = { symbol = "Q", name = "heat", unit = "J", aliases = ["heat", "q"] }
+variables = [
+  { symbol = "m", name = "mass of water", unit = "kg", aliases = ["mass", "m"] },
+  { symbol = "c", name = "specific heat capacity", unit = "J/(kg*K)", aliases = ["specific_heat", "c"] },
+  { symbol = "d", name = "temperature rise", unit = "K", aliases = ["delta_t", "dt"] },
+]
+tags = ["thermochemistry"]
+source = { title = "Calorimetry (Wikipedia)", url = "https://en.wikipedia.org/wiki/Calorimetry" }
+checks = [{ inputs = [0.2, 4184, 5], output = 4184 }]
+
+[[formula]]
+id = "clausius_clapeyron"
+name = "Vapour pressure (Clausius-Clapeyron)"
+expr = "p * exp(-h / R * (1 / b - 1 / a))"
+output = { symbol = "P", name = "vapour pressure at T2", unit = "Pa", aliases = ["pressure", "p2"] }
+variables = [
+  { symbol = "p", name = "vapour pressure at T1", unit = "Pa", aliases = ["p1"] },
+  { symbol = "h", name = "enthalpy of vaporization", unit = "J/mol", aliases = ["enthalpy", "dh"] },
+  { symbol = "b", name = "second temperature", unit = "K", aliases = ["t2"] },
+  { symbol = "a", name = "first temperature", unit = "K", aliases = ["t1"] },
+]
+tags = ["thermochemistry", "phase_changes"]
+source = { title = "Clausius–Clapeyron relation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Clausius–Clapeyron_relation" }
+checks = [{ inputs = [101325, 40700, 363.15, 373.15], output = 70604.74965709228 }]
+
+[[formula]]
+id = "nernst_25c"
+name = "Nernst equation at 25 °C"
+expr = "e - 0.05916 / n * log10(q)"
+output = { symbol = "E", name = "cell potential in volts", unit = "1", aliases = ["potential", "e"] }
+variables = [
+  { symbol = "e", name = "standard potential in volts", unit = "1", aliases = ["e0", "standard_potential"] },
+  { symbol = "n", name = "electrons transferred", unit = "1", aliases = ["electrons", "n"] },
+  { symbol = "q", name = "reaction quotient", unit = "1", aliases = ["q"] },
+]
+tags = ["electrochemistry"]
+source = { title = "Nernst equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Nernst_equation" }
+checks = [{ inputs = [1.1, 2, 0.01], output = 1.1591600000000002 }]
+
+[[formula]]
+id = "cell_potential"
+name = "Standard cell potential"
+expr = "c - a"
+output = { symbol = "E", name = "cell potential", unit = "V", aliases = ["potential", "emf"] }
+variables = [
+  { symbol = "c", name = "cathode potential", unit = "V", aliases = ["cathode"] },
+  { symbol = "a", name = "anode potential", unit = "V", aliases = ["anode"] },
+]
+tags = ["electrochemistry"]
+source = { title = "Standard electrode potential (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_electrode_potential" }
+checks = [{ inputs = [0.34, -0.76], output = 1.1 }]
+
+[[formula]]
+id = "gibbs_from_cell_potential"
+name = "Gibbs energy from cell potential"
+expr = "-n * F * e"
+output = { symbol = "G", name = "Gibbs energy", unit = "J/mol", aliases = ["gibbs", "dg"] }
+variables = [
+  { symbol = "n", name = "electrons transferred", unit = "1", aliases = ["electrons", "n"] },
+  { symbol = "e", name = "cell potential", unit = "V", aliases = ["potential", "emf"] },
+]
+tags = ["electrochemistry"]
+source = { title = "Gibbs free energy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gibbs_free_energy" }
+checks = [{ inputs = [2, 1.1], output = -212267.73066400003 }]
+
+[[formula]]
+id = "charge_from_moles_electrons"
+name = "Charge from moles of electrons"
+expr = "n * F"
+output = { symbol = "Q", name = "charge", unit = "C", aliases = ["charge", "q"] }
+variables = [
+  { symbol = "n", name = "moles of electrons", unit = "mol", aliases = ["moles", "n"] },
+]
+tags = ["electrochemistry"]
+source = { title = "Faraday constant (Wikipedia)", url = "https://en.wikipedia.org/wiki/Faraday_constant" }
+checks = [{ inputs = [0.5], output = 48242.66606 }]
+
+[[formula]]
+id = "atom_economy"
+name = "Atom economy"
+expr = "100 * m / t"
+output = { symbol = "a", name = "atom economy in percent", unit = "1", aliases = ["atom_economy"] }
+variables = [
+  { symbol = "m", name = "molar mass of the product", unit = "kg/mol", aliases = ["product_mass"] },
+  { symbol = "t", name = "molar mass of all reactants", unit = "kg/mol", aliases = ["reactants_mass"] },
+]
+tags = ["green_chemistry"]
+source = { title = "Atom economy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Atom_economy" }
+checks = [{ inputs = [0.046, 0.18], output = 25.555555555555554 }]
+
+[[formula]]
+id = "theoretical_yield"
+name = "Theoretical yield"
+expr = "n * r * M"
+output = { symbol = "m", name = "theoretical yield", unit = "kg", aliases = ["yield", "theoretical"] }
+variables = [
+  { symbol = "n", name = "moles of limiting reagent", unit = "mol", aliases = ["moles", "n"] },
+  { symbol = "r", name = "mole ratio product per reagent", unit = "1", aliases = ["ratio"] },
+  { symbol = "M", name = "molar mass of the product", unit = "kg/mol", aliases = ["molar_mass", "M"] },
+]
+tags = ["stoichiometry"]
+source = { title = "Yield (chemistry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Yield_(chemistry)" }
+checks = [{ inputs = [0.5, 2, 0.018], output = 0.018 }]
+
+[[formula]]
+id = "specific_rotation"
+name = "Specific rotation"
+expr = "a / (l * c)"
+output = { symbol = "s", name = "specific rotation", unit = "1", aliases = ["specific_rotation"] }
+variables = [
+  { symbol = "a", name = "observed rotation in degrees", unit = "1", aliases = ["rotation", "alpha"] },
+  { symbol = "l", name = "path length in dm", unit = "1", aliases = ["length", "l"] },
+  { symbol = "c", name = "concentration in g/mL", unit = "1", aliases = ["concentration", "c"] },
+]
+tags = ["analytical"]
+source = { title = "Specific rotation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Specific_rotation" }
+checks = [{ inputs = [6.5, 1, 0.1], output = 65 }]
+
+[[formula]]
+id = "absorbance_from_transmittance"
+name = "Absorbance from transmittance"
+expr = "-log10(t)"
+output = { symbol = "A", name = "absorbance", unit = "1", aliases = ["absorbance", "a"] }
+variables = [
+  { symbol = "t", name = "transmittance", unit = "1", aliases = ["transmittance", "t"] },
+]
+tags = ["analytical", "spectroscopy"]
+source = { title = "Absorbance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Absorbance" }
+checks = [{ inputs = [0.25], output = 0.6020599913279624 }]
+
+[[formula]]
+id = "retention_factor"
+name = "Retention factor (chromatography)"
+expr = "d / s"
+output = { symbol = "Rf", name = "retention factor", unit = "1", aliases = ["rf"] }
+variables = [
+  { symbol = "d", name = "distance travelled by the spot", unit = "m", aliases = ["spot_distance"] },
+  { symbol = "s", name = "distance travelled by the solvent", unit = "m", aliases = ["solvent_distance"] },
+]
+tags = ["analytical"]
+source = { title = "Retention factor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Retention_factor" }
+checks = [{ inputs = [0.03, 0.08], output = 0.375 }]
+
+[[formula]]
+id = "degree_of_unsaturation"
+name = "Degree of unsaturation"
+expr = "(2 * c + 2 + n - h - x) / 2"
+output = { symbol = "D", name = "degree of unsaturation", unit = "1", aliases = ["dbe", "unsaturation"] }
+variables = [
+  { symbol = "c", name = "carbon atoms", unit = "1", aliases = ["carbons", "c"] },
+  { symbol = "n", name = "nitrogen atoms", unit = "1", aliases = ["nitrogens", "n"] },
+  { symbol = "h", name = "hydrogen atoms", unit = "1", aliases = ["hydrogens", "h"] },
+  { symbol = "x", name = "halogen atoms", unit = "1", aliases = ["halogens", "x"] },
+]
+tags = ["organic"]
+source = { title = "Degree of unsaturation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Degree_of_unsaturation" }
+checks = [{ inputs = [6, 0, 6, 0], output = 4 }]

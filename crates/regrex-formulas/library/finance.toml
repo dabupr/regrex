@@ -553,3 +553,633 @@ variables = [
 tags = ["loans"]
 source = { title = "Amortizing loan (Wikipedia)", url = "https://en.wikipedia.org/wiki/Amortizing_loan" }
 checks = [{ inputs = [536.82, 360], output = 193255.2 }]
+
+[[formula]]
+id = "price_without_discount"
+name = "Original price from a discounted price"
+expr = "p / (1 - d)"
+output = { symbol = "P", name = "original price", unit = "currency", aliases = ["original_price", "list_price"] }
+variables = [
+  { symbol = "p", name = "discounted price", unit = "currency", aliases = ["price", "sale_price"] },
+  { symbol = "d", name = "discount rate", unit = "1", aliases = ["discount"] },
+]
+tags = ["pricing"]
+source = { title = "Discounts and allowances (Wikipedia)", url = "https://en.wikipedia.org/wiki/Discounts_and_allowances" }
+checks = [{ inputs = [80, 0.2], output = 100 }]
+
+[[formula]]
+id = "discount_amount"
+name = "Discount amount"
+expr = "p * d"
+output = { symbol = "D", name = "discount amount", unit = "currency", aliases = ["discount_amount", "saving", "descompte"] }
+variables = [
+  { symbol = "p", name = "price", unit = "currency", aliases = ["price"] },
+  { symbol = "d", name = "discount rate", unit = "1", aliases = ["discount", "rate"] },
+]
+tags = ["pricing"]
+source = { title = "Discounts and allowances (Wikipedia)", url = "https://en.wikipedia.org/wiki/Discounts_and_allowances" }
+checks = [{ inputs = [120, 0.15], output = 18 }]
+
+[[formula]]
+id = "two_discounts"
+name = "Price after two successive discounts"
+expr = "p * (1 - a) * (1 - b)"
+output = { symbol = "P", name = "final price", unit = "currency", aliases = ["price", "final"] }
+variables = [
+  { symbol = "p", name = "list price", unit = "currency", aliases = ["list_price", "price"] },
+  { symbol = "a", name = "first discount", unit = "1", aliases = ["discount1"] },
+  { symbol = "b", name = "second discount", unit = "1", aliases = ["discount2"] },
+]
+tags = ["pricing"]
+source = { title = "Discounts and allowances (Wikipedia)", url = "https://en.wikipedia.org/wiki/Discounts_and_allowances" }
+checks = [{ inputs = [200, 0.2, 0.1], output = 144 }]
+
+[[formula]]
+id = "margin_from_markup"
+name = "Gross margin from markup"
+expr = "m / (1 + m)"
+output = { symbol = "g", name = "gross margin", unit = "1", aliases = ["margin"] }
+variables = [
+  { symbol = "m", name = "markup", unit = "1", aliases = ["markup"] },
+]
+tags = ["pricing"]
+source = { title = "Markup (business) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Markup_(business)" }
+checks = [{ inputs = [0.5], output = 0.3333333333333333 }]
+
+[[formula]]
+id = "markup_from_margin"
+name = "Markup from gross margin"
+expr = "g / (1 - g)"
+output = { symbol = "m", name = "markup", unit = "1", aliases = ["markup"] }
+variables = [
+  { symbol = "g", name = "gross margin", unit = "1", aliases = ["margin"] },
+]
+tags = ["pricing"]
+source = { title = "Markup (business) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Markup_(business)" }
+checks = [{ inputs = [0.25], output = 0.3333333333333333 }]
+
+[[formula]]
+id = "price_from_margin"
+name = "Price for a target margin"
+expr = "c / (1 - g)"
+output = { symbol = "p", name = "price", unit = "currency", aliases = ["price"] }
+variables = [
+  { symbol = "c", name = "cost", unit = "currency", aliases = ["cost"] },
+  { symbol = "g", name = "target margin", unit = "1", aliases = ["margin"] },
+]
+tags = ["pricing"]
+source = { title = "Gross margin (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gross_margin" }
+checks = [{ inputs = [60, 0.4], output = 100 }]
+
+[[formula]]
+id = "break_even_revenue"
+name = "Break-even revenue"
+expr = "F / (1 - v)"
+output = { symbol = "R", name = "break-even revenue", unit = "currency", aliases = ["break_even", "revenue"] }
+variables = [
+  { symbol = "F", name = "fixed costs", unit = "currency", aliases = ["fixed_costs", "fixed"] },
+  { symbol = "v", name = "variable cost ratio", unit = "1", aliases = ["variable_ratio"] },
+]
+tags = ["pricing", "planning"]
+source = { title = "Break-even (economics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Break-even_(economics)" }
+checks = [{ inputs = [30000, 0.6], output = 75000 }]
+
+[[formula]]
+id = "price_including_two_taxes"
+name = "Price with tax and a surcharge"
+expr = "n * (1 + t) * (1 + s)"
+output = { symbol = "g", name = "gross price", unit = "currency", aliases = ["gross", "price"] }
+variables = [
+  { symbol = "n", name = "net price", unit = "currency", aliases = ["net"] },
+  { symbol = "t", name = "tax rate", unit = "1", aliases = ["tax_rate", "vat"] },
+  { symbol = "s", name = "surcharge rate", unit = "1", aliases = ["surcharge"] },
+]
+tags = ["tax"]
+source = { title = "Value-added tax (Wikipedia)", url = "https://en.wikipedia.org/wiki/Value-added_tax" }
+checks = [{ inputs = [100, 0.21, 0.052], output = 127.292 }]
+
+[[formula]]
+id = "withholding_tax"
+name = "Withholding tax"
+expr = "g * r"
+output = { symbol = "w", name = "withheld amount", unit = "currency", aliases = ["withholding", "retention", "irpf"] }
+variables = [
+  { symbol = "g", name = "gross amount", unit = "currency", aliases = ["gross"] },
+  { symbol = "r", name = "withholding rate", unit = "1", aliases = ["rate"] },
+]
+tags = ["tax"]
+source = { title = "Withholding tax (Wikipedia)", url = "https://en.wikipedia.org/wiki/Withholding_tax" }
+checks = [{ inputs = [2000, 0.15], output = 300 }]
+
+[[formula]]
+id = "invoice_total_with_withholding"
+name = "Invoice total with VAT and withholding"
+expr = "n * (1 + v - w)"
+output = { symbol = "T", name = "invoice total", unit = "currency", aliases = ["total"] }
+variables = [
+  { symbol = "n", name = "net amount", unit = "currency", aliases = ["net", "base"] },
+  { symbol = "v", name = "VAT rate", unit = "1", aliases = ["vat"] },
+  { symbol = "w", name = "withholding rate", unit = "1", aliases = ["withholding", "irpf"] },
+]
+tags = ["tax", "invoices"]
+source = { title = "Value-added tax (Wikipedia)", url = "https://en.wikipedia.org/wiki/Value-added_tax" }
+checks = [{ inputs = [1000, 0.21, 0.15], output = 1060 }]
+
+[[formula]]
+id = "effective_tax_rate"
+name = "Effective tax rate"
+expr = "t / i"
+output = { symbol = "r", name = "effective tax rate", unit = "1", aliases = ["effective_rate", "tax_rate"] }
+variables = [
+  { symbol = "t", name = "tax paid", unit = "currency", aliases = ["tax"] },
+  { symbol = "i", name = "income", unit = "currency", aliases = ["income"] },
+]
+tags = ["tax"]
+source = { title = "Tax rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Tax_rate" }
+checks = [{ inputs = [9000, 45000], output = 0.2 }]
+
+[[formula]]
+id = "compound_interest_monthly"
+name = "Compound interest, monthly"
+expr = "P * (1 + r / 12)^(12 * t)"
+output = { symbol = "A", name = "final amount", unit = "currency", aliases = ["amount", "balance"] }
+variables = [
+  { symbol = "P", name = "principal", unit = "currency", aliases = ["principal"] },
+  { symbol = "r", name = "annual rate", unit = "1", aliases = ["rate"] },
+  { symbol = "t", name = "years", unit = "1", aliases = ["years", "t"] },
+]
+tags = ["interest"]
+source = { title = "Compound interest (Wikipedia)", url = "https://en.wikipedia.org/wiki/Compound_interest" }
+checks = [{ inputs = [1000, 0.05, 10], output = 1647.00949769028 }]
+
+[[formula]]
+id = "interest_earned"
+name = "Compound interest earned"
+expr = "P * ((1 + r)^n - 1)"
+output = { symbol = "I", name = "interest", unit = "currency", aliases = ["interest"] }
+variables = [
+  { symbol = "P", name = "principal", unit = "currency", aliases = ["principal"] },
+  { symbol = "r", name = "rate per period", unit = "1", aliases = ["rate"] },
+  { symbol = "n", name = "periods", unit = "1", aliases = ["periods", "n"] },
+]
+tags = ["interest"]
+source = { title = "Compound interest (Wikipedia)", url = "https://en.wikipedia.org/wiki/Compound_interest" }
+checks = [{ inputs = [1000, 0.04, 5], output = 216.65290240000013 }]
+
+[[formula]]
+id = "apr_to_monthly_rate"
+name = "Monthly rate from APR"
+expr = "r / 12"
+output = { symbol = "m", name = "monthly rate", unit = "1", aliases = ["monthly_rate"] }
+variables = [
+  { symbol = "r", name = "annual percentage rate", unit = "1", aliases = ["apr", "rate"] },
+]
+tags = ["interest"]
+source = { title = "Annual percentage rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Annual_percentage_rate" }
+checks = [{ inputs = [0.06], output = 0.005 }]
+
+[[formula]]
+id = "monthly_to_annual_effective"
+name = "Annual effective rate from a monthly rate"
+expr = "(1 + m)^12 - 1"
+output = { symbol = "r", name = "annual effective rate", unit = "1", aliases = ["aer", "tae"] }
+variables = [
+  { symbol = "m", name = "monthly rate", unit = "1", aliases = ["monthly_rate"] },
+]
+tags = ["interest"]
+source = { title = "Effective interest rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Effective_interest_rate" }
+checks = [{ inputs = [0.005], output = 0.06167781186449828 }]
+
+[[formula]]
+id = "fisher_equation"
+name = "Nominal rate (Fisher)"
+expr = "(1 + r) * (1 + i) - 1"
+output = { symbol = "n", name = "nominal rate", unit = "1", aliases = ["nominal_rate"] }
+variables = [
+  { symbol = "r", name = "real rate", unit = "1", aliases = ["real_rate"] },
+  { symbol = "i", name = "inflation", unit = "1", aliases = ["inflation"] },
+]
+tags = ["interest", "economics"]
+source = { title = "Fisher equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fisher_equation" }
+checks = [{ inputs = [0.02, 0.03], output = 0.05059999999999998 }]
+
+[[formula]]
+id = "future_value"
+name = "Future value of an amount"
+expr = "P * (1 + r)^n"
+output = { symbol = "FV", name = "future value", unit = "currency", aliases = ["fv", "future_value"] }
+variables = [
+  { symbol = "P", name = "present value", unit = "currency", aliases = ["pv", "principal"] },
+  { symbol = "r", name = "rate per period", unit = "1", aliases = ["rate"] },
+  { symbol = "n", name = "periods", unit = "1", aliases = ["periods", "n"] },
+]
+tags = ["time_value"]
+source = { title = "Future value (Wikipedia)", url = "https://en.wikipedia.org/wiki/Future_value" }
+checks = [{ inputs = [1000, 0.05, 3], output = 1157.6250000000002 }]
+
+[[formula]]
+id = "annuity_present_value"
+name = "Present value of an annuity"
+expr = "P * (1 - (1 + r)^(-n)) / r"
+output = { symbol = "PV", name = "present value", unit = "currency", aliases = ["pv", "present_value"] }
+variables = [
+  { symbol = "P", name = "payment per period", unit = "currency", aliases = ["payment", "pmt"] },
+  { symbol = "r", name = "rate per period", unit = "1", aliases = ["rate"] },
+  { symbol = "n", name = "periods", unit = "1", aliases = ["periods", "n"] },
+]
+tags = ["time_value"]
+source = { title = "Annuity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Annuity" }
+checks = [{ inputs = [100, 0.01, 24], output = 2124.3387257627865 }]
+
+[[formula]]
+id = "annuity_due_future_value"
+name = "Future value of an annuity due"
+expr = "P * ((1 + r)^n - 1) / r * (1 + r)"
+output = { symbol = "FV", name = "future value", unit = "currency", aliases = ["fv", "future_value"] }
+variables = [
+  { symbol = "P", name = "payment per period", unit = "currency", aliases = ["payment", "pmt"] },
+  { symbol = "r", name = "rate per period", unit = "1", aliases = ["rate"] },
+  { symbol = "n", name = "periods", unit = "1", aliases = ["periods", "n"] },
+]
+tags = ["time_value"]
+source = { title = "Annuity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Annuity" }
+checks = [{ inputs = [200, 0.005, 60], output = 14023.77613248216 }]
+
+[[formula]]
+id = "savings_payment"
+name = "Saving per period to reach a goal"
+expr = "F * r / ((1 + r)^n - 1)"
+output = { symbol = "P", name = "payment per period", unit = "currency", aliases = ["payment", "pmt"] }
+variables = [
+  { symbol = "F", name = "goal", unit = "currency", aliases = ["goal", "fv"] },
+  { symbol = "r", name = "rate per period", unit = "1", aliases = ["rate"] },
+  { symbol = "n", name = "periods", unit = "1", aliases = ["periods", "n"] },
+]
+tags = ["time_value", "saving"]
+source = { title = "Sinking fund (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sinking_fund" }
+checks = [{ inputs = [10000, 0.004, 36], output = 258.8118414379257 }]
+
+[[formula]]
+id = "growing_perpetuity"
+name = "Growing perpetuity"
+expr = "C / (r - g)"
+output = { symbol = "PV", name = "present value", unit = "currency", aliases = ["pv", "present_value"] }
+variables = [
+  { symbol = "C", name = "first payment", unit = "currency", aliases = ["payment", "cash_flow"] },
+  { symbol = "r", name = "discount rate", unit = "1", aliases = ["rate"] },
+  { symbol = "g", name = "growth rate", unit = "1", aliases = ["growth", "g"] },
+]
+tags = ["time_value"]
+source = { title = "Perpetuity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Perpetuity" }
+checks = [{ inputs = [100, 0.08, 0.03], output = 2000 }]
+
+[[formula]]
+id = "loan_balance"
+name = "Remaining loan balance"
+expr = "P * (1 + r)^k - A * ((1 + r)^k - 1) / r"
+output = { symbol = "B", name = "remaining balance", unit = "currency", aliases = ["balance"] }
+variables = [
+  { symbol = "P", name = "principal", unit = "currency", aliases = ["principal", "loan"] },
+  { symbol = "r", name = "rate per period", unit = "1", aliases = ["rate"] },
+  { symbol = "k", name = "payments made", unit = "1", aliases = ["payments", "k"] },
+  { symbol = "A", name = "payment", unit = "currency", aliases = ["payment", "pmt"] },
+]
+tags = ["loans"]
+source = { title = "Amortization calculator (Wikipedia)", url = "https://en.wikipedia.org/wiki/Amortization_calculator" }
+checks = [{ inputs = [10000, 0.01, 12, 222.44], output = 8447.154331064163 }]
+
+[[formula]]
+id = "mortgage_total_interest"
+name = "Total interest of a loan"
+expr = "n * A - P"
+output = { symbol = "I", name = "total interest", unit = "currency", aliases = ["interest"] }
+variables = [
+  { symbol = "n", name = "number of payments", unit = "1", aliases = ["payments", "n"] },
+  { symbol = "A", name = "payment", unit = "currency", aliases = ["payment", "pmt"] },
+  { symbol = "P", name = "principal", unit = "currency", aliases = ["principal", "loan"] },
+]
+tags = ["loans"]
+source = { title = "Mortgage calculator (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mortgage_calculator" }
+checks = [{ inputs = [360, 1073.64, 200000], output = 186510.40000000002 }]
+
+[[formula]]
+id = "loan_to_value"
+name = "Loan-to-value ratio"
+expr = "L / V"
+output = { symbol = "r", name = "loan-to-value ratio", unit = "1", aliases = ["ltv"] }
+variables = [
+  { symbol = "L", name = "loan amount", unit = "currency", aliases = ["loan"] },
+  { symbol = "V", name = "property value", unit = "currency", aliases = ["value", "appraisal"] },
+]
+tags = ["loans", "real_estate"]
+source = { title = "Loan-to-value ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Loan-to-value_ratio" }
+checks = [{ inputs = [160000, 200000], output = 0.8 }]
+
+[[formula]]
+id = "debt_service_coverage"
+name = "Debt service coverage ratio"
+expr = "N / D"
+output = { symbol = "r", name = "DSCR", unit = "1", aliases = ["dscr"] }
+variables = [
+  { symbol = "N", name = "net operating income", unit = "currency", aliases = ["noi", "income"] },
+  { symbol = "D", name = "debt service", unit = "currency", aliases = ["debt_service"] },
+]
+tags = ["loans", "real_estate"]
+source = { title = "Debt service coverage ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Debt_service_coverage_ratio" }
+checks = [{ inputs = [120000, 90000], output = 1.3333333333333333 }]
+
+[[formula]]
+id = "debt_to_income"
+name = "Debt-to-income ratio"
+expr = "d / i"
+output = { symbol = "r", name = "debt-to-income ratio", unit = "1", aliases = ["dti"] }
+variables = [
+  { symbol = "d", name = "monthly debt payments", unit = "currency", aliases = ["debt"] },
+  { symbol = "i", name = "monthly gross income", unit = "currency", aliases = ["income"] },
+]
+tags = ["loans"]
+source = { title = "Debt-to-income ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Debt-to-income_ratio" }
+checks = [{ inputs = [1500, 5000], output = 0.3 }]
+
+[[formula]]
+id = "rental_yield"
+name = "Gross rental yield"
+expr = "12 * r / p"
+output = { symbol = "y", name = "gross yield", unit = "1", aliases = ["yield", "rental_yield"] }
+variables = [
+  { symbol = "r", name = "monthly rent", unit = "currency", aliases = ["rent"] },
+  { symbol = "p", name = "property price", unit = "currency", aliases = ["price", "value"] },
+]
+tags = ["real_estate"]
+source = { title = "Rental yield (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rental_yield" }
+checks = [{ inputs = [1000, 200000], output = 0.06 }]
+
+[[formula]]
+id = "cap_rate"
+name = "Capitalization rate"
+expr = "N / V"
+output = { symbol = "r", name = "cap rate", unit = "1", aliases = ["cap_rate"] }
+variables = [
+  { symbol = "N", name = "net operating income", unit = "currency", aliases = ["noi"] },
+  { symbol = "V", name = "property value", unit = "currency", aliases = ["value", "price"] },
+]
+tags = ["real_estate"]
+source = { title = "Capitalization rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capitalization_rate" }
+checks = [{ inputs = [15000, 250000], output = 0.06 }]
+
+[[formula]]
+id = "price_to_rent"
+name = "Price-to-rent ratio"
+expr = "p / (12 * r)"
+output = { symbol = "r2", name = "price-to-rent ratio", unit = "1", aliases = ["price_to_rent"] }
+variables = [
+  { symbol = "p", name = "property price", unit = "currency", aliases = ["price"] },
+  { symbol = "r", name = "monthly rent", unit = "currency", aliases = ["rent"] },
+]
+tags = ["real_estate"]
+source = { title = "Price–rent ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Price–rent_ratio" }
+checks = [{ inputs = [300000, 1250], output = 20 }]
+
+[[formula]]
+id = "portfolio_return_2"
+name = "Return of a two-asset portfolio"
+expr = "w * a + (1 - w) * b"
+output = { symbol = "r", name = "portfolio return", unit = "1", aliases = ["return"] }
+variables = [
+  { symbol = "w", name = "weight of the first asset", unit = "1", aliases = ["weight", "w"] },
+  { symbol = "a", name = "return of the first asset", unit = "1", aliases = ["return1"] },
+  { symbol = "b", name = "return of the second asset", unit = "1", aliases = ["return2"] },
+]
+tags = ["investing"]
+source = { title = "Modern portfolio theory (Wikipedia)", url = "https://en.wikipedia.org/wiki/Modern_portfolio_theory" }
+checks = [{ inputs = [0.6, 0.08, 0.03], output = 0.06 }]
+
+[[formula]]
+id = "portfolio_variance_2"
+name = "Variance of a two-asset portfolio"
+expr = "w^2 * a^2 + (1 - w)^2 * b^2 + 2 * w * (1 - w) * p * a * b"
+output = { symbol = "v", name = "portfolio variance", unit = "1", aliases = ["variance"] }
+variables = [
+  { symbol = "w", name = "weight of the first asset", unit = "1", aliases = ["weight", "w"] },
+  { symbol = "a", name = "volatility of the first asset", unit = "1", aliases = ["sigma1"] },
+  { symbol = "b", name = "volatility of the second asset", unit = "1", aliases = ["sigma2"] },
+  { symbol = "p", name = "correlation", unit = "1", aliases = ["rho", "correlation"] },
+]
+tags = ["investing"]
+source = { title = "Modern portfolio theory (Wikipedia)", url = "https://en.wikipedia.org/wiki/Modern_portfolio_theory" }
+checks = [{ inputs = [0.6, 0.2, 0.1, 0.3], output = 0.018880000000000004 }]
+
+[[formula]]
+id = "treynor_ratio"
+name = "Treynor ratio"
+expr = "(r - f) / b"
+output = { symbol = "T", name = "Treynor ratio", unit = "1", aliases = ["treynor"] }
+variables = [
+  { symbol = "r", name = "portfolio return", unit = "1", aliases = ["return"] },
+  { symbol = "f", name = "risk-free rate", unit = "1", aliases = ["risk_free", "rf"] },
+  { symbol = "b", name = "beta", unit = "1", aliases = ["beta"] },
+]
+tags = ["investing"]
+source = { title = "Treynor ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Treynor_ratio" }
+checks = [{ inputs = [0.1, 0.03, 1.2], output = 0.05833333333333334 }]
+
+[[formula]]
+id = "sortino_ratio"
+name = "Sortino ratio"
+expr = "(r - t) / d"
+output = { symbol = "S", name = "Sortino ratio", unit = "1", aliases = ["sortino"] }
+variables = [
+  { symbol = "r", name = "return", unit = "1", aliases = ["return"] },
+  { symbol = "t", name = "target return", unit = "1", aliases = ["target"] },
+  { symbol = "d", name = "downside deviation", unit = "1", aliases = ["downside"] },
+]
+tags = ["investing"]
+source = { title = "Sortino ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sortino_ratio" }
+checks = [{ inputs = [0.09, 0.02, 0.1], output = 0.6999999999999998 }]
+
+[[formula]]
+id = "jensens_alpha"
+name = "Jensen's alpha"
+expr = "r - (f + b * (m - f))"
+output = { symbol = "a", name = "alpha", unit = "1", aliases = ["alpha"] }
+variables = [
+  { symbol = "r", name = "portfolio return", unit = "1", aliases = ["return"] },
+  { symbol = "f", name = "risk-free rate", unit = "1", aliases = ["risk_free", "rf"] },
+  { symbol = "b", name = "beta", unit = "1", aliases = ["beta"] },
+  { symbol = "m", name = "market return", unit = "1", aliases = ["market"] },
+]
+tags = ["investing"]
+source = { title = "Jensen's alpha (Wikipedia)", url = "https://en.wikipedia.org/wiki/Jensen's_alpha" }
+checks = [{ inputs = [0.12, 0.03, 1.1, 0.09], output = 0.023999999999999994 }]
+
+[[formula]]
+id = "dividend_payout_ratio"
+name = "Dividend payout ratio"
+expr = "d / e"
+output = { symbol = "r", name = "payout ratio", unit = "1", aliases = ["payout_ratio"] }
+variables = [
+  { symbol = "d", name = "dividends per share", unit = "currency", aliases = ["dps", "dividends"] },
+  { symbol = "e", name = "earnings per share", unit = "currency", aliases = ["eps", "earnings"] },
+]
+tags = ["investing"]
+source = { title = "Dividend payout ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dividend_payout_ratio" }
+checks = [{ inputs = [1.2, 3], output = 0.39999999999999997 }]
+
+[[formula]]
+id = "book_value_per_share"
+name = "Book value per share"
+expr = "E / n"
+output = { symbol = "B", name = "book value per share", unit = "currency", aliases = ["bvps", "book_value"] }
+variables = [
+  { symbol = "E", name = "shareholders' equity", unit = "currency", aliases = ["equity"] },
+  { symbol = "n", name = "shares outstanding", unit = "1", aliases = ["shares"] },
+]
+tags = ["investing"]
+source = { title = "Book value (Wikipedia)", url = "https://en.wikipedia.org/wiki/Book_value" }
+checks = [{ inputs = [5000000, 1000000], output = 5 }]
+
+[[formula]]
+id = "price_to_book"
+name = "Price-to-book ratio"
+expr = "p / b"
+output = { symbol = "r", name = "price-to-book ratio", unit = "1", aliases = ["pb", "price_to_book"] }
+variables = [
+  { symbol = "p", name = "share price", unit = "currency", aliases = ["price"] },
+  { symbol = "b", name = "book value per share", unit = "currency", aliases = ["bvps", "book_value"] },
+]
+tags = ["investing"]
+source = { title = "P/B ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/P/B_ratio" }
+checks = [{ inputs = [30, 12], output = 2.5 }]
+
+[[formula]]
+id = "market_capitalization"
+name = "Market capitalization"
+expr = "p * n"
+output = { symbol = "M", name = "market capitalization", unit = "currency", aliases = ["market_cap"] }
+variables = [
+  { symbol = "p", name = "share price", unit = "currency", aliases = ["price"] },
+  { symbol = "n", name = "shares outstanding", unit = "1", aliases = ["shares"] },
+]
+tags = ["investing"]
+source = { title = "Market capitalization (Wikipedia)", url = "https://en.wikipedia.org/wiki/Market_capitalization" }
+checks = [{ inputs = [45, 2000000], output = 90000000 }]
+
+[[formula]]
+id = "bond_current_yield"
+name = "Current yield of a bond"
+expr = "c / p"
+output = { symbol = "y", name = "current yield", unit = "1", aliases = ["current_yield", "yield"] }
+variables = [
+  { symbol = "c", name = "annual coupon", unit = "currency", aliases = ["coupon"] },
+  { symbol = "p", name = "bond price", unit = "currency", aliases = ["price"] },
+]
+tags = ["bonds"]
+source = { title = "Current yield (Wikipedia)", url = "https://en.wikipedia.org/wiki/Current_yield" }
+checks = [{ inputs = [50, 950], output = 0.05263157894736842 }]
+
+[[formula]]
+id = "bond_price_zero_coupon"
+name = "Price of a zero-coupon bond"
+expr = "F / (1 + y)^n"
+output = { symbol = "P", name = "price", unit = "currency", aliases = ["price"] }
+variables = [
+  { symbol = "F", name = "face value", unit = "currency", aliases = ["face", "par"] },
+  { symbol = "y", name = "yield", unit = "1", aliases = ["yield", "ytm"] },
+  { symbol = "n", name = "years", unit = "1", aliases = ["years", "n"] },
+]
+tags = ["bonds"]
+source = { title = "Zero-coupon bond (Wikipedia)", url = "https://en.wikipedia.org/wiki/Zero-coupon_bond" }
+checks = [{ inputs = [1000, 0.04, 5], output = 821.9271067593517 }]
+
+[[formula]]
+id = "options_intrinsic_call"
+name = "Intrinsic value of a call option"
+expr = "abs(s - k) / 2 + (s - k) / 2"
+output = { symbol = "v", name = "intrinsic value", unit = "currency", aliases = ["intrinsic_value"] }
+variables = [
+  { symbol = "s", name = "spot price", unit = "currency", aliases = ["spot", "price"] },
+  { symbol = "k", name = "strike price", unit = "currency", aliases = ["strike"] },
+]
+tags = ["derivatives"]
+source = { title = "Intrinsic value (finance) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Intrinsic_value_(finance)" }
+checks = [{ inputs = [110, 100], output = 10 }]
+
+[[formula]]
+id = "forward_price"
+name = "Forward price"
+expr = "s * exp(r * t)"
+output = { symbol = "F", name = "forward price", unit = "currency", aliases = ["forward"] }
+variables = [
+  { symbol = "s", name = "spot price", unit = "currency", aliases = ["spot"] },
+  { symbol = "r", name = "risk-free rate per year", unit = "1", aliases = ["rate"] },
+  { symbol = "t", name = "years", unit = "1", aliases = ["years", "t"] },
+]
+tags = ["derivatives"]
+source = { title = "Forward price (Wikipedia)", url = "https://en.wikipedia.org/wiki/Forward_price" }
+checks = [{ inputs = [100, 0.04, 0.5], output = 102.02013400267558 }]
+
+[[formula]]
+id = "vat_inclusive_tax_part"
+name = "Tax contained in a gross price"
+expr = "g * t / (1 + t)"
+output = { symbol = "T", name = "tax amount", unit = "currency", aliases = ["tax", "vat_amount"] }
+variables = [
+  { symbol = "g", name = "gross price", unit = "currency", aliases = ["gross", "price"] },
+  { symbol = "t", name = "tax rate", unit = "1", aliases = ["tax_rate", "vat"] },
+]
+tags = ["tax"]
+source = { title = "Value-added tax (Wikipedia)", url = "https://en.wikipedia.org/wiki/Value-added_tax" }
+checks = [{ inputs = [121, 0.21], output = 21 }]
+
+[[formula]]
+id = "salary_hourly_to_annual"
+name = "Annual salary from an hourly wage"
+expr = "w * h * k"
+output = { symbol = "S", name = "annual salary", unit = "currency", aliases = ["salary", "annual"] }
+variables = [
+  { symbol = "w", name = "hourly wage", unit = "currency", aliases = ["wage", "hourly"] },
+  { symbol = "h", name = "hours per week", unit = "1", aliases = ["hours"] },
+  { symbol = "k", name = "weeks per year", unit = "1", aliases = ["weeks"] },
+]
+tags = ["personal_finance"]
+source = { title = "Salary (Wikipedia)", url = "https://en.wikipedia.org/wiki/Salary" }
+checks = [{ inputs = [20, 40, 52], output = 41600 }]
+
+[[formula]]
+id = "emergency_fund"
+name = "Emergency fund target"
+expr = "m * e"
+output = { symbol = "F", name = "emergency fund", unit = "currency", aliases = ["fund", "target"] }
+variables = [
+  { symbol = "m", name = "months of cover", unit = "1", aliases = ["months"] },
+  { symbol = "e", name = "monthly expenses", unit = "currency", aliases = ["expenses"] },
+]
+tags = ["personal_finance", "saving"]
+source = { title = "Emergency fund (Wikipedia)", url = "https://en.wikipedia.org/wiki/Emergency_fund" }
+checks = [{ inputs = [6, 1800], output = 10800 }]
+
+[[formula]]
+id = "savings_rate"
+name = "Savings rate"
+expr = "s / i"
+output = { symbol = "r", name = "savings rate", unit = "1", aliases = ["savings_rate"] }
+variables = [
+  { symbol = "s", name = "amount saved", unit = "currency", aliases = ["savings", "saved"] },
+  { symbol = "i", name = "income", unit = "currency", aliases = ["income"] },
+]
+tags = ["personal_finance", "saving"]
+source = { title = "Saving (Wikipedia)", url = "https://en.wikipedia.org/wiki/Saving" }
+checks = [{ inputs = [600, 3000], output = 0.2 }]
+
+[[formula]]
+id = "four_percent_rule"
+name = "Retirement savings target (4% rule)"
+expr = "e / w"
+output = { symbol = "T", name = "target savings", unit = "currency", aliases = ["target", "nest_egg"] }
+variables = [
+  { symbol = "e", name = "annual expenses", unit = "currency", aliases = ["expenses"] },
+  { symbol = "w", name = "withdrawal rate", unit = "1", aliases = ["withdrawal_rate"] },
+]
+tags = ["personal_finance", "retirement"]
+source = { title = "Trinity study (Wikipedia)", url = "https://en.wikipedia.org/wiki/Trinity_study" }
+checks = [{ inputs = [40000, 0.04], output = 1000000 }]

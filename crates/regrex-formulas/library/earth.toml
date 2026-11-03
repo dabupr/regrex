@@ -1,0 +1,477 @@
+# Earth sciences: weather and climate, oceans, geology, seismology,
+# hydrology and geography.
+#
+# Many practical formulas use everyday units (°C, km, mm); their
+# variables are plain numbers with the unit in the name.
+
+id = "earth"
+name = "Earth and weather"
+description = "Weather and climate, oceans, earthquakes, geology, hydrology and maps."
+
+[[formula]]
+id = "dew_point_magnus"
+name = "Dew point (Magnus)"
+expr = "243.04 * (ln(h / 100) + 17.625 * t / (243.04 + t)) / (17.625 - ln(h / 100) - 17.625 * t / (243.04 + t))"
+output = { symbol = "d", name = "dew point in °C", unit = "1", aliases = ["dew_point", "dewpoint"] }
+variables = [
+  { symbol = "t", name = "temperature in °C", unit = "1", aliases = ["temperature"] },
+  { symbol = "h", name = "relative humidity in percent", unit = "1", aliases = ["humidity", "rh"] },
+]
+tags = ["weather", "humidity"]
+source = { title = "Dew point (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dew_point" }
+checks = [{ inputs = [25, 60], output = 16.69766352121289 }]
+
+[[formula]]
+id = "saturation_vapour_pressure"
+name = "Saturation vapour pressure (Tetens)"
+expr = "0.61078 * exp(17.27 * t / (t + 237.3))"
+output = { symbol = "e", name = "pressure in kPa", unit = "1", aliases = ["vapour_pressure"] }
+variables = [
+  { symbol = "t", name = "temperature in °C", unit = "1", aliases = ["temperature"] },
+]
+tags = ["weather", "humidity"]
+source = { title = "Vapour pressure of water (Wikipedia)", url = "https://en.wikipedia.org/wiki/Vapour_pressure_of_water" }
+checks = [{ inputs = [20], output = 2.3382047063802642 }]
+
+[[formula]]
+id = "relative_humidity"
+name = "Relative humidity"
+expr = "100 * e / s"
+output = { symbol = "h", name = "relative humidity in percent", unit = "1", aliases = ["humidity", "rh"] }
+variables = [
+  { symbol = "e", name = "vapour pressure", unit = "Pa", aliases = ["vapour_pressure"] },
+  { symbol = "s", name = "saturation vapour pressure", unit = "Pa", aliases = ["saturation"] },
+]
+tags = ["weather", "humidity"]
+source = { title = "Humidity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Humidity" }
+checks = [{ inputs = [1500, 2339], output = 64.12997007268063 }]
+
+[[formula]]
+id = "heat_index_simple"
+name = "Heat index (Steadman, simple)"
+expr = "0.5 * (f + 61 + (f - 68) * 1.2 + h * 0.094)"
+output = { symbol = "i", name = "heat index in °F", unit = "1", aliases = ["heat_index"] }
+variables = [
+  { symbol = "f", name = "temperature in °F", unit = "1", aliases = ["temperature"] },
+  { symbol = "h", name = "relative humidity in percent", unit = "1", aliases = ["humidity", "rh"] },
+]
+tags = ["weather", "comfort"]
+source = { title = "Heat index (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heat_index" }
+checks = [{ inputs = [85, 50], output = 85.55 }]
+
+[[formula]]
+id = "wind_chill"
+name = "Wind chill (metric)"
+expr = "13.12 + 0.6215 * t - 11.37 * v^0.16 + 0.3965 * t * v^0.16"
+output = { symbol = "w", name = "wind chill in °C", unit = "1", aliases = ["wind_chill", "feels_like"] }
+variables = [
+  { symbol = "t", name = "air temperature in °C", unit = "1", aliases = ["temperature"] },
+  { symbol = "v", name = "wind speed in km/h", unit = "1", aliases = ["wind", "speed"] },
+]
+tags = ["weather", "comfort"]
+source = { title = "Wind chill (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wind_chill" }
+checks = [{ inputs = [-5, 30], output = -12.996724811921073 }]
+
+[[formula]]
+id = "humidex"
+name = "Humidex"
+expr = "t + 0.5555 * (6.11 * exp(5417.753 * (1 / 273.16 - 1 / (273.15 + d))) - 10)"
+output = { symbol = "h", name = "humidex", unit = "1", aliases = ["humidex"] }
+variables = [
+  { symbol = "t", name = "temperature in °C", unit = "1", aliases = ["temperature"] },
+  { symbol = "d", name = "dew point in °C", unit = "1", aliases = ["dew_point"] },
+]
+tags = ["weather", "comfort"]
+source = { title = "Humidex (Wikipedia)", url = "https://en.wikipedia.org/wiki/Humidex" }
+checks = [{ inputs = [30, 20], output = 37.56977752633921 }]
+
+[[formula]]
+id = "lapse_rate_temperature"
+name = "Temperature at an altitude"
+expr = "t - 6.5 * h / 1000"
+output = { symbol = "T", name = "temperature in °C", unit = "1", aliases = ["temperature"] }
+variables = [
+  { symbol = "t", name = "sea-level temperature in °C", unit = "1", aliases = ["sea_level_temperature"] },
+  { symbol = "h", name = "altitude in m", unit = "1", aliases = ["altitude"] },
+]
+tags = ["weather", "atmosphere"]
+source = { title = "Lapse rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Lapse_rate" }
+checks = [{ inputs = [15, 2000], output = 2 }]
+
+[[formula]]
+id = "cloud_base_height"
+name = "Cloud base height"
+expr = "125 * (t - d)"
+output = { symbol = "h", name = "cloud base in m", unit = "1", aliases = ["cloud_base"] }
+variables = [
+  { symbol = "t", name = "temperature in °C", unit = "1", aliases = ["temperature"] },
+  { symbol = "d", name = "dew point in °C", unit = "1", aliases = ["dew_point"] },
+]
+tags = ["weather"]
+source = { title = "Cloud base (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cloud_base" }
+checks = [{ inputs = [25, 15], output = 1250 }]
+
+[[formula]]
+id = "pressure_altitude"
+name = "Pressure altitude"
+expr = "44330 * (1 - (p / 1013.25)^0.1903)"
+output = { symbol = "h", name = "altitude in m", unit = "1", aliases = ["altitude"] }
+variables = [
+  { symbol = "p", name = "pressure in hPa", unit = "1", aliases = ["pressure"] },
+]
+tags = ["weather", "atmosphere"]
+source = { title = "Pressure altitude (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pressure_altitude" }
+checks = [{ inputs = [900], output = 988.6724675326817 }]
+
+[[formula]]
+id = "sea_level_pressure"
+name = "Pressure reduced to sea level"
+expr = "p * (1 - 0.0065 * h / (t + 0.0065 * h + 273.15))^(-5.257)"
+output = { symbol = "P", name = "sea-level pressure in hPa", unit = "1", aliases = ["sea_level_pressure", "qnh"] }
+variables = [
+  { symbol = "p", name = "station pressure in hPa", unit = "1", aliases = ["pressure"] },
+  { symbol = "h", name = "altitude in m", unit = "1", aliases = ["altitude"] },
+  { symbol = "t", name = "temperature in °C", unit = "1", aliases = ["temperature"] },
+]
+tags = ["weather", "atmosphere"]
+source = { title = "Atmospheric pressure (Wikipedia)", url = "https://en.wikipedia.org/wiki/Atmospheric_pressure" }
+checks = [{ inputs = [950, 500, 15], output = 1007.6971962611769 }]
+
+[[formula]]
+id = "beaufort_to_wind_speed"
+name = "Wind speed from the Beaufort number"
+expr = "0.836 * b^1.5"
+output = { symbol = "v", name = "wind speed in m/s", unit = "1", aliases = ["wind", "speed"] }
+variables = [
+  { symbol = "b", name = "Beaufort number", unit = "1", aliases = ["beaufort"] },
+]
+tags = ["weather", "wind"]
+source = { title = "Beaufort scale (Wikipedia)", url = "https://en.wikipedia.org/wiki/Beaufort_scale" }
+checks = [{ inputs = [6], output = 12.28664054980042 }]
+
+[[formula]]
+id = "rainfall_volume"
+name = "Rain falling on an area"
+expr = "A * r / 1000"
+output = { symbol = "V", name = "volume in m³", unit = "1", aliases = ["volume"] }
+variables = [
+  { symbol = "A", name = "area in m²", unit = "1", aliases = ["area"] },
+  { symbol = "r", name = "rainfall in mm", unit = "1", aliases = ["rainfall", "mm"] },
+]
+tags = ["hydrology"]
+source = { title = "Rain (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rain" }
+checks = [{ inputs = [10000, 25], output = 250 }]
+
+[[formula]]
+id = "rational_method_runoff"
+name = "Peak runoff (rational method)"
+expr = "C * i * A / 360"
+output = { symbol = "Q", name = "peak flow in m³/s", unit = "1", aliases = ["flow", "runoff"] }
+variables = [
+  { symbol = "C", name = "runoff coefficient", unit = "1", aliases = ["runoff_coefficient"] },
+  { symbol = "i", name = "rainfall intensity in mm/h", unit = "1", aliases = ["intensity"] },
+  { symbol = "A", name = "area in hectares", unit = "1", aliases = ["area", "hectares"] },
+]
+tags = ["hydrology"]
+source = { title = "Rational method (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rational_method" }
+checks = [{ inputs = [0.6, 50, 20], output = 1.6666666666666667 }]
+
+[[formula]]
+id = "evaporation_volume"
+name = "Evaporated water"
+expr = "A * e / 1000"
+output = { symbol = "V", name = "volume in m³", unit = "1", aliases = ["volume"] }
+variables = [
+  { symbol = "A", name = "surface area in m²", unit = "1", aliases = ["area"] },
+  { symbol = "e", name = "evaporation in mm", unit = "1", aliases = ["evaporation", "mm"] },
+]
+tags = ["hydrology"]
+source = { title = "Evaporation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Evaporation" }
+checks = [{ inputs = [50000, 6], output = 300 }]
+
+[[formula]]
+id = "darcy_law"
+name = "Darcy's law (groundwater flow)"
+expr = "k * A * i"
+output = { symbol = "Q", name = "flow rate", unit = "m^3/s", aliases = ["flow", "discharge"] }
+variables = [
+  { symbol = "k", name = "hydraulic conductivity", unit = "m/s", aliases = ["conductivity", "k"] },
+  { symbol = "A", name = "cross-section area", unit = "m^2", aliases = ["area"] },
+  { symbol = "i", name = "hydraulic gradient", unit = "1", aliases = ["gradient"] },
+]
+tags = ["hydrology", "groundwater"]
+source = { title = "Darcy's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Darcy's_law" }
+checks = [{ inputs = [0.0001, 50, 0.01], output = 5e-05 }]
+
+[[formula]]
+id = "porosity"
+name = "Porosity"
+expr = "v / V"
+output = { symbol = "n", name = "porosity", unit = "1", aliases = ["porosity"] }
+variables = [
+  { symbol = "v", name = "void volume", unit = "m^3", aliases = ["void_volume"] },
+  { symbol = "V", name = "total volume", unit = "m^3", aliases = ["volume", "total"] },
+]
+tags = ["geology", "soils"]
+source = { title = "Porosity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Porosity" }
+checks = [{ inputs = [0.3, 1], output = 0.3 }]
+
+[[formula]]
+id = "richter_magnitude"
+name = "Local magnitude (Richter)"
+expr = "log10(a) + 3 * log10(8 * t) - 2.92"
+output = { symbol = "M", name = "magnitude", unit = "1", aliases = ["magnitude", "ml"] }
+variables = [
+  { symbol = "a", name = "amplitude in mm", unit = "1", aliases = ["amplitude"] },
+  { symbol = "t", name = "S-P time in seconds", unit = "1", aliases = ["sp_time"] },
+]
+tags = ["seismology"]
+source = { title = "Richter magnitude scale (Wikipedia)", url = "https://en.wikipedia.org/wiki/Richter_magnitude_scale" }
+checks = [{ inputs = [23, 24], output = 5.291631522128242 }]
+
+[[formula]]
+id = "moment_magnitude"
+name = "Moment magnitude"
+expr = "2 / 3 * (log10(m) - 9.1)"
+output = { symbol = "Mw", name = "moment magnitude", unit = "1", aliases = ["magnitude", "mw"] }
+variables = [
+  { symbol = "m", name = "seismic moment in N·m", unit = "1", aliases = ["seismic_moment", "m0"] },
+]
+tags = ["seismology"]
+source = { title = "Moment magnitude scale (Wikipedia)", url = "https://en.wikipedia.org/wiki/Moment_magnitude_scale" }
+checks = [{ inputs = [1e+18], output = 5.933333333333334 }]
+
+[[formula]]
+id = "seismic_moment"
+name = "Seismic moment"
+expr = "u * A * d"
+output = { symbol = "M", name = "seismic moment", unit = "N*m", aliases = ["seismic_moment", "m0"] }
+variables = [
+  { symbol = "u", name = "shear modulus", unit = "Pa", aliases = ["shear_modulus", "mu"] },
+  { symbol = "A", name = "rupture area", unit = "m^2", aliases = ["area"] },
+  { symbol = "d", name = "average slip", unit = "m", aliases = ["slip"] },
+]
+tags = ["seismology"]
+source = { title = "Seismic moment (Wikipedia)", url = "https://en.wikipedia.org/wiki/Seismic_moment" }
+checks = [{ inputs = [30000000000, 100000000, 2], output = 6e+18 }]
+
+[[formula]]
+id = "earthquake_energy_ratio"
+name = "Energy ratio between two magnitudes"
+expr = "10^(1.5 * d)"
+output = { symbol = "r", name = "energy ratio", unit = "1", aliases = ["ratio"] }
+variables = [
+  { symbol = "d", name = "magnitude difference", unit = "1", aliases = ["delta_m"] },
+]
+tags = ["seismology"]
+source = { title = "Moment magnitude scale (Wikipedia)", url = "https://en.wikipedia.org/wiki/Moment_magnitude_scale" }
+checks = [{ inputs = [1], output = 31.622776601683793 }]
+
+[[formula]]
+id = "epicentre_distance"
+name = "Distance to an epicentre"
+expr = "t * a * b / (a - b)"
+output = { symbol = "d", name = "distance", unit = "m", aliases = ["distance"] }
+variables = [
+  { symbol = "t", name = "S-P time", unit = "s", aliases = ["sp_time"] },
+  { symbol = "a", name = "P-wave speed", unit = "m/s", aliases = ["p_speed", "vp"] },
+  { symbol = "b", name = "S-wave speed", unit = "m/s", aliases = ["s_speed", "vs"] },
+]
+tags = ["seismology"]
+source = { title = "Epicenter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Epicenter" }
+checks = [{ inputs = [20, 6000, 3500], output = 168000 }]
+
+[[formula]]
+id = "radiometric_age"
+name = "Radiometric age"
+expr = "h / ln(2) * ln(1 + d / p)"
+output = { symbol = "t", name = "age", unit = "1", aliases = ["age"] }
+variables = [
+  { symbol = "h", name = "half-life", unit = "1", aliases = ["half_life"] },
+  { symbol = "d", name = "daughter atoms", unit = "1", aliases = ["daughter"] },
+  { symbol = "p", name = "parent atoms", unit = "1", aliases = ["parent"] },
+]
+tags = ["geology", "dating"]
+source = { title = "Radiometric dating (Wikipedia)", url = "https://en.wikipedia.org/wiki/Radiometric_dating" }
+checks = [{ inputs = [1250000000, 1, 3], output = 518796874.0985547 }]
+
+[[formula]]
+id = "carbon_14_age"
+name = "Carbon-14 age"
+expr = "-8267 * ln(f)"
+output = { symbol = "t", name = "age in years", unit = "1", aliases = ["age", "years"] }
+variables = [
+  { symbol = "f", name = "fraction of carbon-14 left", unit = "1", aliases = ["fraction"] },
+]
+tags = ["geology", "dating"]
+source = { title = "Radiocarbon dating (Wikipedia)", url = "https://en.wikipedia.org/wiki/Radiocarbon_dating" }
+checks = [{ inputs = [0.5], output = 5730.247741689068 }]
+
+[[formula]]
+id = "isostasy_root"
+name = "Mountain root depth (Airy isostasy)"
+expr = "h * c / (m - c)"
+output = { symbol = "r", name = "root depth", unit = "m", aliases = ["root", "depth"] }
+variables = [
+  { symbol = "h", name = "mountain height", unit = "m", aliases = ["height"] },
+  { symbol = "c", name = "crust density", unit = "kg/m^3", aliases = ["crust_density"] },
+  { symbol = "m", name = "mantle density", unit = "kg/m^3", aliases = ["mantle_density"] },
+]
+tags = ["geology"]
+source = { title = "Isostasy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Isostasy" }
+checks = [{ inputs = [3000, 2800, 3300], output = 16800 }]
+
+[[formula]]
+id = "geothermal_temperature"
+name = "Temperature at a depth"
+expr = "t + g * d"
+output = { symbol = "T", name = "temperature in °C", unit = "1", aliases = ["temperature"] }
+variables = [
+  { symbol = "t", name = "surface temperature in °C", unit = "1", aliases = ["surface_temperature"] },
+  { symbol = "g", name = "geothermal gradient in °C per km", unit = "1", aliases = ["gradient"] },
+  { symbol = "d", name = "depth in km", unit = "1", aliases = ["depth"] },
+]
+tags = ["geology"]
+source = { title = "Geothermal gradient (Wikipedia)", url = "https://en.wikipedia.org/wiki/Geothermal_gradient" }
+checks = [{ inputs = [15, 25, 3], output = 90 }]
+
+[[formula]]
+id = "ocean_pressure"
+name = "Pressure at an ocean depth in bar"
+expr = "1 + d / 10"
+output = { symbol = "p", name = "pressure in bar", unit = "1", aliases = ["pressure"] }
+variables = [
+  { symbol = "d", name = "depth in m", unit = "1", aliases = ["depth"] },
+]
+tags = ["oceans"]
+source = { title = "Hydrostatic pressure (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hydrostatic_pressure" }
+checks = [{ inputs = [40], output = 5 }]
+
+[[formula]]
+id = "seawater_density"
+name = "Seawater density (linear)"
+expr = "1027 * (1 - 0.00017 * (t - 10) + 0.00076 * (s - 35))"
+output = { symbol = "r", name = "density in kg/m³", unit = "1", aliases = ["density"] }
+variables = [
+  { symbol = "t", name = "temperature in °C", unit = "1", aliases = ["temperature"] },
+  { symbol = "s", name = "salinity in g/kg", unit = "1", aliases = ["salinity"] },
+]
+tags = ["oceans"]
+source = { title = "Seawater (Wikipedia)", url = "https://en.wikipedia.org/wiki/Seawater" }
+checks = [{ inputs = [15, 36], output = 1026.90757 }]
+
+[[formula]]
+id = "haversine_distance"
+name = "Great-circle distance (haversine)"
+expr = "2 * 6371 * asin(sqrt(sin((b - a) / 2)^2 + cos(a) * cos(b) * sin((d - c) / 2)^2))"
+output = { symbol = "D", name = "distance in km", unit = "1", aliases = ["distance", "km"] }
+variables = [
+  { symbol = "a", name = "first latitude in radians", unit = "1", aliases = ["lat1"] },
+  { symbol = "b", name = "second latitude in radians", unit = "1", aliases = ["lat2"] },
+  { symbol = "c", name = "first longitude in radians", unit = "1", aliases = ["lon1"] },
+  { symbol = "d", name = "second longitude in radians", unit = "1", aliases = ["lon2"] },
+]
+tags = ["geography", "maps"]
+source = { title = "Haversine formula (Wikipedia)", url = "https://en.wikipedia.org/wiki/Haversine_formula" }
+checks = [{ inputs = [0.7223, 0.8527, 0.0382, 0.0408], output = 830.860148282479 }]
+
+[[formula]]
+id = "map_scale_distance"
+name = "Real distance from a map"
+expr = "m * s / 100000"
+output = { symbol = "d", name = "distance in km", unit = "1", aliases = ["distance", "km"] }
+variables = [
+  { symbol = "m", name = "map distance in cm", unit = "1", aliases = ["map_distance"] },
+  { symbol = "s", name = "scale denominator", unit = "1", aliases = ["scale"] },
+]
+tags = ["geography", "maps"]
+source = { title = "Scale (map) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Scale_(map)" }
+checks = [{ inputs = [4, 50000], output = 2 }]
+
+[[formula]]
+id = "horizon_distance"
+name = "Distance to the horizon"
+expr = "sqrt(2 * 6371000 * h)"
+output = { symbol = "d", name = "distance in m", unit = "1", aliases = ["distance"] }
+variables = [
+  { symbol = "h", name = "eye height in m", unit = "1", aliases = ["height"] },
+]
+tags = ["geography"]
+source = { title = "Horizon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Horizon" }
+checks = [{ inputs = [1.7], output = 4654.180916122621 }]
+
+[[formula]]
+id = "latitude_degree_length"
+name = "Length of a degree of longitude"
+expr = "111.32 * cos(p)"
+output = { symbol = "L", name = "length in km", unit = "1", aliases = ["length"] }
+variables = [
+  { symbol = "p", name = "latitude in radians", unit = "1", aliases = ["latitude", "lat"] },
+]
+tags = ["geography", "maps"]
+source = { title = "Longitude (Wikipedia)", url = "https://en.wikipedia.org/wiki/Longitude" }
+checks = [{ inputs = [0.7], output = 85.14223228850925 }]
+
+[[formula]]
+id = "solar_declination"
+name = "Solar declination"
+expr = "23.44 * sin(2 * pi * (284 + n) / 365)"
+output = { symbol = "d", name = "declination in degrees", unit = "1", aliases = ["declination"] }
+variables = [
+  { symbol = "n", name = "day of the year", unit = "1", aliases = ["day", "doy"] },
+]
+tags = ["climate", "solar"]
+source = { title = "Position of the Sun (Wikipedia)", url = "https://en.wikipedia.org/wiki/Position_of_the_Sun" }
+checks = [{ inputs = [172], output = 23.439782939416297 }]
+
+[[formula]]
+id = "day_length"
+name = "Length of the day"
+expr = "24 / pi * acos(-tan(p) * tan(d))"
+output = { symbol = "L", name = "hours of daylight", unit = "1", aliases = ["daylight", "hours"] }
+variables = [
+  { symbol = "p", name = "latitude in radians", unit = "1", aliases = ["latitude", "lat"] },
+  { symbol = "d", name = "solar declination in radians", unit = "1", aliases = ["declination"] },
+]
+tags = ["climate", "solar"]
+source = { title = "Daytime (Wikipedia)", url = "https://en.wikipedia.org/wiki/Daytime" }
+checks = [{ inputs = [0.72, 0.409], output = 14.979135766124317 }]
+
+[[formula]]
+id = "solar_elevation_noon"
+name = "Sun elevation at noon"
+expr = "90 - abs(p - d)"
+output = { symbol = "e", name = "elevation in degrees", unit = "1", aliases = ["elevation", "altitude"] }
+variables = [
+  { symbol = "p", name = "latitude in degrees", unit = "1", aliases = ["latitude", "lat"] },
+  { symbol = "d", name = "solar declination in degrees", unit = "1", aliases = ["declination"] },
+]
+tags = ["climate", "solar"]
+source = { title = "Solar zenith angle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Solar_zenith_angle" }
+checks = [{ inputs = [41.4, 23.44], output = 72.04 }]
+
+[[formula]]
+id = "greenhouse_forcing_co2"
+name = "Radiative forcing of CO₂"
+expr = "5.35 * ln(c / b)"
+output = { symbol = "F", name = "forcing in W/m²", unit = "1", aliases = ["forcing"] }
+variables = [
+  { symbol = "c", name = "CO₂ concentration in ppm", unit = "1", aliases = ["co2", "concentration"] },
+  { symbol = "b", name = "reference concentration in ppm", unit = "1", aliases = ["reference"] },
+]
+tags = ["climate"]
+source = { title = "Radiative forcing (Wikipedia)", url = "https://en.wikipedia.org/wiki/Radiative_forcing" }
+checks = [{ inputs = [420, 280], output = 2.1692383283786794 }]
+
+[[formula]]
+id = "climate_warming_from_forcing"
+name = "Warming from a forcing"
+expr = "s * F"
+output = { symbol = "t", name = "warming in °C", unit = "1", aliases = ["warming"] }
+variables = [
+  { symbol = "s", name = "climate sensitivity in °C per W/m²", unit = "1", aliases = ["sensitivity"] },
+  { symbol = "F", name = "forcing in W/m²", unit = "1", aliases = ["forcing"] },
+]
+tags = ["climate"]
+source = { title = "Climate sensitivity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Climate_sensitivity" }
+checks = [{ inputs = [0.8, 2.2], output = 1.7600000000000002 }]
