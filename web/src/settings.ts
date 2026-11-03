@@ -4,7 +4,13 @@
 
 export type Profile = "fast" | "normal" | "thorough";
 
+/** Where formulas come from: an open search, or only the built-in library. */
+export type Source = "search" | "library";
+
 export interface Settings {
+  source: Source;
+  /** With the library source, only this domain's formulas ("" for every domain). */
+  domain: string;
   profile: Profile;
   /** Operations formulas may use, as accepted by the engine. */
   operators: string[];
@@ -59,7 +65,8 @@ export const ADVANCED: {
     label: "Columns tried as inputs",
     help:
       "For each column, Regrex only combines the columns most related to it. " +
-      "More columns can find formulas that mix many of them, but every extra column makes the search much slower.",
+      "More columns can find formulas that mix many of them, but every extra column makes the search much slower. " +
+      "Only known formulas always tries every column.",
     choices: [2, 3, 4, 5, 6, 8, 10].map((v) => ({ value: v, label: String(v) })),
   },
   {
@@ -106,6 +113,8 @@ export const PROFILES: Record<Profile, { max_size: number; max_params: number; s
 };
 
 export const DEFAULTS: Settings = {
+  source: "search",
+  domain: "",
   profile: "normal",
   operators: OPERATORS.map((o) => o.id),
   advanced: { ...ADVANCED_DEFAULTS },
@@ -126,7 +135,9 @@ export function loadSettings(): Settings {
       const v = (saved.advanced as Partial<Advanced> | undefined)?.[key];
       if (choices.some((c) => c.value === v)) advanced[key] = v as number;
     }
-    return { profile, operators, advanced };
+    const source: Source = saved.source === "library" ? "library" : "search";
+    const domain = typeof saved.domain === "string" ? saved.domain : "";
+    return { source, domain, profile, operators, advanced };
   } catch {
     return structuredClone(DEFAULTS);
   }
@@ -144,6 +155,9 @@ export function saveSettings(settings: Settings) {
 export function searchOptions(settings: Settings) {
   const all = settings.operators.length === OPERATORS.length;
   const { min_match, rel_tolerance, max_inputs } = settings.advanced;
+  if (settings.source === "library") {
+    return { library_only: true, domain: settings.domain || undefined, min_match: min_match / 100, rel_tolerance };
+  }
   return {
     ...PROFILES[settings.profile],
     ...(all ? {} : { operators: settings.operators }),
@@ -158,11 +172,16 @@ export function changedLimits(settings: Settings): (keyof Advanced)[] {
   return ADVANCED.map((a) => a.key).filter((k) => settings.advanced[k] !== ADVANCED_DEFAULTS[k]);
 }
 
-/** A short description of the settings, such as "Thorough, 6 of 10 operations, 1 advanced change". */
-export function describe(settings: Settings): string {
-  const parts = [{ fast: "Fast", normal: "Normal", thorough: "Thorough" }[settings.profile]];
-  const n = settings.operators.length;
-  if (n !== OPERATORS.length) parts.push(`${n} of ${OPERATORS.length} operations`);
+/** A short description of the settings, such as "Thorough, 6 of 10 operations, 1 advanced change" or "Library: Finance and business". */
+export function describe(settings: Settings, domainName?: string): string {
+  const parts: string[] = [];
+  if (settings.source === "library") {
+    parts.push(domainName ? `Library: ${domainName}` : "Library only");
+  } else {
+    parts.push({ fast: "Fast", normal: "Normal", thorough: "Thorough" }[settings.profile]);
+    const n = settings.operators.length;
+    if (n !== OPERATORS.length) parts.push(`${n} of ${OPERATORS.length} operations`);
+  }
   const changed = changedLimits(settings).length;
   if (changed) parts.push(`${changed} advanced ${changed === 1 ? "change" : "changes"}`);
   return parts.join(", ");

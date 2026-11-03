@@ -1,6 +1,6 @@
 // Runs the Rust engine off the main thread so the page stays responsive.
 
-import init, { Dataset } from "./wasm/regrex_wasm.js";
+import init, { Dataset, library } from "./wasm/regrex_wasm.js";
 import type { Request, Response } from "./types";
 
 const ready = init();
@@ -22,6 +22,8 @@ function handle(req: Request): unknown {
       return JSON.parse(need().review(JSON.stringify(req.options)));
     case "rows":
       return JSON.parse(need().rows(JSON.stringify(req.rows)));
+    case "domains":
+      return (JSON.parse(library()) as { domains: unknown[] }).domains;
   }
 }
 

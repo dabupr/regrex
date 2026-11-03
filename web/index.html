@@ -54,6 +54,15 @@
         <details id="settings" class="panel">
           <summary>Search settings <span id="settings-summary" class="muted"></span></summary>
           <fieldset class="profiles">
+            <legend>Where to look</legend>
+            <label><input type="radio" name="source" value="search" /> <b>Any formula</b>
+              <span class="muted">Builds formulas from the operations below, including ones nobody has named.</span></label>
+            <label><input type="radio" name="source" value="library" /> <b>Only known formulas</b>
+              <span class="muted">Tries every formula of the <a href="library.html">library</a> with your columns, fitting one
+                constant such as a tax rate. Quicker, above all with one domain, but it only finds formulas that are in the library.</span></label>
+            <label class="only">Domain <select id="domain"><option value="">every domain</option></select></label>
+          </fieldset>
+          <fieldset class="profiles search-only">
             <legend>How hard to search</legend>
             <label><input type="radio" name="profile" value="fast" /> <b>Fast</b>
               <span class="muted">Short formulas only. Best for big files.</span></label>
@@ -63,7 +72,7 @@
               <span class="muted">Also tries longer formulas for the columns Normal cannot explain. Can take minutes.</span></label>
           </fieldset>
           <label class="only">Explain <select id="only"></select></label>
-          <fieldset>
+          <fieldset class="search-only">
             <legend>Operations formulas may use</legend>
             <div id="operators" class="operators"></div>
             <p class="hint muted">Fewer operations make the search faster and the formulas simpler.</p>

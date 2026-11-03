@@ -4,6 +4,8 @@
 //! at a time so it can show progress. Everything crosses the boundary as
 //! JSON strings, using the same report format as the command-line tool.
 
+mod library_search;
+
 use regrex_core::parse::parse_template;
 use regrex_core::{
     explain_column, fit_shape, search, DerivedColumn, ScanConfig, SearchConfig, UnaryOp,
@@ -68,6 +70,11 @@ struct ExplainOptions {
     /// that `max_size` does not explain well. Much faster than starting
     /// with the larger size, which most columns do not need.
     deepen_to: Option<usize>,
+    /// Only try the formulas of the built-in library instead of searching.
+    library_only: bool,
+    /// With `library_only`, only the formulas of this domain (such as
+    /// `finance`). Missing means every domain.
+    domain: Option<String>,
 }
 
 impl ExplainOptions {
@@ -188,6 +195,16 @@ impl Dataset {
         let table = self.table_without(&options.ignore, Some(column));
         let target = index_of(&table, column)?;
         let mut config = options.scan_config()?;
+        if options.library_only {
+            let domain = options.domain.as_deref().filter(|d| !d.is_empty());
+            if let Some(d) = domain {
+                if regrex_formulas::Library::builtin().domain(d).is_none() {
+                    return Err(js_error(format!("unknown domain {d:?}")));
+                }
+            }
+            let found = library_search::best_library_formula(&table, target, domain, &config);
+            return self.remember(&options.ignore, column, &table, target, found);
+        }
         let mut found = explain_column(&table, target, &config);
         if let Some(size) = options.deepen_to.map(|s| s.clamp(1, 9)) {
             if size > config.search.max_size && !explained_well(found.as_ref()) {
@@ -199,16 +216,7 @@ impl Dataset {
                 }
             }
         }
-        if !options.ignore.iter().any(|n| n == column) {
-            let mut cache = self.found.borrow_mut();
-            if cache.0 != options.ignore {
-                *cache = (options.ignore.clone(), Vec::new());
-            }
-            cache.1.retain(|d| d.target != target);
-            cache.1.extend(found.clone());
-        }
-        let json = found.map(|d| DerivedJson::new(&table, &d));
-        serde_json::to_string(&json).map_err(js_error)
+        self.remember(&options.ignore, column, &table, target, found)
     }
 
     /// Checks a formula written by the user, such as `0.21 * net`, against
@@ -290,6 +298,28 @@ impl Dataset {
 }
 
 impl Dataset {
+    /// Keeps a formula found by [`Dataset::explain`] for [`Dataset::review`]
+    /// and returns it as JSON.
+    fn remember(
+        &self,
+        ignore: &[String],
+        column: &str,
+        table: &regrex_core::Table,
+        target: usize,
+        found: Option<DerivedColumn>,
+    ) -> Result<String, JsError> {
+        if !ignore.iter().any(|n| n == column) {
+            let mut cache = self.found.borrow_mut();
+            if cache.0 != ignore {
+                *cache = (ignore.to_vec(), Vec::new());
+            }
+            cache.1.retain(|d| d.target != target);
+            cache.1.extend(found.clone());
+        }
+        let json = found.map(|d| DerivedJson::new(table, &d));
+        serde_json::to_string(&json).map_err(js_error)
+    }
+
     /// The table without the `ignore`d columns (the `keep` column is never
     /// dropped).
     fn table_without(&self, ignore: &[String], keep: Option<&str>) -> regrex_core::Table {

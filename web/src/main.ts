@@ -11,6 +11,7 @@ import {
   searchOptions,
   type Profile,
   type Settings,
+  type Source,
 } from "./settings";
 
 const engine = new Engine();
@@ -45,6 +46,7 @@ const ui = {
   operators: $("operators"),
   reset: $<HTMLButtonElement>("reset"),
   advancedFields: $("advanced-fields"),
+  domain: $<HTMLSelectElement>("domain"),
   stop: $<HTMLButtonElement>("stop"),
   ownForm: $<HTMLFormElement>("own-form"),
   ownColumn: $<HTMLSelectElement>("own-column"),
@@ -180,6 +182,13 @@ function renderColumnChoices() {
 }
 
 function renderSettings() {
+  for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
+    radio.checked = radio.value === settings.source;
+  }
+  const library = settings.source === "library";
+  ui.domain.disabled = !library;
+  ui.domain.value = settings.domain;
+  for (const part of document.querySelectorAll<HTMLElement>(".search-only")) part.hidden = library;
   for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="profile"]')) {
     radio.checked = radio.value === settings.profile;
   }
@@ -189,7 +198,8 @@ function renderSettings() {
   for (const select of ui.advancedFields.querySelectorAll<HTMLSelectElement>("select")) {
     select.value = String(settings.advanced[select.name as keyof Settings["advanced"]]);
   }
-  ui.settingsSummary.textContent = `(${describe(settings)})`;
+  const domainName = ui.domain.selectedOptions[0]?.value ? ui.domain.selectedOptions[0].textContent ?? undefined : undefined;
+  ui.settingsSummary.textContent = `(${describe(settings, domainName)})`;
 }
 
 function updateSettings(change: Partial<Settings>) {
@@ -604,6 +614,16 @@ ui.operators.addEventListener("change", () => {
 });
 ui.reset.addEventListener("click", () => updateSettings(structuredClone(DEFAULTS)));
 ui.stop.addEventListener("click", () => scanStop?.());
+for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
+  radio.addEventListener("change", () => updateSettings({ source: radio.value as Source }));
+}
+ui.domain.addEventListener("change", () => updateSettings({ domain: ui.domain.value }));
+void engine.domains().then((domains) => {
+  ui.domain.append(...domains.map((d) => el("option", { value: d.id, title: d.description }, d.name)));
+  // A saved domain that no longer exists falls back to every domain.
+  if (!domains.some((d) => d.id === settings.domain)) settings.domain = "";
+  renderSettings();
+});
 
 ui.advancedFields.replaceChildren(
   ...ADVANCED.map((a) => {

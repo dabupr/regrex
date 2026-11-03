@@ -165,7 +165,7 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .field .default { white-space: nowrap; }
 .progress-line { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
 .panel #reset { display: inline-block; margin-top: 14px; }
-
+.panel [hidden] { display: none; }
 .other { margin-top: 8px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
 .other-badge { background: var(--good); }
 .formula-inline { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
