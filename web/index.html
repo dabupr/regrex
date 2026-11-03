@@ -115,6 +115,11 @@
           <button id="download" type="button">Download JSON</button>
         </div>
         <div id="summary" class="summary" role="status"></div>
+        <details id="graph" class="panel" open hidden>
+          <summary>How the columns depend on each other</summary>
+          <p class="hint muted">An arrow goes from each column to the columns computed from it. Select a computed column to go to its formula.</p>
+          <div id="graph-wrap" class="graph-wrap"></div>
+        </details>
         <div id="cards"></div>
         <p id="independent" class="muted"></p>
       </section>

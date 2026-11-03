@@ -6,7 +6,7 @@
 
 mod library_search;
 
-use regrex_core::parse::parse_template;
+use regrex_core::parse::{parse_expr, parse_template};
 use regrex_core::{
     explain_column, fit_shape, search, DerivedColumn, ScanConfig, SearchConfig, UnaryOp,
 };
@@ -219,6 +219,30 @@ impl Dataset {
         self.remember(&options.ignore, column, &table, target, found)
     }
 
+    /// The values of `column` and those of `formula` (written with column
+    /// names, as in a derived column's `formula`) for every row, as JSON
+    /// `{"actual": [...], "predicted": [...]}`; missing values are `null`.
+    /// Used to plot what the file holds against what the formula gives.
+    pub fn values(&self, column: &str, formula: &str) -> Result<String, JsError> {
+        let table = &self.loaded.table;
+        let target = index_of(table, column)?;
+        let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
+        let expr = parse_expr(formula, &names).map_err(js_error)?;
+        let finite = |v: f64| v.is_finite().then_some(v);
+        let mut row = vec![0.0; table.columns.len()];
+        let predicted: Vec<Option<f64>> = (0..table.n_rows())
+            .map(|r| {
+                for (c, column) in table.columns.iter().enumerate() {
+                    row[c] = column[r];
+                }
+                finite(expr.eval_row(&row, &[]))
+            })
+            .collect();
+        let actual: Vec<Option<f64>> = table.columns[target].iter().map(|&v| finite(v)).collect();
+        let json = serde_json::json!({ "actual": actual, "predicted": predicted });
+        Ok(json.to_string())
+    }
+
     /// Checks a formula written by the user, such as `0.21 * net`, against
     /// `column`. Names that are not columns are constants to fit, so
     /// `rate * net` finds the rate. Returns the derived-column JSON even
@@ -384,6 +408,16 @@ mod tests {
         assert_eq!(v["formula"], "price * qty");
         // Without a formula, longer formulas are tried.
         assert!(!explained_well(None));
+    }
+
+    #[test]
+    fn values_pairs_the_file_with_the_formula() {
+        let d = Dataset::new("a.csv", CSV.as_bytes(), None).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&d.values("total", "price * qty").unwrap()).unwrap();
+        assert_eq!(v["actual"][2], 9.0);
+        assert_eq!(v["predicted"][2], 9.0);
+        assert_eq!(v["predicted"].as_array().unwrap().len(), 6);
     }
 
     #[test]
