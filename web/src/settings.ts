@@ -64,8 +64,10 @@ export const ADVANCED: {
     key: "max_inputs",
     label: "Columns tried as inputs",
     help:
-      "For each column, Regrex only combines the columns most related to it. " +
-      "More columns can find formulas that mix many of them, but every extra column makes the search much slower. " +
+      "For each column, Regrex ranks the others by how closely they move with it (correlation of the values, " +
+      "their logarithm and their square root, so x² and eˣ count too) and only combines the top ones. " +
+      "To explain total, net and vat come first and an unrelated column rarely does. Raise it if a column that matters " +
+      "moves little with the result, like a discount that is almost always 0; each extra column makes the search much slower. " +
       "Only known formulas always tries every column.",
     choices: [2, 3, 4, 5, 6, 8, 10].map((v) => ({ value: v, label: String(v) })),
   },
