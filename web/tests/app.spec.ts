@@ -227,3 +227,51 @@ test("reads JSON files and pasted cells", async ({ page }) => {
   await expect(page.locator("#file-name")).toHaveText("pasted cells");
   await expect(page.locator("#file-summary")).toHaveText("10 rows, 3 numeric columns");
 });
+
+test("reads Parquet, Arrow and SQLite files in the browser", async ({ page }) => {
+  const { readFile } = await import("node:fs/promises");
+  const fixture = (name: string) => readFile(new URL(`./fixtures/${name}`, import.meta.url));
+  await page.goto("./");
+  await expect(page.locator(".drop .formats")).toContainText("Parquet");
+
+  // Parquet compressed with zstd, and Arrow IPC: the same 60 invoices.
+  for (const name of ["invoices.parquet", "invoices.arrow"]) {
+    await page.goto("./");
+    await page.locator("#file").setInputFiles({ name, mimeType: "application/octet-stream", buffer: await fixture(name) });
+    await expect(page.locator("#file-summary")).toHaveText("60 rows, 8 numeric columns, 1 text");
+  }
+  await page.getByText("Search settings").click();
+  await page.locator("#only").selectOption("vat");
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await expect(page.locator('#cards article[data-column="vat"]')).toContainText("vat = 0.21 * net", { timeout: 45_000 });
+
+  // SQLite: each table is chosen like a sheet.
+  await page.goto("./");
+  await page.locator("#file").setInputFiles({ name: "shop.sqlite", mimeType: "application/octet-stream", buffer: await fixture("shop.sqlite") });
+  await expect(page.locator("#sheet-label")).toHaveText("Table");
+  await expect(page.locator("#file-summary")).toHaveText("1 rows, 1 numeric columns, 1 text");
+  await page.locator("#sheet").selectOption("invoices");
+  await expect(page.locator("#file-summary")).toHaveText("60 rows, 8 numeric columns, 1 text");
+  await expect(page.locator("#sheet")).toHaveValue("invoices");
+});
+
+test("draws how the columns depend on each other and each formula against the file", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  const graph = page.locator("#graph svg");
+  await expect(graph).toBeVisible({ timeout: 45_000 });
+  await expect(graph.locator('.node.derived[data-column="vat"]')).toBeVisible();
+  // net and total are computed from each other: one arrow with two heads.
+  await expect(graph.locator(".edge.both")).not.toHaveCount(0);
+  await graph.locator('.node.derived[data-column="vat"]').click();
+  await expect(page.locator('#cards article[data-column="vat"]')).toHaveClass(/flash/);
+
+  const vat = page.locator('#cards article[data-column="vat"]');
+  await vat.getByText("Chart: file against formula").click();
+  const chart = vat.locator("svg.scatter");
+  await expect(chart.locator("circle")).toHaveCount(60);
+  await expect(chart.locator("circle.bad")).toHaveCount(1);
+  await expect(chart.locator('circle.bad[data-row="42"]')).toHaveCount(1);
+  await expect(vat.locator(".legend")).toContainText("breaks it");
+});

@@ -1,4 +1,6 @@
+import { dependencyGraph, scatter, scatterLegend } from "./charts";
 import { Engine } from "./engine";
+import { columnarFormat, readColumnar } from "./formats";
 import type { DatasetInfo, Derived, Known } from "./types";
 import {
   ADVANCED,
@@ -27,6 +29,7 @@ const ui = {
   fileName: $("file-name"),
   fileSummary: $("file-summary"),
   sheetWrap: $("sheet-wrap"),
+  sheetLabel: $("sheet-label"),
   sheet: $<HTMLSelectElement>("sheet"),
   scan: $<HTMLButtonElement>("scan"),
   preview: $<HTMLTableElement>("preview"),
@@ -34,6 +37,8 @@ const ui = {
   meter: $("meter-fill"),
   progressText: $("progress-text"),
   results: $("results"),
+  graph: $<HTMLDetailsElement>("graph"),
+  graphWrap: $("graph-wrap"),
   cards: $("cards"),
   independent: $("independent"),
   download: $<HTMLButtonElement>("download"),
@@ -79,6 +84,8 @@ interface State {
   ignored: Set<string>;
   derived: Derived[];
   suspects: Suspect[];
+  /** The sheet or table being shown, when the file has several. */
+  sheet?: string;
 }
 let state: State | undefined;
 
@@ -108,13 +115,34 @@ function looksLikeId(name: string, info: DatasetInfo): boolean {
   return /(^id$|_id$|^id_|number|^no\.?$|invoice|code|ref)/i.test(name) && info.columns.some((c) => c.name === name && c.decimals === 0);
 }
 
+/** Loads one sheet (or SQLite table) of a file into the engine. */
+async function loadSheet(name: string, bytes: ArrayBuffer, sheet?: string): Promise<DatasetInfo> {
+  const format = columnarFormat(name, bytes);
+  if (!format) return engine.load(name, bytes, sheet);
+  // Read in the page (the reader is loaded on demand), then handed over as JSON.
+  const table = await readColumnar(format, bytes, sheet);
+  const info = await engine.load(`${name}.json`, table.json);
+  return { ...info, sheets: table.sheets };
+}
+
 async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
   showError(null);
   try {
-    const info = await engine.load(name, bytes, sheet);
+    let info = await loadSheet(name, bytes, sheet);
+    // Without a choice, skip sheets or tables with no numbers (a list of customers).
+    if (info.columns.length === 0 && sheet === undefined) {
+      for (const other of info.sheets.slice(1)) {
+        const next = await loadSheet(name, bytes, other);
+        if (next.columns.length > 0) {
+          info = next;
+          sheet = other;
+          break;
+        }
+      }
+    }
     if (info.columns.length === 0) throw new Error("No numeric columns found in this file.");
     const ignored = new Set(info.columns.map((c) => c.name).filter((n) => looksLikeId(n, info)));
-    state = { name, bytes, info, ignored, derived: [], suspects: [] };
+    state = { name, bytes, info, ignored, derived: [], suspects: [], sheet };
     renderData();
   } catch (e) {
     showError(`Could not read ${name}: ${(e as Error).message}`);
@@ -133,7 +161,9 @@ function renderData() {
   ui.fileSummary.textContent = `${info.rows} rows, ${info.columns.length} numeric columns${text}`;
 
   ui.sheetWrap.hidden = info.sheets.length < 2;
+  ui.sheetLabel.textContent = columnarFormat(name, state.bytes) === "sqlite" ? "Table" : "Sheet";
   ui.sheet.replaceChildren(...info.sheets.map((s) => el("option", { value: s }, s)));
+  if (state.sheet && info.sheets.includes(state.sheet)) ui.sheet.value = state.sheet;
 
   const numeric = new Set(info.columns.map((c) => c.name));
   const head = el("tr", {}, el("th", { class: "text" }, "#"));
@@ -513,7 +543,51 @@ function derivedCard(d: Derived): HTMLElement {
       ),
     );
   }
+  card.append(chartToggle(d));
   return card;
+}
+
+/** A "Chart" section that plots the file against the formula when opened. */
+function chartToggle(d: Derived): HTMLElement {
+  const body = el("div", { class: "chart-body" });
+  const details = el("details", { class: "chart-toggle" }, el("summary", {}, "Chart: file against formula"), body);
+  details.addEventListener("toggle", async () => {
+    if (!details.open || body.childElementCount > 0) return;
+    body.append(el("p", { class: "muted" }, "Drawing…"));
+    try {
+      const values = await engine.values(d.column, d.formula);
+      body.replaceChildren(scatter(d, values), scatterLegend(d));
+    } catch (e) {
+      body.replaceChildren(el("p", { class: "muted" }, `No chart for this formula: ${(e as Error).message}`));
+    }
+  });
+  return details;
+}
+
+/** The dependency graph of the columns found, with each computed column linked to its card. */
+function renderGraph(derived: Derived[]) {
+  const graph = dependencyGraph(derived);
+  ui.graph.hidden = graph === null;
+  if (!graph) return ui.graphWrap.replaceChildren();
+  for (const node of graph.querySelectorAll<SVGGElement>(".node.derived")) {
+    node.setAttribute("tabindex", "0");
+    node.setAttribute("role", "link");
+    const go = () => {
+      const card = ui.cards.querySelector<HTMLElement>(`article[data-column="${CSS.escape(node.dataset.column ?? "")}"]`);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+      card?.classList.remove("flash");
+      void card?.offsetWidth; // restart the animation
+      card?.classList.add("flash");
+    };
+    node.addEventListener("click", go);
+    node.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        go();
+      }
+    });
+  }
+  ui.graphWrap.replaceChildren(graph);
 }
 
 function renderResults(columns: string[], stopped?: { why: "user" | "time"; skipped: string[] }) {
@@ -524,6 +598,7 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
   ui.cards.replaceChildren(
     ...(cards.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
   );
+  renderGraph(state.derived);
   const found = new Set(state.derived.map((d) => d.column));
   const rest = columns.filter((c) => !found.has(c));
   const notes = rest.length ? [`No formula found for: ${rest.join(", ")}.`] : [];

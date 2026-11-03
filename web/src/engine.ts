@@ -1,6 +1,6 @@
 // Promise-based client for the engine worker.
 
-import type { DatasetInfo, Derived, Domain, ExplainOptions, FitReport, Request, Response } from "./types";
+import type { DatasetInfo, Derived, Domain, ExplainOptions, FitReport, Request, Response, Values } from "./types";
 
 export class Engine {
   private worker = Engine.spawn();
@@ -70,6 +70,11 @@ export class Engine {
   /** The given rows (numbered from 1) as text, in the same order. */
   rows(rows: number[]): Promise<string[][]> {
     return this.call({ kind: "rows", rows });
+  }
+
+  /** What `column` holds and what `formula` gives, for every row. */
+  values(column: string, formula: string): Promise<Values> {
+    return this.call({ kind: "values", column, formula });
   }
 
   /** The domains of the built-in formula library. */

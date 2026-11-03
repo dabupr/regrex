@@ -22,6 +22,8 @@ function handle(req: Request): unknown {
       return JSON.parse(need().review(JSON.stringify(req.options)));
     case "rows":
       return JSON.parse(need().rows(JSON.stringify(req.rows)));
+    case "values":
+      return JSON.parse(need().values(req.column, req.formula));
     case "domains":
       return (JSON.parse(library()) as { domains: unknown[] }).domains;
   }

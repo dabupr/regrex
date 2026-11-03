@@ -126,6 +126,12 @@ export interface ExplainOptions {
   domain?: string;
 }
 
+/** A column's values and a formula's, for every row (null when missing). */
+export interface Values {
+  actual: (number | null)[];
+  predicted: (number | null)[];
+}
+
 /** A domain of the built-in formula library. */
 export interface Domain {
   id: string;
@@ -139,6 +145,7 @@ export type Request =
   | { kind: "formula"; column: string; text: string }
   | { kind: "fit"; target: string; options: { inputs: string[] } }
   | { kind: "rows"; rows: number[] }
+  | { kind: "values"; column: string; formula: string }
   | { kind: "domains" }
   | { kind: "review"; options: { ignore: string[] } };
 

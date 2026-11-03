@@ -24,9 +24,10 @@
           other columns, with which formula, and which rows break the rule.
         </p>
         <label id="drop" class="drop" tabindex="0">
-          <input id="file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.xlsb,.ods,.json,.ndjson,.jsonl" hidden />
-          <strong>Drop a CSV, Excel or JSON file here</strong>
+          <input id="file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.xlsb,.ods,.json,.ndjson,.jsonl,.parquet,.arrow,.feather,.arrows,.sqlite,.sqlite3,.db" hidden />
+          <strong>Drop a data file here</strong>
           <span>or click to choose one</span>
+          <span class="formats">CSV or TSV · Excel and OpenDocument (.xlsx, .xls, .ods) · JSON and JSON lines · Parquet · Arrow and Feather · SQLite</span>
         </label>
         <p class="alt">
           You can also paste cells copied from a spreadsheet (Ctrl+V).<br />
@@ -44,7 +45,7 @@
             <p id="file-summary" class="muted"></p>
           </div>
           <div class="actions">
-            <label id="sheet-wrap" hidden>Sheet <select id="sheet"></select></label>
+            <label id="sheet-wrap" hidden><span id="sheet-label">Sheet</span> <select id="sheet"></select></label>
             <button id="scan" class="primary" type="button">Find derived columns</button>
           </div>
         </div>
@@ -114,6 +115,11 @@
           <button id="download" type="button">Download JSON</button>
         </div>
         <div id="summary" class="summary" role="status"></div>
+        <details id="graph" class="panel" open hidden>
+          <summary>How the columns depend on each other</summary>
+          <p class="hint muted">An arrow goes from each column to the columns computed from it. Select a computed column to go to its formula.</p>
+          <div id="graph-wrap" class="graph-wrap"></div>
+        </details>
         <div id="cards"></div>
         <p id="independent" class="muted"></p>
       </section>

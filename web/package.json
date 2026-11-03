@@ -16,7 +16,14 @@
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.6",
+    "@types/sql.js": "1.4.11",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "apache-arrow": "21.2.0",
+    "hyparquet": "1.31.4",
+    "hyparquet-compressors": "1.1.1",
+    "sql.js": "1.15.0"
   }
 }

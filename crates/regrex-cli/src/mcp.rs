@@ -117,8 +117,8 @@ fn error(id: Value, code: i64, message: &str) -> Value {
 
 fn tools() -> Value {
     let file = json!({
-        "path": { "type": "string", "description": "Path to a CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row, or a JSON file (.json, .ndjson, .jsonl) with one object per row. Units can be written in headers, as in \"time (s)\"." },
-        "sheet": { "type": "string", "description": "Sheet to read from a spreadsheet (default: the first one)." },
+        "path": { "type": "string", "description": "Path to a CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row, a JSON file (.json, .ndjson, .jsonl) with one object per row, a Parquet or Arrow file (.parquet, .arrow, .feather), or a SQLite database (.sqlite, .db). Units can be written in headers, as in \"time (s)\"." },
+        "sheet": { "type": "string", "description": "Sheet of a spreadsheet, or table of a SQLite database, to read (default: the first one)." },
         "ignore": { "type": "array", "items": { "type": "string" }, "description": "Columns to ignore, for example IDs." },
     });
     let with_file = |extra: Value| {

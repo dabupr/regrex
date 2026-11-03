@@ -5,13 +5,28 @@
 //! [`regrex_core::Table`], working out number formats on the way: decimal
 //! points or commas, thousands separators, percentages and currency symbols.
 //!
+//! Optional cargo features add more formats:
+//!
+//! - `parquet`: Apache Parquet (`.parquet`);
+//! - `arrow`: Arrow IPC files and streams (`.arrow`, `.feather`, `.arrows`,
+//!   `.ipc`);
+//! - `sqlite`: SQLite databases (`.sqlite`, `.sqlite3`, `.db`), where each
+//!   table is offered like a sheet;
+//! - `all-formats`: all of them.
+//!
+//! Files are recognised by their first bytes as well as by their extension.
+//!
 //! Works on native targets and in WebAssembly ([`load_bytes`] needs no file
-//! system).
+//! system; the optional formats are meant for native builds).
 
 #![warn(missing_docs)]
 
+#[cfg(any(feature = "parquet", feature = "arrow"))]
+mod columnar;
 mod json;
 pub mod report;
+#[cfg(feature = "sqlite")]
+mod sqlite;
 
 use calamine::{open_workbook_auto_from_rs, Data, Reader, Sheets};
 use regrex_core::Table;
@@ -79,11 +94,71 @@ pub fn is_json(file_name: &str) -> bool {
     matches!(ext.as_str(), "json" | "ndjson" | "jsonl")
 }
 
+/// File formats read by the optional cargo features.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Columnar {
+    Parquet,
+    Arrow,
+    Sqlite,
+}
+
+impl Columnar {
+    /// The format of a file, from its first bytes or else its extension.
+    fn of(file_name: &str, bytes: &[u8]) -> Option<Columnar> {
+        if bytes.starts_with(b"PAR1") {
+            return Some(Columnar::Parquet);
+        }
+        if bytes.starts_with(b"ARROW1") || bytes.starts_with(b"FEA1") {
+            return Some(Columnar::Arrow);
+        }
+        if bytes.starts_with(b"SQLite format 3\0") {
+            return Some(Columnar::Sqlite);
+        }
+        let ext = file_name
+            .rsplit('.')
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        match ext.as_str() {
+            "parquet" | "pq" => Some(Columnar::Parquet),
+            "arrow" | "feather" | "arrows" | "ipc" => Some(Columnar::Arrow),
+            "sqlite" | "sqlite3" | "db" => Some(Columnar::Sqlite),
+            _ => None,
+        }
+    }
+
+    fn read(self, bytes: &[u8], sheet: Option<&str>) -> Result<Parsed, LoadError> {
+        let _ = (bytes, sheet);
+        match self {
+            #[cfg(feature = "parquet")]
+            Columnar::Parquet => columnar::parquet(bytes).map(|(h, r)| (h, r, Vec::new())),
+            #[cfg(feature = "arrow")]
+            Columnar::Arrow => columnar::arrow(bytes).map(|(h, r)| (h, r, Vec::new())),
+            #[cfg(feature = "sqlite")]
+            Columnar::Sqlite => sqlite::read(bytes, sheet),
+            #[allow(unreachable_patterns)]
+            other => {
+                let (format, feature) = match other {
+                    Columnar::Parquet => ("Parquet", "parquet"),
+                    Columnar::Arrow => ("Arrow", "arrow"),
+                    Columnar::Sqlite => ("SQLite", "sqlite"),
+                };
+                Err(err(format!(
+                    "{format} files are not supported in this build \
+                     (regrex-io feature `{feature}`); convert the file to CSV"
+                )))
+            }
+        }
+    }
+}
+
 /// Loads a file from its bytes; `file_name` is only used to tell CSV from
 /// spreadsheets and JSON. The first row of CSV and spreadsheets must hold
-/// the column names.
+/// the column names. For a SQLite database, `sheet` names the table.
 pub fn load_bytes(file_name: &str, bytes: &[u8], sheet: Option<&str>) -> Result<Loaded, LoadError> {
-    let (header, rows, sheets) = if is_spreadsheet(file_name) {
+    let (header, rows, sheets) = if let Some(format) = Columnar::of(file_name, bytes) {
+        format.read(bytes, sheet)?
+    } else if is_spreadsheet(file_name) {
         read_spreadsheet(bytes, sheet)?
     } else if is_json(file_name) {
         let text = String::from_utf8_lossy(bytes);

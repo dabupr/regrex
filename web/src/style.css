@@ -170,3 +170,34 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .other-badge { background: var(--good); }
 .formula-inline { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .formula-inline b { color: var(--accent); }
+.drop .formats { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+/* Charts */
+.chart-toggle { margin-top: 8px; }
+.chart-toggle > summary { cursor: pointer; font-size: 14px; color: var(--muted); }
+.chart-body { margin-top: 8px; max-width: 420px; }
+.chart { display: block; font-family: inherit; }
+.chart.scatter { width: 100%; height: auto; }
+.chart .grid { stroke: var(--border); stroke-width: 1; }
+.chart .tick, .chart .axis-label { fill: var(--muted); font-size: 11px; }
+.chart .diagonal { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 4; }
+.chart .dot { stroke: var(--surface); stroke-width: 1; }
+.chart .dot.ok, .legend .swatch.ok { fill: var(--accent); background: var(--accent); }
+.chart .dot.bad, .legend .swatch.bad { fill: var(--warn); background: var(--warn); }
+.chart .dot.other, .legend .swatch.other { fill: var(--good); background: var(--good); }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 0; margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.graph-wrap { overflow-x: auto; margin-top: 8px; }
+.chart.graph { max-width: none; }
+.chart.graph .node rect { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+.chart.graph .node.derived rect { stroke: var(--accent); stroke-width: 2; }
+.chart.graph .node text { fill: var(--text); font-size: 13px; }
+.chart.graph .node.derived { cursor: pointer; }
+.chart.graph .node.derived:focus-visible rect, .chart.graph .node.derived:hover rect { fill: var(--code); }
+.chart.graph .node.derived:focus { outline: none; }
+.chart.graph .edge { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.chart.graph .edge:hover { stroke: var(--accent); stroke-width: 2.5; }
+.chart.graph .arrow-head { fill: var(--muted); }
+@keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
+.card.flash { animation: flash 1.2s ease-out; }

@@ -34,6 +34,22 @@ def test_scan_file_reports_exceptions():
     assert vat["exceptions"][0]["diagnosis"]["description"] == "used 0.1 instead of 0.21"
 
 
+def test_scan_file_reads_a_sqlite_table(tmp_path):
+    import csv
+    import sqlite3
+
+    rows = list(csv.reader(open(DATA / "invoices.csv", newline="")))
+    db = tmp_path / "shop.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute("CREATE TABLE customers (id INTEGER, name TEXT)")
+        conn.execute(f"CREATE TABLE invoices ({', '.join(rows[0])})")
+        conn.executemany(f"INSERT INTO invoices VALUES ({', '.join('?' * len(rows[0]))})", rows[1:])
+    conn.close()
+    report = regrex.scan_file(db, sheet="invoices", ignore=["invoice"])
+    vat = next(d for d in report["derived"] if d["column"] == "vat")
+    assert vat["formula"] == "0.21 * net"
+
+
 def test_scan_mapping_with_missing_values():
     price = [10.0, 5.5, 3.2, 8.0, 1.25, 99.9, 12.3, 7.0, 0.99, 45.0, 2.5, 18.75]
     qty = [2, 4, 1, 3, 10, 1, 5, 6, 12, 2, 8, 3]

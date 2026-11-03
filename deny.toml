@@ -8,7 +8,11 @@ version = 2
 version = 2
 allow = ["MIT", "Apache-2.0", "Unicode-3.0", "BSD-3-Clause", "BSD-2-Clause", "ISC", "Zlib"]
 # Permissive; used only at build time by pyo3 (Python bindings).
-exceptions = [{ allow = ["Apache-2.0 WITH LLVM-exception"], crate = "target-lexicon" }]
+exceptions = [
+  { allow = ["Apache-2.0 WITH LLVM-exception"], crate = "target-lexicon" },
+  # Public domain dedication; used at build time by const-random (Arrow's hashing).
+  { allow = ["CC0-1.0"], crate = "tiny-keccak" },
+]
 
 [bans]
 multiple-versions = "warn"
