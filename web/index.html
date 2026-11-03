@@ -59,7 +59,7 @@
             <label><input type="radio" name="profile" value="normal" /> <b>Normal</b>
               <span class="muted">Formulas like price × quantity × 1.21, even with a few wrong rows.</span></label>
             <label><input type="radio" name="profile" value="thorough" /> <b>Thorough</b>
-              <span class="muted">Longer formulas. Can take several minutes.</span></label>
+              <span class="muted">Also tries longer formulas for the columns Normal cannot explain. Can take minutes.</span></label>
           </fieldset>
           <label class="only">Explain <select id="only"></select></label>
           <fieldset>
@@ -67,6 +67,10 @@
             <div id="operators" class="operators"></div>
             <p class="hint muted">Fewer operations make the search faster and the formulas simpler.</p>
           </fieldset>
+          <details id="advanced" class="advanced">
+            <summary>Advanced</summary>
+            <div id="advanced-fields"></div>
+          </details>
           <button id="reset" type="button" class="link">Reset to the defaults</button>
         </details>
 
@@ -88,7 +92,10 @@
 
       <section id="progress" hidden>
         <div class="meter"><div id="meter-fill"></div></div>
-        <p id="progress-text" class="muted"></p>
+        <div class="progress-line">
+          <p id="progress-text" class="muted"></p>
+          <button id="stop" type="button">Stop</button>
+        </div>
       </section>
 
       <section id="results" hidden>

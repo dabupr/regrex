@@ -111,6 +111,10 @@ export interface ExplainOptions {
   max_params?: number;
   small_samples?: number;
   operators?: string[];
+  min_match?: number;
+  rel_tolerance?: number;
+  max_inputs?: number;
+  deepen_to?: number;
 }
 
 export type Request =

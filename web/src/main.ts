@@ -1,6 +1,17 @@
 import { Engine } from "./engine";
 import type { DatasetInfo, Derived, Known } from "./types";
-import { DEFAULTS, OPERATORS, describe, loadSettings, saveSettings, searchOptions, type Profile, type Settings } from "./settings";
+import {
+  ADVANCED,
+  DEFAULTS,
+  OPERATORS,
+  defaultLabel,
+  describe,
+  loadSettings,
+  saveSettings,
+  searchOptions,
+  type Profile,
+  type Settings,
+} from "./settings";
 
 const engine = new Engine();
 
@@ -33,6 +44,8 @@ const ui = {
   only: $<HTMLSelectElement>("only"),
   operators: $("operators"),
   reset: $<HTMLButtonElement>("reset"),
+  advancedFields: $("advanced-fields"),
+  stop: $<HTMLButtonElement>("stop"),
   ownForm: $<HTMLFormElement>("own-form"),
   ownColumn: $<HTMLSelectElement>("own-column"),
   ownFormula: $<HTMLInputElement>("own-formula"),
@@ -173,6 +186,9 @@ function renderSettings() {
   for (const box of ui.operators.querySelectorAll<HTMLInputElement>("input")) {
     box.checked = settings.operators.includes(box.value);
   }
+  for (const select of ui.advancedFields.querySelectorAll<HTMLSelectElement>("select")) {
+    select.value = String(settings.advanced[select.name as keyof Settings["advanced"]]);
+  }
   ui.settingsSummary.textContent = `(${describe(settings)})`;
 }
 
@@ -218,18 +234,44 @@ async function scanAll() {
   ui.suspicious.hidden = true;
   state.derived = [];
   state.suspects = [];
+  const { name, bytes } = state;
+  const sheet = state.info.sheets.length > 1 ? ui.sheet.value : undefined;
+  // Stopping (by hand or at the time limit) replaces the engine's worker.
+  let stopped: "user" | "time" | undefined;
+  const stop = (why: "user" | "time") => {
+    if (stopped) return;
+    stopped = why;
+    engine.restart();
+  };
+  scanStop = () => stop("user");
+  const limit = settings.advanced.time_limit;
+  const timer = limit > 0 ? setTimeout(() => stop("time"), limit * 1000) : undefined;
+  let checked = 0;
   try {
     for (const [i, column] of columns.entries()) {
       ui.progressText.textContent = `Checking ${column} (${i + 1} of ${columns.length})…`;
       ui.meter.style.width = `${(100 * i) / columns.length}%`;
       const found = await engine.explain(column, options);
       if (found) state.derived.push(found);
+      checked++;
     }
     ui.meter.style.width = "100%";
     if (state.derived.length > 1) state.derived = await engine.review(ignore);
-    state.suspects = await findSuspects(state.derived);
-    renderResults(columns);
-    renderSuspects();
+  } catch (e) {
+    if (!stopped) showError(`Something went wrong: ${(e as Error).message}`);
+  } finally {
+    clearTimeout(timer);
+    scanStop = undefined;
+  }
+  try {
+    // The new worker has no file yet. The formulas found so far are kept,
+    // only diagnosed one by one instead of together.
+    if (stopped) await engine.load(name, bytes, sheet);
+    if (state.name === name) {
+      state.suspects = await findSuspects(state.derived);
+      renderResults(columns.slice(0, checked), stopped && { why: stopped, skipped: columns.slice(checked) });
+      renderSuspects();
+    }
   } catch (e) {
     showError(`Something went wrong: ${(e as Error).message}`);
   } finally {
@@ -237,6 +279,9 @@ async function scanAll() {
     ui.progress.hidden = true;
   }
 }
+
+/** Stops the running scan, if any. */
+let scanStop: (() => void) | undefined;
 
 /** Whether the rows that break a formula are few enough to be mistakes. */
 function fewExceptions(d: Derived): boolean {
@@ -429,7 +474,7 @@ function derivedCard(d: Derived): HTMLElement {
   return card;
 }
 
-function renderResults(columns: string[]) {
+function renderResults(columns: string[], stopped?: { why: "user" | "time"; skipped: string[] }) {
   if (!state) return;
   ui.results.hidden = false;
   const cards = state.derived.map(derivedCard);
@@ -439,7 +484,12 @@ function renderResults(columns: string[]) {
   );
   const found = new Set(state.derived.map((d) => d.column));
   const rest = columns.filter((c) => !found.has(c));
-  ui.independent.textContent = rest.length ? `No formula found for: ${rest.join(", ")}.` : "";
+  const notes = rest.length ? [`No formula found for: ${rest.join(", ")}.`] : [];
+  if (stopped) {
+    const why = stopped.why === "time" ? "The time limit was reached" : "The search was stopped";
+    notes.push(`${why} before checking: ${stopped.skipped.join(", ")}.`);
+  }
+  ui.independent.textContent = notes.join(" ");
 }
 
 function highlight(rows: number[]) {
@@ -512,7 +562,25 @@ ui.operators.addEventListener("change", () => {
   const checked = [...ui.operators.querySelectorAll<HTMLInputElement>("input:checked")].map((b) => b.value);
   updateSettings({ operators: checked });
 });
-ui.reset.addEventListener("click", () => updateSettings({ ...DEFAULTS }));
+ui.reset.addEventListener("click", () => updateSettings(structuredClone(DEFAULTS)));
+ui.stop.addEventListener("click", () => scanStop?.());
+
+ui.advancedFields.replaceChildren(
+  ...ADVANCED.map((a) => {
+    const id = `opt-${a.key}`;
+    const select = el("select", { id, name: a.key, "aria-describedby": `${id}-help` });
+    select.append(...a.choices.map((c) => el("option", { value: String(c.value) }, c.label)));
+    select.addEventListener("change", () =>
+      updateSettings({ advanced: { ...settings.advanced, [a.key]: Number(select.value) } }),
+    );
+    return el(
+      "div",
+      { class: "field" },
+      el("label", { for: id }, a.label, select),
+      el("p", { id: `${id}-help`, class: "hint muted" }, `${a.help} `, el("span", { class: "default" }, `Default: ${defaultLabel(a.key)}.`)),
+    );
+  }),
+);
 ui.ownForm.addEventListener("submit", (e) => {
   e.preventDefault();
   void checkOwnFormula();

@@ -157,3 +157,11 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
   padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg, var(--surface)); color: var(--text);
 }
 #own-result .card { margin: 10px 0 0; }
+.advanced { margin-top: 14px; }
+.advanced > summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.field { margin-top: 12px; }
+.field label { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 14px; font-weight: 600; }
+.field .hint { margin: 2px 0 0; }
+.field .default { white-space: nowrap; }
+.progress-line { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.panel #reset { display: inline-block; margin-top: 14px; }

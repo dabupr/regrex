@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Suspicious rows in the web app: a summary at the top of the results ("2 suspicious rows"), a table with each row in full and the cell to fix highlighted, and an export to CSV. When more than 5% of the rows break a formula they are described as a group that may follow another rule, not as mistakes.
 - The web app diagnoses all the formulas of a file together, so a wrong total that also breaks `net = total - vat` is blamed once, as in the command line.
 - Search settings in the web app, saved in the browser: Fast, Normal and Thorough profiles, explaining a single column, and choosing the operations formulas may use.
+- Advanced search settings in the web app, each explained with its default: rows that must follow the formula, tolerance, columns tried as inputs and a time limit. A running search can be stopped. Thorough only tries longer formulas for the columns Normal cannot explain, so the example takes 40 seconds instead of 4 minutes.
 - "Test your own formula" in the web app, and the `check_formula` MCP tool, accept constants to fit: `vat = rate * net` finds `0.21 * net` and the rows that break it. In Rust: `parse::parse_template` and `fit_shape`.
 - `ScanConfig::small_samples`: when no formula fits every row, the scan also searches small random samples of rows, so a few wrong rows in a small table no longer hide its formula.
 

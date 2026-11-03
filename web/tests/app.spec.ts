@@ -125,3 +125,49 @@ test("search settings are applied and remembered", async ({ page }) => {
   await page.getByRole("button", { name: "Reset to the defaults" }).click();
   await expect(page.locator("#settings-summary")).toHaveText("(Normal)");
 });
+
+test("advanced limits are explained, applied and remembered", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await page.getByText("Advanced", { exact: true }).click();
+  const minMatch = page.getByLabel("Rows that must follow the formula");
+  await expect(minMatch).toHaveValue("90");
+  await expect(page.locator("#opt-min_match-help")).toContainText("Default: 90 %.");
+  await expect(page.locator("#opt-time_limit-help")).toContainText("Default: none.");
+
+  // Row 42 breaks vat = 0.21 * net, so asking for every row finds nothing.
+  await page.getByLabel(/Fast/).check();
+  await page.locator("#only").selectOption("vat");
+  await minMatch.selectOption("100");
+  await expect(page.locator("#settings-summary")).toHaveText("(Fast, 1 advanced change)");
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await expect(page.locator("#independent")).toHaveText("No formula found for: vat.", { timeout: 45_000 });
+
+  await page.reload();
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await page.getByText("Advanced", { exact: true }).click();
+  await expect(page.getByLabel("Rows that must follow the formula")).toHaveValue("100");
+  await page.getByRole("button", { name: "Reset to the defaults" }).click();
+  await expect(page.getByLabel("Rows that must follow the formula")).toHaveValue("90");
+  await expect(page.locator("#settings-summary")).toHaveText("(Normal)");
+});
+
+test("a long search can be stopped and run again", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await page.getByLabel(/Thorough/).check();
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.locator("#independent")).toContainText("The search was stopped before checking:");
+  await expect(page.locator("#progress")).toBeHidden();
+
+  // The engine works again after stopping.
+  await page.getByLabel(/Fast/).check();
+  await page.locator("#only").selectOption("subtotal");
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await expect(page.locator('article[data-column="subtotal"]')).toContainText("subtotal = price * quantity", { timeout: 45_000 });
+  await expect(page.locator("#independent")).toHaveText("");
+});

@@ -59,6 +59,15 @@ struct ExplainOptions {
     /// Allowed operators: `+ - * / ^ sqrt exp log sin cos`. `-` also
     /// allows negation and `^` squares. Missing means all.
     operators: Option<Vec<String>>,
+    /// Relative tolerance for a row to match when the column's decimals are
+    /// unknown.
+    rel_tolerance: Option<f64>,
+    /// How many of the most correlated columns are tried as inputs.
+    max_inputs: Option<usize>,
+    /// Search again with formulas up to this size, but only for columns
+    /// that `max_size` does not explain well. Much faster than starting
+    /// with the larger size, which most columns do not need.
+    deepen_to: Option<usize>,
 }
 
 impl ExplainOptions {
@@ -72,6 +81,12 @@ impl ExplainOptions {
         }
         if let Some(p) = self.max_params {
             config.search.max_params = p.min(3);
+        }
+        if let Some(t) = self.rel_tolerance {
+            config.rel_tolerance = t.clamp(0.0, 0.5);
+        }
+        if let Some(n) = self.max_inputs {
+            config.max_inputs = n.clamp(1, 12);
         }
         if let Some(n) = self.small_samples {
             config.small_samples = n.min(16);
@@ -95,6 +110,12 @@ impl ExplainOptions {
         }
         Ok(config)
     }
+}
+
+/// Whether a formula was found and the rows it misses are few enough to be
+/// mistakes in the data rather than a sign that a longer formula is needed.
+fn explained_well(found: Option<&DerivedColumn>) -> bool {
+    found.is_some_and(|d| d.exceptions.len() as f64 <= 0.05 * d.checked as f64)
 }
 
 /// Operator names accepted in [`ExplainOptions::operators`].
@@ -166,8 +187,18 @@ impl Dataset {
         let options: ExplainOptions = parse_options(options_json)?;
         let table = self.table_without(&options.ignore, Some(column));
         let target = index_of(&table, column)?;
-        let config = options.scan_config()?;
-        let found = explain_column(&table, target, &config);
+        let mut config = options.scan_config()?;
+        let mut found = explain_column(&table, target, &config);
+        if let Some(size) = options.deepen_to.map(|s| s.clamp(1, 9)) {
+            if size > config.search.max_size && !explained_well(found.as_ref()) {
+                config.search.max_size = size;
+                let deeper = explain_column(&table, target, &config);
+                let matched = |d: &Option<DerivedColumn>| d.as_ref().map_or(0, |d| d.matched);
+                if matched(&deeper) > matched(&found) {
+                    found = deeper;
+                }
+            }
+        }
         if !options.ignore.iter().any(|n| n == column) {
             let mut cache = self.found.borrow_mut();
             if cache.0 != options.ignore {
@@ -311,6 +342,18 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["formula"], "price * qty");
         assert_eq!(d.explain("id", r#"{"ignore":["id"]}"#).unwrap(), "null");
+    }
+
+    #[test]
+    fn explain_accepts_advanced_limits() {
+        let d = Dataset::new("a.csv", CSV.as_bytes(), None).unwrap();
+        let opts =
+            r#"{"ignore":["id"],"max_size":3,"deepen_to":5,"max_inputs":2,"rel_tolerance":0.001}"#;
+        let v: serde_json::Value =
+            serde_json::from_str(&d.explain("total", opts).unwrap()).unwrap();
+        assert_eq!(v["formula"], "price * qty");
+        // Without a formula, longer formulas are tried.
+        assert!(!explained_well(None));
     }
 
     #[test]
