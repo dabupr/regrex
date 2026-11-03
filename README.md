@@ -43,6 +43,7 @@ Skipped (not numeric): product
 ```
 
 - Reads CSV (comma, semicolon or tab; decimal point or comma) and spreadsheets (`.xlsx`, `.xls`, `.ods`, choose one with `--sheet`).
+- Put units in the headers (`time (s)`, `distance [m]`) and Regrex skips formulas that mix incompatible units, which is faster and avoids nonsense like adding seconds to metres.
 - `--json` prints a stable, versioned JSON report for scripts and AI agents.
 - `--mermaid` prints the dependencies between columns as a diagram.
 - `regrex fit data.csv --target y` lists candidate formulas for a single column.

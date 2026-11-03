@@ -122,3 +122,34 @@ fn results_are_a_pareto_front() {
         assert!(pair[1].nmse < pair[0].nmse);
     }
 }
+
+#[test]
+fn units_rule_out_impossible_formulas() {
+    use regrex_core::units::parse_unit;
+    // Free fall: d = 0.5 * g * t^2 with g = 9.81 m/s².
+    let t = uniform(30, 0.1, 4.0, 13);
+    let v0 = uniform(30, 0.0, 5.0, 14);
+    let d: Vec<f64> = t.iter().map(|t| 0.5 * 9.81 * t * t).collect();
+    let config = SearchConfig {
+        max_size: 5,
+        input_dims: Some(vec![
+            parse_unit("s").unwrap().dim,
+            parse_unit("m/s").unwrap().dim,
+        ]),
+        target_dim: Some(parse_unit("m").unwrap().dim),
+        ..SearchConfig::default()
+    };
+    let results = search(&[t, v0], &d, &config).unwrap();
+    let names = names(&["t", "v0"]);
+    let best = &results[0];
+    assert!(best.exact);
+    assert_eq!(best.expr.display_with(&names).to_string(), "4.905 * t^2");
+    // No formula on the front adds a time to a speed.
+    for c in &results {
+        let text = c.expr.display_with(&names).to_string();
+        assert!(
+            !text.contains("t + v0") && !text.contains("v0 + t"),
+            "{text}"
+        );
+    }
+}

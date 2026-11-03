@@ -147,15 +147,12 @@ impl Dataset {
     /// The table without the `ignore`d columns (the `keep` column is never
     /// dropped).
     fn table_without(&self, ignore: &[String], keep: Option<&str>) -> regrex_core::Table {
-        let t = &self.loaded.table;
-        let mut out = regrex_core::Table::default();
-        for (i, name) in t.names.iter().enumerate() {
+        let mut out = self.loaded.table.clone();
+        for i in (0..out.names.len()).rev() {
+            let name = &out.names[i];
             if ignore.contains(name) && Some(name.as_str()) != keep {
-                continue;
+                out.remove_column(i);
             }
-            out.names.push(name.clone());
-            out.columns.push(t.columns[i].clone());
-            out.decimals.push(t.decimals[i]);
         }
         out
     }

@@ -81,9 +81,7 @@ fn load(file: &FileArgs) -> Result<regrex_io::Loaded, String> {
         regrex_io::load_path(&file.file, file.sheet.as_deref()).map_err(|e| e.to_string())?;
     for name in &file.ignore {
         let index = column_index(&loaded.table, name)?;
-        loaded.table.names.remove(index);
-        loaded.table.columns.remove(index);
-        loaded.table.decimals.remove(index);
+        loaded.table.remove_column(index);
     }
     if loaded.table.columns.is_empty() {
         return Err("no numeric columns found".into());

@@ -8,6 +8,7 @@
 
 use crate::expr::Expr;
 use crate::search::{search, SearchConfig};
+use crate::units::Unit;
 
 /// A table of numeric columns. Missing or non-numeric cells are `NaN`.
 #[derive(Debug, Clone, Default)]
@@ -19,12 +20,32 @@ pub struct Table {
     /// Number of decimals each column is written with, when known (for
     /// example from a CSV file). Used to tolerate rounding.
     pub decimals: Vec<Option<u32>>,
+    /// Unit of each column, when known (for example from a header like
+    /// `speed (m/s)`). May be empty or shorter than `columns`.
+    pub units: Vec<Option<Unit>>,
 }
 
 impl Table {
     /// Number of rows.
     pub fn n_rows(&self) -> usize {
         self.columns.first().map_or(0, Vec::len)
+    }
+
+    /// Unit of column `i`, if known.
+    pub fn unit(&self, i: usize) -> Option<Unit> {
+        self.units.get(i).copied().flatten()
+    }
+
+    /// Removes column `i`.
+    pub fn remove_column(&mut self, i: usize) {
+        self.names.remove(i);
+        self.columns.remove(i);
+        if i < self.decimals.len() {
+            self.decimals.remove(i);
+        }
+        if i < self.units.len() {
+            self.units.remove(i);
+        }
     }
 }
 
@@ -207,7 +228,17 @@ fn search_rows(
         .map(|&c| rows.iter().map(|&r| table.columns[c][r]).collect())
         .collect();
     let y: Vec<f64> = rows.iter().map(|&r| table.columns[target][r]).collect();
-    let Ok(results) = search(&x, &y, &config.search) else {
+    // Use units only when every column involved has one.
+    let input_units: Option<Vec<_>> = inputs
+        .iter()
+        .map(|&c| table.unit(c).map(|u| u.dim))
+        .collect();
+    let mut search_config = config.search.clone();
+    if let (Some(dims), Some(target_unit)) = (input_units, table.unit(target)) {
+        search_config.input_dims = Some(dims);
+        search_config.target_dim = Some(target_unit.dim);
+    }
+    let Ok(results) = search(&x, &y, &search_config) else {
         return Vec::new();
     };
     results
@@ -371,6 +402,7 @@ mod tests {
                 .collect(),
             columns: vec![price.to_vec(), quantity.to_vec(), subtotal, total],
             decimals: vec![Some(2), Some(0), Some(2), Some(2)],
+            ..Table::default()
         }
     }
 
@@ -404,6 +436,7 @@ mod tests {
                 vec![2.0, 7.0, 1.0, 8.0, 2.0, 8.0, 1.0, 8.0],
             ],
             decimals: vec![Some(0), Some(0)],
+            ..Table::default()
         };
         assert!(scan(&table, &ScanConfig::default()).is_empty());
     }
@@ -418,8 +451,29 @@ mod tests {
                 vec![2.5, 1.25, 3.0, 10.0, 0.5, 7.0],
             ],
             decimals: vec![Some(0), Some(2)],
+            ..Table::default()
         };
         assert!(explain_column(&table, 0, &ScanConfig::default()).is_none());
+    }
+
+    #[test]
+    fn units_from_the_table_are_used() {
+        use crate::units::parse_unit;
+        // Kinetic energy with units: E = 0.5 * m * v^2.
+        let m = [1.0, 2.0, 3.5, 0.5, 7.0, 4.0, 2.5, 6.0, 1.5, 9.0];
+        let v = [3.0, 1.0, 2.0, 8.0, 0.5, 4.0, 6.0, 1.5, 2.5, 3.0];
+        let e: Vec<f64> = m.iter().zip(&v).map(|(m, v)| 0.5 * m * v * v).collect();
+        let table = Table {
+            names: vec!["m".into(), "v".into(), "E".into()],
+            columns: vec![m.to_vec(), v.to_vec(), e],
+            units: ["kg", "m/s", "J"]
+                .iter()
+                .map(|u| parse_unit(u).ok())
+                .collect(),
+            ..Table::default()
+        };
+        let d = explain_column(&table, 2, &ScanConfig::default()).unwrap();
+        assert_eq!(d.formula_text, "0.5 * m * v^2");
     }
 
     #[test]

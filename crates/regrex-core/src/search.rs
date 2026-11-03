@@ -5,6 +5,7 @@ use crate::error::Error;
 use crate::expr::{constant_complexity, BinaryOp, Expr, UnaryOp};
 use crate::fit::{affine_fit, fit_with, levenberg_marquardt, nice_values, FitOptions};
 use crate::simplify::canonicalize;
+use crate::units::{dimension_of, Dim, Dimension};
 
 /// Search settings. [`SearchConfig::default`] is a good starting point.
 #[derive(Debug, Clone)]
@@ -30,6 +31,15 @@ pub struct SearchConfig {
     pub fit_rows: usize,
     /// Upper bound on the number of formulas enumerated.
     pub max_expressions: usize,
+    /// Dimension of each input, if known (see [`crate::units`]). Formulas
+    /// that mix incompatible units are skipped.
+    pub input_dims: Option<Vec<Dim>>,
+    /// Dimension of the target, if known. Formulas whose dimension differs
+    /// need an outer constant with units (like `g` in `g * t^2`), which costs
+    /// [`SearchConfig::unit_constant_cost`] extra complexity.
+    pub target_dim: Option<Dim>,
+    /// Extra complexity for an outer constant that must carry units.
+    pub unit_constant_cost: usize,
 }
 
 impl Default for SearchConfig {
@@ -44,6 +54,9 @@ impl Default for SearchConfig {
             exact_tolerance: 1e-12,
             fit_rows: 64,
             max_expressions: 500_000,
+            input_dims: None,
+            target_dim: None,
+            unit_constant_cost: 2,
         }
     }
 }
@@ -98,6 +111,7 @@ pub fn search(
         max_size: config.max_size,
         max_params: config.max_params,
         max_expressions: config.max_expressions,
+        var_dims: config.input_dims.clone(),
     };
     let fingerprint_inputs: Vec<Vec<f64>> = ctx
         .fit_inputs
@@ -326,11 +340,26 @@ impl<'a> Context<'a> {
             params.push((a, b));
         }
         let base = g_expr.complexity();
+        // With known units, `g` alone or `g + b` must already have the
+        // target's dimension; otherwise the scale `a` carries the units.
+        let dims_match = match (&self.config.input_dims, self.config.target_dim) {
+            (Some(vars), Some(target)) => match dimension_of(g_expr, vars) {
+                Dimension::Known(d) => Some(d == target),
+                Dimension::Any => None,
+                Dimension::Invalid => return Vec::new(),
+            },
+            _ => None,
+        };
         let mut out = Vec::new();
         for (a, b) in params {
+            let unit_cost = match dims_match {
+                Some(false) if a == 1.0 => continue,
+                Some(false) => self.config.unit_constant_cost,
+                _ => 0,
+            };
             // Cheap upper bound on the complexity of `a·g + b`, used to skip
             // building formulas that a simpler, better one already beats.
-            let mut complexity = base;
+            let mut complexity = base + unit_cost;
             if a != 1.0 {
                 complexity += 1 + constant_complexity(a);
             }
@@ -341,7 +370,11 @@ impl<'a> Context<'a> {
             if front.is_dominated(complexity, nmse) {
                 continue;
             }
-            if let Some(c) = self.score(build(g_expr, a, b), &g, a, b) {
+            if let Some(mut c) = self.score(build(g_expr, a, b), &g, a, b) {
+                if unit_cost > 0 {
+                    c.complexity += unit_cost;
+                    c.score += self.config.parsimony * unit_cost as f64;
+                }
                 front.insert(c.complexity, c.nmse);
                 out.push(c);
             }
