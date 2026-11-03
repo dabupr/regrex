@@ -108,7 +108,9 @@ export interface FitReport {
 export type Request =
   | { kind: "load"; name: string; bytes: ArrayBuffer; sheet?: string }
   | { kind: "explain"; column: string; options: { ignore: string[] } }
-  | { kind: "fit"; target: string; options: { inputs: string[] } };
+  | { kind: "fit"; target: string; options: { inputs: string[] } }
+  | { kind: "rows"; rows: number[] }
+  | { kind: "review"; options: { ignore: string[] } };
 
 export type Response =
   | { id: number; ok: true; value: unknown }

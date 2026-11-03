@@ -36,6 +36,16 @@ export class Engine {
     return this.call({ kind: "explain", column, options: { ignore } });
   }
 
+  /** Every formula found so far, diagnosed together so a wrong cell is blamed once. */
+  review(ignore: string[]): Promise<Derived[]> {
+    return this.call({ kind: "review", options: { ignore } });
+  }
+
+  /** The given rows (numbered from 1) as text, in the same order. */
+  rows(rows: number[]): Promise<string[][]> {
+    return this.call({ kind: "rows", rows });
+  }
+
   fit(target: string, inputs: string[]): Promise<FitReport> {
     return this.call({ kind: "fit", target, options: { inputs } });
   }

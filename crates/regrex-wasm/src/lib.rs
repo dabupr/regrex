@@ -4,16 +4,23 @@
 //! at a time so it can show progress. Everything crosses the boundary as
 //! JSON strings, using the same report format as the command-line tool.
 
-use regrex_core::{explain_column, search, ScanConfig, SearchConfig};
+use regrex_core::{explain_column, search, DerivedColumn, ScanConfig, SearchConfig};
 use regrex_io::report::{DerivedJson, FitReport};
 use regrex_io::Loaded;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
+
+/// Number of rows shown in the preview of a file.
+const PREVIEW_ROWS: usize = 20;
 
 /// A file loaded in memory.
 #[wasm_bindgen]
 pub struct Dataset {
     loaded: Loaded,
+    /// Formulas found by [`Dataset::explain`] with the `ignore` list they
+    /// were found with, for [`Dataset::review`].
+    found: RefCell<(Vec<String>, Vec<DerivedColumn>)>,
 }
 
 /// Summary of a loaded file, returned by [`Dataset::info`].
@@ -63,7 +70,10 @@ impl Dataset {
     #[wasm_bindgen(constructor)]
     pub fn new(file_name: &str, bytes: &[u8], sheet: Option<String>) -> Result<Dataset, JsError> {
         let loaded = regrex_io::load_bytes(file_name, bytes, sheet.as_deref()).map_err(js_error)?;
-        Ok(Dataset { loaded })
+        Ok(Dataset {
+            loaded,
+            found: RefCell::default(),
+        })
     }
 
     /// Column names, preview rows, sheets and per-column details, as JSON.
@@ -72,7 +82,7 @@ impl Dataset {
         let info = Info {
             rows: t.n_rows(),
             header: &self.loaded.header,
-            preview: &self.loaded.preview,
+            preview: &self.loaded.rows[..self.loaded.rows.len().min(PREVIEW_ROWS)],
             sheets: &self.loaded.sheets,
             columns: t
                 .names
@@ -90,6 +100,17 @@ impl Dataset {
         serde_json::to_string(&info).expect("serializable")
     }
 
+    /// The given rows (numbered from 1) as text, in the order given, as a
+    /// JSON array of arrays of strings. Unknown rows are left out.
+    pub fn rows(&self, rows_json: &str) -> Result<String, JsError> {
+        let wanted: Vec<usize> = parse_options(rows_json)?;
+        let rows: Vec<&Vec<String>> = wanted
+            .iter()
+            .filter_map(|&r| r.checked_sub(1).and_then(|i| self.loaded.rows.get(i)))
+            .collect();
+        serde_json::to_string(&rows).map_err(js_error)
+    }
+
     /// Looks for a formula that computes `column` from the other columns.
     /// Returns the derived-column JSON, or `null` when none is found.
     pub fn explain(&self, column: &str, options_json: &str) -> Result<String, JsError> {
@@ -103,8 +124,35 @@ impl Dataset {
         if let Some(s) = options.max_size {
             config.search.max_size = s;
         }
-        let found = explain_column(&table, target, &config).map(|d| DerivedJson::new(&table, &d));
-        serde_json::to_string(&found).map_err(js_error)
+        let found = explain_column(&table, target, &config);
+        if !options.ignore.iter().any(|n| n == column) {
+            let mut cache = self.found.borrow_mut();
+            if cache.0 != options.ignore {
+                *cache = (options.ignore.clone(), Vec::new());
+            }
+            cache.1.retain(|d| d.target != target);
+            cache.1.extend(found.clone());
+        }
+        let json = found.map(|d| DerivedJson::new(&table, &d));
+        serde_json::to_string(&json).map_err(js_error)
+    }
+
+    /// Every formula found so far with the same `ignore` option, as a JSON
+    /// array of derived columns, diagnosed together: a wrong cell that breaks
+    /// several formulas is blamed once, as in the command-line scan.
+    pub fn review(&self, options_json: &str) -> Result<String, JsError> {
+        let options: ExplainOptions = parse_options(options_json)?;
+        let cache = self.found.borrow();
+        if cache.0 != options.ignore {
+            return Ok("[]".to_string());
+        }
+        let table = self.table_without(&options.ignore, None);
+        let json: Vec<DerivedJson> = cache
+            .1
+            .iter()
+            .map(|d| DerivedJson::with_context(&table, d, &cache.1))
+            .collect();
+        serde_json::to_string(&json).map_err(js_error)
     }
 
     /// Candidate formulas for `target`, as a fit report in JSON.

@@ -24,7 +24,26 @@ const ui = {
   cards: $("cards"),
   independent: $("independent"),
   download: $<HTMLButtonElement>("download"),
+  summary: $("summary"),
+  suspicious: $("suspicious"),
+  suspiciousTable: $<HTMLTableElement>("suspicious-table"),
+  export: $<HTMLButtonElement>("export"),
 };
+
+/**
+ * When at most this share of the rows break a formula, they are treated as
+ * mistakes. A larger group is more likely a separate kind of row that follows
+ * another rule (for example another tax rate), not an error.
+ */
+const MISTAKE_SHARE = 0.05;
+
+/** A suspicious row: its number, its cells as text and why it is suspicious. */
+interface Suspect {
+  row: number;
+  cells: string[];
+  /** `blamed` is false when the column only breaks because another cell is wrong. */
+  reasons: { column: string; text: string; blamed: boolean }[];
+}
 
 interface State {
   name: string;
@@ -32,6 +51,7 @@ interface State {
   info: DatasetInfo;
   ignored: Set<string>;
   derived: Derived[];
+  suspects: Suspect[];
 }
 let state: State | undefined;
 
@@ -67,7 +87,7 @@ async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
     const info = await engine.load(name, bytes, sheet);
     if (info.columns.length === 0) throw new Error("No numeric columns found in this file.");
     const ignored = new Set(info.columns.map((c) => c.name).filter((n) => looksLikeId(n, info)));
-    state = { name, bytes, info, ignored, derived: [] };
+    state = { name, bytes, info, ignored, derived: [], suspects: [] };
     renderData();
   } catch (e) {
     showError(`Could not read ${name}: ${(e as Error).message}`);
@@ -79,6 +99,7 @@ function renderData() {
   const { info, name } = state;
   ui.start.hidden = true;
   ui.results.hidden = true;
+  ui.suspicious.hidden = true;
   ui.data.hidden = false;
   ui.fileName.textContent = name;
   const text = info.skipped.length ? `, ${info.skipped.length} text` : "";
@@ -120,7 +141,9 @@ async function scanAll() {
   ui.scan.disabled = true;
   ui.progress.hidden = false;
   ui.results.hidden = true;
+  ui.suspicious.hidden = true;
   state.derived = [];
+  state.suspects = [];
   try {
     for (const [i, column] of columns.entries()) {
       ui.progressText.textContent = `Checking ${column} (${i + 1} of ${columns.length})…`;
@@ -129,13 +152,108 @@ async function scanAll() {
       if (found) state.derived.push(found);
     }
     ui.meter.style.width = "100%";
+    if (state.derived.length > 1) state.derived = await engine.review(ignore);
+    state.suspects = await findSuspects(state.derived);
     renderResults(columns);
+    renderSuspects();
   } catch (e) {
     showError(`Something went wrong: ${(e as Error).message}`);
   } finally {
     ui.scan.disabled = false;
     ui.progress.hidden = true;
   }
+}
+
+/** Whether the rows that break a formula are few enough to be mistakes. */
+function fewExceptions(d: Derived): boolean {
+  return d.exception_rows.length > 0 && d.exception_rows.length <= MISTAKE_SHARE * d.checked_rows;
+}
+
+/** Rows that break a formula followed by almost every other row, with their cells. */
+async function findSuspects(derived: Derived[]): Promise<Suspect[]> {
+  const reasons = new Map<number, Suspect["reasons"]>();
+  for (const d of derived.filter(fewExceptions)) {
+    const details = new Map(d.exceptions.map((x) => [x.row, x]));
+    for (const row of d.exception_rows) {
+      const x = details.get(row);
+      const why = x
+        ? x.diagnosis?.kind === "other_cell"
+          ? `${d.column}: ${x.diagnosis.description}`
+          : `${d.column} is ${fmt(x.actual)}, the formula gives ${fmt(x.expected)}${x.diagnosis ? `: ${x.diagnosis.description}` : ""}`
+        : `${d.column} breaks ${d.column} = ${d.formula}`;
+      const blamed = x?.diagnosis?.kind !== "other_cell";
+      reasons.set(row, [...(reasons.get(row) ?? []), { column: d.column, text: why, blamed }]);
+    }
+  }
+  const rows = [...reasons.keys()].sort((a, b) => a - b);
+  const cells = await engine.rows(rows);
+  return rows.map((row, i) => ({ row, cells: cells[i] ?? [], reasons: reasons.get(row)! }));
+}
+
+function renderSuspects() {
+  if (!state) return;
+  const { suspects, info } = state;
+  const n = suspects.length;
+  const segments = state.derived.filter((d) => d.exception_rows.length > 0 && !fewExceptions(d));
+  const found = state.derived.length;
+  const parts: (Node | string)[] = [
+    el("span", {}, found === 1 ? "1 formula found" : `${found} formulas found`),
+  ];
+  if (n === 0) {
+    parts.push(el("span", { class: "ok" }, "✓ No suspicious rows"));
+  } else {
+    const link = el("a", { href: "#suspicious" }, "See them");
+    parts.push(el("span", { class: "warn" }, `⚠ ${n === 1 ? "1 suspicious row" : `${n} suspicious rows`}`), link);
+  }
+  if (segments.length) {
+    const names = segments.map((d) => d.column).join(", ");
+    parts.push(el("span", { class: "muted" }, `Some rows of ${names} follow another rule; see below.`));
+  }
+  ui.summary.replaceChildren(...parts);
+  ui.summary.classList.toggle("has-warn", n > 0);
+
+  ui.suspicious.hidden = n === 0;
+  if (n === 0) return;
+  const columnIndex = new Map(info.header.map((h, i) => [headerName(h), i]));
+  const head = el("tr", {}, el("th", { class: "text" }, "Row"), ...info.header.map((h) => el("th", {}, h)), el("th", { class: "text" }, "Why"));
+  const body = suspects.map((s) => {
+    const bad = new Set(s.reasons.filter((r) => r.blamed).map((r) => columnIndex.get(r.column)));
+    return el(
+      "tr",
+      { "data-row": String(s.row) },
+      el("td", { class: "rownum" }, String(s.row)),
+      ...info.header.map((_, c) => el("td", { class: bad.has(c) ? "bad-cell" : "" }, s.cells[c] ?? "")),
+      el("td", { class: "text why" }, ...s.reasons.flatMap((r, i) => (i ? [el("br"), r.text] : [r.text]))),
+    );
+  });
+  ui.suspiciousTable.replaceChildren(el("thead", {}, head), el("tbody", {}, ...body));
+}
+
+/** The column name Regrex uses for a header: `speed (m/s)` is `speed`. */
+function headerName(header: string): string {
+  return header.replace(/\s*[([].*[)\]]\s*$/, "").trim();
+}
+
+/** A CSV cell, quoted when needed and safe to open in a spreadsheet. */
+function csvCell(text: string): string {
+  // A cell starting with = + - @ could run as a formula in a spreadsheet;
+  // numbers such as -5 are kept as they are.
+  const risky = /^[=@\t\r]/.test(text) || (/^[+-]/.test(text) && !/^[+-]?[\d.,]+%?$/.test(text));
+  const safe = risky ? `'${text}` : text;
+  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+function exportSuspects() {
+  if (!state || state.suspects.length === 0) return;
+  const lines = [["row", ...state.info.header, "why"]];
+  for (const s of state.suspects) {
+    lines.push([String(s.row), ...state.info.header.map((_, c) => s.cells[c] ?? ""), s.reasons.map((r) => r.text).join("; ")]);
+  }
+  const csv = lines.map((l) => l.map(csvCell).join(",")).join("\r\n") + "\r\n";
+  const blob = new Blob([csv], { type: "text/csv" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: `${state.name.replace(/\.[^.]+$/, "")}.suspicious.csv` });
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function formulaNode(d: Derived): HTMLElement {
@@ -200,6 +318,16 @@ function renderResults(columns: string[]) {
       el("div", { class: "meta" }, status, el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
     );
     if (d.known) card.append(knownNode(d.known));
+    if (exceptions > 0 && !fewExceptions(d)) {
+      const share = Math.round((100 * exceptions) / d.checked_rows);
+      card.append(
+        el(
+          "p",
+          { class: "note" },
+          `${share}% of the rows follow another rule. They may be a separate group (another rate, product or period) rather than mistakes.`,
+        ),
+      );
+    }
     if (exceptions > 0) {
       const rows = d.exceptions.map((x) =>
         el(
@@ -295,3 +423,4 @@ ui.sheet.addEventListener("change", () => {
 });
 ui.scan.addEventListener("click", () => void scanAll());
 ui.download.addEventListener("click", download);
+ui.export.addEventListener("click", exportSuspects);

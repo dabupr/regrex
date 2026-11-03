@@ -22,7 +22,24 @@ test("finds derived columns in the example invoices", async ({ page }) => {
   await vat.getByText("Known formula").click();
   await expect(vat.locator(".known-card")).toContainText("Tax amount");
   await expect(vat.locator(".known-card")).toContainText("0.21");
-  await expect(page.locator("tr.bad")).toHaveCount(1); // row 17 is in the preview, row 42 is not
+  await expect(page.locator("#preview tr.bad")).toHaveCount(1); // row 17 is in the preview, row 42 is not
+
+  // The summary counts the suspicious rows, which are listed in full and can be exported.
+  await expect(page.locator("#summary")).toContainText(/⚠ \d+ suspicious rows?/);
+  const suspects = page.locator("#suspicious-table tbody tr");
+  await expect(suspects.first()).toBeVisible();
+  const row42 = page.locator('#suspicious-table tr[data-row="42"]');
+  await expect(row42).toContainText("used 0.1 instead of 0.21");
+  await expect(row42.locator("td.bad-cell")).toHaveText("29.97");
+  // Row 17 has a wrong total, which also breaks net = total - vat: only the total is blamed.
+  const row17 = page.locator('#suspicious-table tr[data-row="17"]');
+  await expect(row17.locator("td.bad-cell")).toHaveText("94.3");
+  await expect(row17).toContainText("the total in this row looks wrong");
+  const [file] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export as CSV" }).click()]);
+  expect(file.suggestedFilename()).toBe("invoices.suspicious.csv");
+  const csv = await (await import("node:fs/promises")).readFile(await file.path(), "utf8");
+  expect(csv.split("\r\n")[0]).toBe("row,invoice,product,price,quantity,discount_pct,subtotal,net,vat,total,why");
+  expect(csv).toContain("used 0.1 instead of 0.21");
 });
 
 test("uploads a file and reports unreadable ones", async ({ page }) => {
@@ -50,4 +67,22 @@ test("searches the formula library", async ({ page }) => {
 test("opens the library on a linked formula", async ({ page }) => {
   await page.goto("./library.html#kinetic_energy");
   await expect(page.locator("#kinetic_energy")).toHaveClass(/target/);
+});
+
+test("a group of rows with another rule is not called a mistake", async ({ page }) => {
+  // 37 rows with 21% VAT and 3 with 10%: too many to be typing mistakes.
+  const lines = ["net,vat"];
+  for (let i = 1; i <= 40; i++) {
+    const net = 10 + i * 7;
+    const rate = i % 13 === 0 ? 0.1 : 0.21;
+    lines.push(`${net},${(net * rate).toFixed(2)}`);
+  }
+  await page.goto("./");
+  await page.locator("#file").setInputFiles({ name: "rates.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n")) });
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  const vat = page.locator('article[data-column="vat"]');
+  await expect(vat).toContainText("37 of 40 rows", { timeout: 45_000 });
+  await expect(vat.locator(".note")).toContainText("8% of the rows follow another rule");
+  await expect(page.locator("#summary")).toContainText("No suspicious rows");
+  await expect(page.locator("#suspicious")).toBeHidden();
 });

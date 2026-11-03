@@ -23,7 +23,7 @@
 
 ## Web app
 
-Open [dabupr.github.io/regrex](https://dabupr.github.io/regrex/), drop a CSV or Excel file (or try the example), untick ID columns and press **Find derived columns**. The engine is the same Rust code as the command line, compiled to WebAssembly and run in a background thread, so files are never uploaded anywhere.
+Open [dabupr.github.io/regrex](https://dabupr.github.io/regrex/), drop a CSV or Excel file (or try the example), untick ID columns and press **Find derived columns**. Rows that break a formula are listed at the top with the cell to fix highlighted, and can be exported as CSV. The engine is the same Rust code as the command line, compiled to WebAssembly and run in a background thread, so files are never uploaded anywhere.
 
 ## Command line
 

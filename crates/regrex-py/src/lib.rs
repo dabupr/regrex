@@ -90,7 +90,7 @@ fn scan_json(
         header: table.names.clone(),
         table,
         skipped: Vec::new(),
-        preview: Vec::new(),
+        rows: Vec::new(),
         sheets: Vec::new(),
     };
     Ok(run_scan(py, &loaded, &source, min_match, max_size))

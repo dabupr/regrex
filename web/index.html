@@ -61,8 +61,21 @@
           <h2>Results</h2>
           <button id="download" type="button">Download JSON</button>
         </div>
+        <div id="summary" class="summary" role="status"></div>
         <div id="cards"></div>
         <p id="independent" class="muted"></p>
+      </section>
+
+      <section id="suspicious" hidden>
+        <div class="bar">
+          <h2>Suspicious rows</h2>
+          <button id="export" type="button">Export as CSV</button>
+        </div>
+        <p class="hint muted">
+          These rows break a formula that almost every other row follows, so they are probably
+          typing or copy mistakes. The cell that breaks the rule is highlighted.
+        </p>
+        <div class="table-wrap"><table id="suspicious-table"></table></div>
       </section>
     </main>
 

@@ -25,14 +25,12 @@ pub struct Loaded {
     pub skipped: Vec<String>,
     /// Every column name, numeric or not, in file order.
     pub header: Vec<String>,
-    /// The first rows as text, for previews.
-    pub preview: Vec<Vec<String>>,
+    /// Every data row as text, in file order (row 1 is `rows[0]`), for
+    /// previews and for showing the rows that break a formula.
+    pub rows: Vec<Vec<String>>,
     /// Sheet names, for spreadsheets.
     pub sheets: Vec<String>,
 }
-
-/// Number of rows kept in [`Loaded::preview`].
-pub const PREVIEW_ROWS: usize = 20;
 
 /// Why a file could not be loaded.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -254,7 +252,7 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
     Loaded {
         table,
         skipped,
-        preview: rows.iter().take(PREVIEW_ROWS).cloned().collect(),
+        rows,
         header,
         sheets,
     }

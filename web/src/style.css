@@ -127,3 +127,13 @@ td.rownum { color: var(--muted); text-align: right; }
 .lib-card h2 { font-size: 18px; }
 .lib-card p { margin: 6px 0; }
 .lib-card.target { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+.summary {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
+  padding: 10px 14px; margin-bottom: 12px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border); font-size: 15px;
+}
+.summary.has-warn { background: var(--warn-bg); border-color: transparent; }
+.note { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+td.bad-cell { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+td.why { white-space: normal; min-width: 260px; color: var(--text); }

@@ -16,6 +16,10 @@ function handle(req: Request): unknown {
       return JSON.parse(need().explain(req.column, JSON.stringify(req.options)));
     case "fit":
       return JSON.parse(need().fit(req.target, JSON.stringify(req.options)));
+    case "review":
+      return JSON.parse(need().review(JSON.stringify(req.options)));
+    case "rows":
+      return JSON.parse(need().rows(JSON.stringify(req.rows)));
   }
 }
 

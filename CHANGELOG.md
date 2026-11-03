@@ -49,10 +49,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The search finds products of powers with any number of inputs (`n * kb * T / V`) with a weighted fit in log space, and stops enumerating larger formulas once an exact one is known.
 - Known formulas: scan and fit results name the library formula a column follows (`vat` → "Tax amount" with `t = 0.21`), including a changed constant such as `g = 10`, in the CLI, JSON reports (`known` field) and the web app, where a "Known formula" badge opens a card with the variables, units and source.
 - A library page in the web app (`library.html`) lists every known formula with search and a domain filter.
+- Suspicious rows in the web app: a summary at the top of the results ("2 suspicious rows"), a table with each row in full and the cell to fix highlighted, and an export to CSV. When more than 5% of the rows break a formula they are described as a group that may follow another rule, not as mistakes.
+- The web app diagnoses all the formulas of a file together, so a wrong total that also breaks `net = total - vat` is blamed once, as in the command line.
+- `ScanConfig::small_samples`: when no formula fits every row, the scan also searches small random samples of rows, so a few wrong rows in a small table no longer hide its formula.
 
 ### Changed
 
 - Formulas with a negative leading term are written as subtractions: `100 - 100 * net / subtotal` instead of `-100 * net / subtotal + 100`.
 
+- `regrex_io::Loaded` keeps every row as text in `rows` instead of the first 20 in `preview`.
 - Minimum supported Rust version is now 1.88 (needed by the spreadsheet reader).
 - Scanning only reports a formula when more rows match it than it has parts, so tiny tables do not produce made-up formulas.
