@@ -60,6 +60,7 @@ Use short, imperative subjects (`Add constant fitting`, `Fix division by zero in
 - `crates/regrex-io`: reading CSV and spreadsheets, JSON reports.
 - `crates/regrex-cli`: the `regrex` command-line tool.
 - `crates/regrex-wasm`: WebAssembly bindings for the web app.
+- `crates/regrex-formulas`: the library of known formulas and constants, one TOML file per domain in `library/`. Adding a formula needs no Rust: see [its README](crates/regrex-formulas/README.md).
 - `web/`: the web app.
 - `docs/ROADMAP.md`: what is planned, phase by phase.
 

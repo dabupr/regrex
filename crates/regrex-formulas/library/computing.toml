@@ -1,0 +1,264 @@
+# Computing: data sizes, transfer, performance, reliability and
+# information theory. Bits and bytes are dimensionless (a byte is 8 bits).
+
+id = "computing"
+name = "Computing"
+description = "Data sizes and transfer, performance laws, queues, caches, reliability and information theory."
+
+[[formula]]
+id = "bits_to_bytes"
+name = "Bits to bytes"
+expr = "bits / 8"
+output = { symbol = "bytes", name = "size in bytes", unit = "B" }
+variables = [{ symbol = "bits", name = "size in bits", unit = "bit" }]
+tags = ["data_size", "unit_conversion"]
+source = { title = "Byte (Wikipedia)", url = "https://en.wikipedia.org/wiki/Byte" }
+checks = [{ inputs = [64], output = 8 }]
+
+[[formula]]
+id = "transfer_time"
+name = "Transfer time"
+expr = "size / rate"
+output = { symbol = "t", name = "transfer time", unit = "s" }
+variables = [
+  { symbol = "size", name = "data size", unit = "bit" },
+  { symbol = "rate", name = "throughput", unit = "bit/s", aliases = ["bandwidth", "speed"] },
+]
+tags = ["networking"]
+source = { title = "Data-rate units (Wikipedia)", url = "https://en.wikipedia.org/wiki/Data-rate_units" }
+checks = [{ inputs = [8e9, 1e8], output = 80 }]
+
+[[formula]]
+id = "number_of_values"
+name = "Number of distinct values of n bits"
+expr = "2^n"
+output = { symbol = "N", name = "number of values", unit = "1" }
+variables = [{ symbol = "n", name = "number of bits", unit = "1" }]
+tags = ["data_size", "binary"]
+source = { title = "Bit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bit" }
+checks = [{ inputs = [8], output = 256 }]
+
+[[formula]]
+id = "bits_needed"
+name = "Bits needed to represent N values"
+expr = "ceil(log2(N))"
+output = { symbol = "n", name = "number of bits", unit = "1" }
+variables = [{ symbol = "N", name = "number of distinct values", unit = "1" }]
+tags = ["data_size", "binary"]
+source = { title = "Binary logarithm: information theory (Wikipedia)", url = "https://en.wikipedia.org/wiki/Binary_logarithm" }
+checks = [{ inputs = [1000], output = 10 }]
+
+[[formula]]
+id = "image_size"
+name = "Uncompressed image size"
+expr = "w * h * bpp / 8"
+output = { symbol = "size", name = "size in bytes", unit = "1" }
+variables = [
+  { symbol = "w", name = "width in pixels", unit = "1", aliases = ["width"] },
+  { symbol = "h", name = "height in pixels", unit = "1", aliases = ["height"] },
+  { symbol = "bpp", name = "bits per pixel", unit = "1", aliases = ["bit_depth"] },
+]
+tags = ["data_size", "graphics"]
+source = { title = "Color depth (Wikipedia)", url = "https://en.wikipedia.org/wiki/Color_depth" }
+checks = [{ inputs = [1920, 1080, 24], output = 6220800 }]
+
+[[formula]]
+id = "audio_bitrate"
+name = "Uncompressed (PCM) audio bit rate"
+expr = "f_s * bits * channels"
+output = { symbol = "rate", name = "bit rate", unit = "bit/s" }
+variables = [
+  { symbol = "f_s", name = "sampling rate", unit = "Hz", aliases = ["sample_rate"] },
+  { symbol = "bits", name = "bit depth", unit = "1", aliases = ["bit_depth"] },
+  { symbol = "channels", name = "number of channels", unit = "1" },
+]
+tags = ["data_size", "audio"]
+source = { title = "Bit rate: audio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bit_rate" }
+checks = [{ inputs = [44100, 16, 2], output = 1411200 }]
+
+[[formula]]
+id = "compression_ratio"
+name = "Compression ratio"
+expr = "original / compressed"
+output = { symbol = "ratio", name = "compression ratio", unit = "1" }
+variables = [
+  { symbol = "original", name = "uncompressed size", unit = "B" },
+  { symbol = "compressed", name = "compressed size", unit = "B" },
+]
+tags = ["data_size", "compression"]
+source = { title = "Data compression ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Data_compression_ratio" }
+checks = [{ inputs = [1000, 250], output = 4 }]
+
+[[formula]]
+id = "pages_needed"
+name = "Number of pages (ceiling division)"
+expr = "ceil(n / per_page)"
+output = { symbol = "pages", name = "number of pages", unit = "1" }
+variables = [
+  { symbol = "n", name = "number of items", unit = "1" },
+  { symbol = "per_page", name = "items per page", unit = "1" },
+]
+tags = ["arithmetic"]
+source = { title = "Floor and ceiling functions (Wikipedia)", url = "https://en.wikipedia.org/wiki/Floor_and_ceiling_functions" }
+checks = [{ inputs = [101, 10], output = 11 }]
+
+[[formula]]
+id = "modulo"
+name = "Remainder of a division (floored modulo)"
+expr = "a - n * floor(a / n)"
+output = { symbol = "r", name = "remainder", unit = "1" }
+variables = [
+  { symbol = "a", name = "dividend", unit = "1" },
+  { symbol = "n", name = "divisor", unit = "1" },
+]
+tags = ["arithmetic"]
+source = { title = "Modulo (Wikipedia)", url = "https://en.wikipedia.org/wiki/Modulo" }
+checks = [{ inputs = [17, 5], output = 2 }]
+
+[[formula]]
+id = "array_element_address"
+name = "Address of an array element"
+expr = "base + i * size"
+output = { symbol = "addr", name = "address", unit = "1" }
+variables = [
+  { symbol = "base", name = "base address", unit = "1" },
+  { symbol = "i", name = "index", unit = "1" },
+  { symbol = "size", name = "element size in bytes", unit = "1" },
+]
+tags = ["memory"]
+source = { title = "Array (data structure): element identifier and addressing (Wikipedia)", url = "https://en.wikipedia.org/wiki/Array_(data_structure)" }
+checks = [{ inputs = [1000, 3, 8], output = 1024 }]
+
+# --- Performance -------------------------------------------------------------
+
+[[formula]]
+id = "amdahl_law"
+name = "Amdahl's law"
+expr = "1 / ((1 - p) + p / s)"
+output = { symbol = "S", name = "overall speedup", unit = "1" }
+variables = [
+  { symbol = "p", name = "fraction of the work that is sped up", unit = "1" },
+  { symbol = "s", name = "speedup of that part", unit = "1" },
+]
+tags = ["performance", "parallelism"]
+source = { title = "Amdahl's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Amdahl%27s_law" }
+checks = [{ inputs = [0.5, 2], output = 1.3333333333333333 }]
+
+[[formula]]
+id = "gustafson_law"
+name = "Gustafson's law"
+expr = "(1 - p) + p * N"
+output = { symbol = "S", name = "scaled speedup", unit = "1" }
+variables = [
+  { symbol = "p", name = "parallel fraction", unit = "1" },
+  { symbol = "N", name = "number of processors", unit = "1" },
+]
+tags = ["performance", "parallelism"]
+source = { title = "Gustafson's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gustafson%27s_law" }
+checks = [{ inputs = [0.9, 10], output = 9.1 }]
+
+[[formula]]
+id = "speedup"
+name = "Speedup"
+expr = "t_old / t_new"
+output = { symbol = "S", name = "speedup", unit = "1" }
+variables = [
+  { symbol = "t_old", name = "time before", unit = "s" },
+  { symbol = "t_new", name = "time after", unit = "s" },
+]
+tags = ["performance"]
+source = { title = "Speedup (Wikipedia)", url = "https://en.wikipedia.org/wiki/Speedup" }
+checks = [{ inputs = [10, 4], output = 2.5 }]
+
+[[formula]]
+id = "throughput"
+name = "Throughput"
+expr = "n / t"
+output = { symbol = "X", name = "throughput", unit = "1/s", aliases = ["throughput", "rps", "qps"] }
+variables = [
+  { symbol = "n", name = "completed operations", unit = "1" },
+  { symbol = "t", name = "elapsed time", unit = "s" },
+]
+tags = ["performance"]
+source = { title = "Throughput (Wikipedia)", url = "https://en.wikipedia.org/wiki/Throughput" }
+checks = [{ inputs = [500, 10], output = 50 }]
+
+[[formula]]
+id = "little_law"
+name = "Little's law"
+expr = "λ * W"
+output = { symbol = "L", name = "mean number of items in the system", unit = "1" }
+variables = [
+  { symbol = "λ", name = "arrival rate", unit = "1/s" },
+  { symbol = "W", name = "mean time in the system", unit = "s" },
+]
+tags = ["performance", "queues"]
+source = { title = "Little's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Little%27s_law" }
+checks = [{ inputs = [10, 0.5], output = 5 }]
+
+[[formula]]
+id = "average_memory_access_time"
+name = "Average memory access time"
+expr = "t_hit + miss_rate * penalty"
+output = { symbol = "AMAT", name = "average access time", unit = "s" }
+variables = [
+  { symbol = "t_hit", name = "hit time", unit = "s" },
+  { symbol = "miss_rate", name = "miss rate", unit = "1" },
+  { symbol = "penalty", name = "miss penalty", unit = "s" },
+]
+tags = ["performance", "caches"]
+source = { title = "Average memory access time (Wikipedia)", url = "https://en.wikipedia.org/wiki/Average_memory_access_time" }
+checks = [{ inputs = [1e-9, 0.05, 1e-7], output = 6e-9 }]
+
+[[formula]]
+id = "moore_law"
+name = "Moore's law (doubling every two years)"
+expr = "N0 * 2^(t / 2)"
+output = { symbol = "N", name = "transistor count", unit = "1" }
+variables = [
+  { symbol = "N0", name = "initial transistor count", unit = "1" },
+  { symbol = "t", name = "years elapsed", unit = "1" },
+]
+tags = ["performance", "trends"]
+source = { title = "Moore's law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Moore%27s_law" }
+checks = [{ inputs = [1000, 10], output = 32000 }]
+
+# --- Reliability -------------------------------------------------------------
+
+[[formula]]
+id = "availability"
+name = "Availability from MTBF and MTTR"
+expr = "MTBF / (MTBF + MTTR)"
+output = { symbol = "A", name = "availability", unit = "1" }
+variables = [
+  { symbol = "MTBF", name = "mean time between failures", unit = "h" },
+  { symbol = "MTTR", name = "mean time to repair", unit = "h" },
+]
+tags = ["reliability"]
+source = { title = "Availability (Wikipedia)", url = "https://en.wikipedia.org/wiki/Availability" }
+checks = [{ inputs = [999, 1], output = 0.999 }]
+
+# --- Information theory and probability --------------------------------------
+
+[[formula]]
+id = "binary_entropy"
+name = "Binary entropy function"
+expr = "-p * log2(p) - (1 - p) * log2(1 - p)"
+output = { symbol = "H", name = "entropy in bits", unit = "1" }
+variables = [{ symbol = "p", name = "probability", unit = "1" }]
+tags = ["information_theory"]
+source = { title = "Binary entropy function (Wikipedia)", url = "https://en.wikipedia.org/wiki/Binary_entropy_function" }
+checks = [{ inputs = [0.5], output = 1 }]
+
+[[formula]]
+id = "birthday_collision"
+name = "Birthday bound (probability of a hash collision)"
+expr = "1 - exp(-n^2 / (2 * N))"
+output = { symbol = "p", name = "approximate collision probability", unit = "1" }
+variables = [
+  { symbol = "n", name = "number of items", unit = "1" },
+  { symbol = "N", name = "number of possible values", unit = "1" },
+]
+tags = ["probability", "hashing"]
+source = { title = "Birthday problem: approximations (Wikipedia)", url = "https://en.wikipedia.org/wiki/Birthday_problem" }
+checks = [{ inputs = [0, 365], output = 0 }]

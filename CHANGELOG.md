@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - rows that break a formula are listed with the value in the file and the value the formula gives;
   - JSON download, light and dark themes, end-to-end tests with Playwright.
 - `regrex-io` crate: file reading and JSON reports shared by the CLI and the web app; reports now detail each exception (`exceptions`: row, actual and expected value).
+- Library of known formulas (`regrex-formulas`): about 235 formulas and 25 constants in eight domains (mathematics, physics, chemistry, electronics and signals, finance, computing, health, unit conversions), each with SI units and a reference, stored as one TOML file per domain and validated in CI (names, units, dimensions, worked examples, conversion factors).
 
 - Units and dimensional analysis (phase 4):
   - `regrex_core::units` parses units (`m/s^2`, `kg·m²/s²`, `km/h`, `kWh`, `€/h`…) into dimensions and conversion factors;

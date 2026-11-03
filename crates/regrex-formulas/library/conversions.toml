@@ -1,0 +1,259 @@
+# Unit conversions: one column computed from another in a different unit.
+#
+# Every formula tagged `unit_conversion` is checked against the unit table:
+# converting 1 of the input unit must give the stated factor. Temperature
+# scales with an offset are tagged `affine` and only checked with `checks`.
+
+id = "conversions"
+name = "Unit conversions"
+description = "Common conversions between units of temperature, length, mass, speed, volume, energy, pressure, power and angle."
+
+# --- Temperature -------------------------------------------------------------
+
+[[formula]]
+id = "celsius_to_fahrenheit"
+name = "Celsius to Fahrenheit"
+expr = "1.8 * T_C + 32"
+output = { symbol = "T_F", name = "temperature in °F", unit = "degF", aliases = ["fahrenheit", "temp_f"] }
+variables = [{ symbol = "T_C", name = "temperature in °C", unit = "degC", aliases = ["celsius", "temp_c"] }]
+tags = ["temperature", "unit_conversion", "affine"]
+source = { title = "Fahrenheit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fahrenheit" }
+checks = [{ inputs = [100], output = 212 }, { inputs = [-40], output = -40 }]
+
+[[formula]]
+id = "fahrenheit_to_celsius"
+name = "Fahrenheit to Celsius"
+expr = "(T_F - 32) / 1.8"
+output = { symbol = "T_C", name = "temperature in °C", unit = "degC", aliases = ["celsius", "temp_c"] }
+variables = [{ symbol = "T_F", name = "temperature in °F", unit = "degF", aliases = ["fahrenheit", "temp_f"] }]
+tags = ["temperature", "unit_conversion", "affine"]
+source = { title = "Fahrenheit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fahrenheit" }
+checks = [{ inputs = [212], output = 100 }]
+
+[[formula]]
+id = "celsius_to_kelvin"
+name = "Celsius to kelvin"
+expr = "T_C + 273.15"
+output = { symbol = "T", name = "temperature in K", unit = "K", aliases = ["kelvin"] }
+variables = [{ symbol = "T_C", name = "temperature in °C", unit = "degC", aliases = ["celsius"] }]
+tags = ["temperature", "unit_conversion", "affine"]
+source = { title = "Kelvin (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kelvin" }
+checks = [{ inputs = [25], output = 298.15 }]
+
+# --- Length, mass, volume ----------------------------------------------------
+
+[[formula]]
+id = "km_to_miles"
+name = "Kilometres to miles"
+expr = "d / 1.609344"
+output = { symbol = "d_mi", name = "distance in miles", unit = "mi", aliases = ["miles"] }
+variables = [{ symbol = "d", name = "distance in km", unit = "km", aliases = ["km"] }]
+tags = ["length", "unit_conversion"]
+source = { title = "Mile: international mile (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mile" }
+checks = [{ inputs = [1.609344], output = 1 }]
+
+[[formula]]
+id = "miles_to_km"
+name = "Miles to kilometres"
+expr = "d * 1.609344"
+output = { symbol = "d_km", name = "distance in km", unit = "km", aliases = ["km"] }
+variables = [{ symbol = "d", name = "distance in miles", unit = "mi", aliases = ["miles"] }]
+tags = ["length", "unit_conversion"]
+source = { title = "Mile: international mile (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mile" }
+checks = [{ inputs = [10], output = 16.09344 }]
+
+[[formula]]
+id = "inches_to_cm"
+name = "Inches to centimetres"
+expr = "x * 2.54"
+output = { symbol = "x_cm", name = "length in cm", unit = "cm" }
+variables = [{ symbol = "x", name = "length in inches", unit = "in", aliases = ["inches"] }]
+tags = ["length", "unit_conversion"]
+source = { title = "Inch (Wikipedia)", url = "https://en.wikipedia.org/wiki/Inch" }
+checks = [{ inputs = [10], output = 25.4 }]
+
+[[formula]]
+id = "feet_to_metres"
+name = "Feet to metres"
+expr = "x * 0.3048"
+output = { symbol = "x_m", name = "length in m", unit = "m" }
+variables = [{ symbol = "x", name = "length in feet", unit = "ft", aliases = ["feet"] }]
+tags = ["length", "unit_conversion"]
+source = { title = "Foot (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Foot_(unit)" }
+checks = [{ inputs = [10], output = 3.048 }]
+
+[[formula]]
+id = "kg_to_pounds"
+name = "Kilograms to pounds"
+expr = "m / 0.45359237"
+output = { symbol = "m_lb", name = "mass in lb", unit = "lb", aliases = ["pounds", "lbs"] }
+variables = [{ symbol = "m", name = "mass in kg", unit = "kg", aliases = ["kg"] }]
+tags = ["mass", "unit_conversion"]
+source = { title = "Pound (mass) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pound_(mass)" }
+checks = [{ inputs = [0.45359237], output = 1 }]
+
+[[formula]]
+id = "pounds_to_kg"
+name = "Pounds to kilograms"
+expr = "m * 0.45359237"
+output = { symbol = "m_kg", name = "mass in kg", unit = "kg", aliases = ["kg"] }
+variables = [{ symbol = "m", name = "mass in lb", unit = "lb", aliases = ["pounds", "lbs"] }]
+tags = ["mass", "unit_conversion"]
+source = { title = "Pound (mass) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pound_(mass)" }
+checks = [{ inputs = [100], output = 45.359237 }]
+
+[[formula]]
+id = "litres_to_us_gallons"
+name = "Litres to US gallons"
+expr = "V / 3.785411784"
+output = { symbol = "V_gal", name = "volume in US gallons", unit = "gal", aliases = ["gallons"] }
+variables = [{ symbol = "V", name = "volume in litres", unit = "L", aliases = ["litres", "liters"] }]
+tags = ["volume", "unit_conversion"]
+source = { title = "Gallon: US liquid gallon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gallon" }
+checks = [{ inputs = [3.785411784], output = 1 }]
+
+# --- Speed -------------------------------------------------------------------
+
+[[formula]]
+id = "kmh_to_ms"
+name = "km/h to m/s"
+expr = "v / 3.6"
+output = { symbol = "v_ms", name = "speed in m/s", unit = "m/s" }
+variables = [{ symbol = "v", name = "speed in km/h", unit = "km/h", aliases = ["kmh", "kph"] }]
+tags = ["speed", "unit_conversion"]
+source = { title = "Kilometres per hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kilometres_per_hour" }
+checks = [{ inputs = [36], output = 10 }]
+
+[[formula]]
+id = "ms_to_kmh"
+name = "m/s to km/h"
+expr = "v * 3.6"
+output = { symbol = "v_kmh", name = "speed in km/h", unit = "km/h", aliases = ["kmh", "kph"] }
+variables = [{ symbol = "v", name = "speed in m/s", unit = "m/s" }]
+tags = ["speed", "unit_conversion"]
+source = { title = "Kilometres per hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kilometres_per_hour" }
+checks = [{ inputs = [10], output = 36 }]
+
+[[formula]]
+id = "mph_to_kmh"
+name = "Miles per hour to km/h"
+expr = "v * 1.609344"
+output = { symbol = "v_kmh", name = "speed in km/h", unit = "km/h" }
+variables = [{ symbol = "v", name = "speed in mph", unit = "mi/h", aliases = ["mph"] }]
+tags = ["speed", "unit_conversion"]
+source = { title = "Miles per hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Miles_per_hour" }
+checks = [{ inputs = [60], output = 96.56064 }]
+
+[[formula]]
+id = "knots_to_kmh"
+name = "Knots to km/h"
+expr = "v * 1.852"
+output = { symbol = "v_kmh", name = "speed in km/h", unit = "km/h" }
+variables = [{ symbol = "v", name = "speed in knots", unit = "kn", aliases = ["knots"] }]
+tags = ["speed", "unit_conversion"]
+source = { title = "Knot (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Knot_(unit)" }
+checks = [{ inputs = [10], output = 18.52 }]
+
+# --- Energy, power, pressure -------------------------------------------------
+
+[[formula]]
+id = "kwh_to_joules"
+name = "Kilowatt-hours to joules"
+expr = "E * 3.6e6"
+output = { symbol = "E_J", name = "energy in J", unit = "J" }
+variables = [{ symbol = "E", name = "energy in kW h", unit = "kW h", aliases = ["kwh"] }]
+tags = ["energy", "unit_conversion"]
+source = { title = "Kilowatt-hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kilowatt-hour" }
+checks = [{ inputs = [2], output = 7.2e6 }]
+
+[[formula]]
+id = "kcal_to_kj"
+name = "Kilocalories to kilojoules"
+expr = "E * 4.184"
+output = { symbol = "E_kJ", name = "energy in kJ", unit = "kJ" }
+variables = [{ symbol = "E", name = "energy in kcal", unit = "kcal", aliases = ["kcal", "calories"] }]
+tags = ["energy", "unit_conversion", "nutrition"]
+source = { title = "Calorie (Wikipedia)", url = "https://en.wikipedia.org/wiki/Calorie" }
+checks = [{ inputs = [100], output = 418.4 }]
+
+[[formula]]
+id = "ev_to_joules"
+name = "Electronvolts to joules"
+expr = "E * 1.602176634e-19"
+output = { symbol = "E_J", name = "energy in J", unit = "J" }
+variables = [{ symbol = "E", name = "energy in eV", unit = "eV" }]
+tags = ["energy", "unit_conversion"]
+source = { title = "Electronvolt (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electronvolt" }
+checks = [{ inputs = [1], output = 1.602176634e-19 }]
+
+[[formula]]
+id = "horsepower_to_kw"
+name = "Mechanical horsepower to kilowatts"
+expr = "P * 0.7456998715822702"
+output = { symbol = "P_kW", name = "power in kW", unit = "kW" }
+variables = [{ symbol = "P", name = "power in hp", unit = "hp", aliases = ["hp", "horsepower"] }]
+tags = ["power", "unit_conversion"]
+source = { title = "Horsepower: mechanical horsepower (Wikipedia)", url = "https://en.wikipedia.org/wiki/Horsepower" }
+checks = [{ inputs = [100], output = 74.56998715822702 }]
+
+[[formula]]
+id = "psi_to_kpa"
+name = "psi to kilopascals"
+expr = "p * 6.894757293168"
+output = { symbol = "p_kPa", name = "pressure in kPa", unit = "kPa" }
+variables = [{ symbol = "p", name = "pressure in psi", unit = "psi", aliases = ["psi"] }]
+tags = ["pressure", "unit_conversion"]
+source = { title = "Pound per square inch (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pound_per_square_inch" }
+checks = [{ inputs = [10], output = 68.94757293168 }]
+
+[[formula]]
+id = "atm_to_kpa"
+name = "Atmospheres to kilopascals"
+expr = "p * 101.325"
+output = { symbol = "p_kPa", name = "pressure in kPa", unit = "kPa" }
+variables = [{ symbol = "p", name = "pressure in atm", unit = "atm" }]
+tags = ["pressure", "unit_conversion"]
+source = { title = "Standard atmosphere (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_atmosphere_(unit)" }
+checks = [{ inputs = [2], output = 202.65 }]
+
+[[formula]]
+id = "mmhg_to_kpa"
+name = "Millimetres of mercury to kilopascals"
+expr = "p * 0.133322387415"
+output = { symbol = "p_kPa", name = "pressure in kPa", unit = "kPa" }
+variables = [{ symbol = "p", name = "pressure in mmHg", unit = "mmHg", aliases = ["mmhg"] }]
+tags = ["pressure", "unit_conversion"]
+source = { title = "Millimetre of mercury (Wikipedia)", url = "https://en.wikipedia.org/wiki/Millimetre_of_mercury" }
+checks = [{ inputs = [760], output = 101.325 }]
+
+# --- Angle and time ----------------------------------------------------------
+
+[[formula]]
+id = "degrees_to_radians"
+name = "Degrees to radians"
+expr = "θ * pi / 180"
+output = { symbol = "θ_rad", name = "angle in rad", unit = "rad" }
+variables = [{ symbol = "θ", name = "angle in degrees", unit = "deg", aliases = ["degrees"] }]
+tags = ["angle", "unit_conversion"]
+source = { title = "Radian (Wikipedia)", url = "https://en.wikipedia.org/wiki/Radian" }
+checks = [{ inputs = [180], output = 3.141592653589793 }]
+
+[[formula]]
+id = "radians_to_degrees"
+name = "Radians to degrees"
+expr = "θ * 180 / pi"
+output = { symbol = "θ_deg", name = "angle in degrees", unit = "deg" }
+variables = [{ symbol = "θ", name = "angle in rad", unit = "rad" }]
+tags = ["angle", "unit_conversion"]
+source = { title = "Radian (Wikipedia)", url = "https://en.wikipedia.org/wiki/Radian" }
+checks = [{ inputs = [3.141592653589793], output = 180 }]
+
+[[formula]]
+id = "hours_to_seconds"
+name = "Hours to seconds"
+expr = "t * 3600"
+output = { symbol = "t_s", name = "time in s", unit = "s" }
+variables = [{ symbol = "t", name = "time in hours", unit = "h", aliases = ["hours"] }]
+tags = ["time", "unit_conversion"]
+source = { title = "Hour (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hour" }
+checks = [{ inputs = [2], output = 7200 }]

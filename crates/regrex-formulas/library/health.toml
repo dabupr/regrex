@@ -1,0 +1,165 @@
+# Health and sport: empirical formulas common in clinical and fitness
+# datasets.
+#
+# Most of these are regressions whose coefficients carry units, so the
+# variables are declared as plain numbers ("1") with the expected unit in
+# the name. Use them with values in exactly those units.
+
+id = "health"
+name = "Health and sport"
+description = "Body mass index, energy expenditure, heart rate and other empirical health formulas."
+
+[[formula]]
+id = "body_mass_index"
+name = "Body mass index"
+expr = "m / h^2"
+output = { symbol = "BMI", name = "body mass index", unit = "kg/m^2", aliases = ["bmi", "imc"] }
+variables = [
+  { symbol = "m", name = "body mass", unit = "kg", aliases = ["weight", "mass", "pes"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height", "alcada"] },
+]
+tags = ["anthropometry"]
+source = { title = "Body mass index (Wikipedia)", url = "https://en.wikipedia.org/wiki/Body_mass_index" }
+checks = [{ inputs = [72, 1.8], output = 22.22222222222222 }]
+
+[[formula]]
+id = "bmr_mifflin_men"
+name = "Basal metabolic rate, Mifflin–St Jeor (men)"
+expr = "10 * m + 6.25 * h - 5 * age + 5"
+output = { symbol = "BMR", name = "basal metabolic rate in kcal/day", unit = "1" }
+variables = [
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight"] },
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+  { symbol = "age", name = "age in years", unit = "1" },
+]
+tags = ["metabolism"]
+source = { title = "Mifflin MD et al., Am J Clin Nutr 51 (1990) 241–247", url = "https://doi.org/10.1093/ajcn/51.2.241" }
+checks = [{ inputs = [70, 175, 30], output = 1648.75 }]
+
+[[formula]]
+id = "bmr_mifflin_women"
+name = "Basal metabolic rate, Mifflin–St Jeor (women)"
+expr = "10 * m + 6.25 * h - 5 * age - 161"
+output = { symbol = "BMR", name = "basal metabolic rate in kcal/day", unit = "1" }
+variables = [
+  { symbol = "m", name = "body mass in kg", unit = "1", aliases = ["weight"] },
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+  { symbol = "age", name = "age in years", unit = "1" },
+]
+tags = ["metabolism"]
+source = { title = "Mifflin MD et al., Am J Clin Nutr 51 (1990) 241–247", url = "https://doi.org/10.1093/ajcn/51.2.241" }
+checks = [{ inputs = [60, 165, 30], output = 1320.25 }]
+
+[[formula]]
+id = "max_heart_rate_fox"
+name = "Maximum heart rate (220 − age)"
+expr = "220 - age"
+output = { symbol = "HR_max", name = "maximum heart rate in beats/min", unit = "1" }
+variables = [{ symbol = "age", name = "age in years", unit = "1" }]
+tags = ["cardio", "sport"]
+source = { title = "Heart rate: maximum heart rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heart_rate" }
+checks = [{ inputs = [40], output = 180 }]
+
+[[formula]]
+id = "max_heart_rate_tanaka"
+name = "Maximum heart rate (Tanaka)"
+expr = "208 - 0.7 * age"
+output = { symbol = "HR_max", name = "maximum heart rate in beats/min", unit = "1" }
+variables = [{ symbol = "age", name = "age in years", unit = "1" }]
+tags = ["cardio", "sport"]
+source = { title = "Tanaka H et al., J Am Coll Cardiol 37 (2001) 153–156", url = "https://doi.org/10.1016/S0735-1097(00)01054-8" }
+checks = [{ inputs = [40], output = 180 }]
+
+[[formula]]
+id = "karvonen_target_heart_rate"
+name = "Target heart rate (Karvonen)"
+expr = "(HR_max - HR_rest) * intensity + HR_rest"
+output = { symbol = "HR_target", name = "target heart rate in beats/min", unit = "1" }
+variables = [
+  { symbol = "HR_max", name = "maximum heart rate", unit = "1" },
+  { symbol = "HR_rest", name = "resting heart rate", unit = "1" },
+  { symbol = "intensity", name = "training intensity (0 to 1)", unit = "1" },
+]
+tags = ["cardio", "sport"]
+source = { title = "Heart rate: Karvonen method (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heart_rate" }
+checks = [{ inputs = [180, 60, 0.5], output = 120 }]
+
+[[formula]]
+id = "body_surface_area_mosteller"
+name = "Body surface area (Mosteller)"
+expr = "sqrt(h * m / 3600)"
+output = { symbol = "BSA", name = "body surface area in m²", unit = "1" }
+variables = [
+  { symbol = "h", name = "height in cm", unit = "1" },
+  { symbol = "m", name = "body mass in kg", unit = "1" },
+]
+tags = ["anthropometry", "clinical"]
+source = { title = "Mosteller RD, N Engl J Med 317 (1987) 1098", url = "https://doi.org/10.1056/NEJM198710223171717" }
+checks = [{ inputs = [180, 80], output = 2 }]
+
+[[formula]]
+id = "waist_to_height_ratio"
+name = "Waist-to-height ratio"
+expr = "waist / h"
+output = { symbol = "WHtR", name = "waist-to-height ratio", unit = "1" }
+variables = [
+  { symbol = "waist", name = "waist circumference", unit = "m" },
+  { symbol = "h", name = "height", unit = "m" },
+]
+tags = ["anthropometry"]
+source = { title = "Waist-to-height ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Waist-to-height_ratio" }
+checks = [{ inputs = [0.85, 1.7], output = 0.5 }]
+
+[[formula]]
+id = "food_energy_from_macros"
+name = "Food energy from macronutrients (Atwater factors)"
+expr = "4 * protein + 4 * carbs + 9 * fat"
+output = { symbol = "E", name = "energy in kcal", unit = "1", aliases = ["kcal", "calories"] }
+variables = [
+  { symbol = "protein", name = "protein in g", unit = "1" },
+  { symbol = "carbs", name = "carbohydrate in g", unit = "1" },
+  { symbol = "fat", name = "fat in g", unit = "1" },
+]
+tags = ["nutrition"]
+source = { title = "Atwater system (Wikipedia)", url = "https://en.wikipedia.org/wiki/Atwater_system" }
+checks = [{ inputs = [10, 20, 5], output = 165 }]
+
+[[formula]]
+id = "met_energy_expenditure"
+name = "Energy expenditure from METs"
+expr = "MET * 3.5 * m / 200 * minutes"
+output = { symbol = "E", name = "energy in kcal", unit = "1" }
+variables = [
+  { symbol = "MET", name = "metabolic equivalent of the activity", unit = "1" },
+  { symbol = "m", name = "body mass in kg", unit = "1" },
+  { symbol = "minutes", name = "duration in minutes", unit = "1" },
+]
+tags = ["sport", "metabolism"]
+source = { title = "Metabolic equivalent of task (Wikipedia)", url = "https://en.wikipedia.org/wiki/Metabolic_equivalent_of_task" }
+checks = [{ inputs = [8, 70, 30], output = 294 }]
+
+[[formula]]
+id = "running_pace"
+name = "Running pace"
+expr = "t / d"
+output = { symbol = "pace", name = "pace", unit = "min/km", aliases = ["pace"] }
+variables = [
+  { symbol = "t", name = "time", unit = "min" },
+  { symbol = "d", name = "distance", unit = "km" },
+]
+tags = ["sport"]
+source = { title = "Pace (speed) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pace_(speed)" }
+checks = [{ inputs = [50, 10], output = 5 }]
+
+[[formula]]
+id = "dose_by_weight"
+name = "Dose by body weight"
+expr = "dose_per_kg * m"
+output = { symbol = "dose", name = "dose", unit = "mg" }
+variables = [
+  { symbol = "dose_per_kg", name = "dose per kilogram", unit = "mg/kg" },
+  { symbol = "m", name = "body mass", unit = "kg" },
+]
+tags = ["clinical"]
+source = { title = "Dose (biochemistry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dose_(biochemistry)" }
+checks = [{ inputs = [10, 20], output = 200 }]

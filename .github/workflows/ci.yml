@@ -50,6 +50,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
 
+  formulas:
+    name: formula library
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Lists every problem in crates/regrex-formulas/library/*.toml.
+      - run: cargo test -p regrex-formulas --test library
+
   msrv:
     runs-on: ubuntu-latest
     steps:

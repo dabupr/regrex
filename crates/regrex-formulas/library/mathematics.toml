@@ -1,0 +1,496 @@
+# Mathematics: geometry, algebra, trigonometry and probability.
+#
+# Format: see README.md in this crate. Lengths are in metres so that
+# areas and volumes check dimensionally, but any consistent unit works.
+
+id = "mathematics"
+name = "Mathematics"
+description = "Geometry, algebra, trigonometry, probability and statistics."
+
+# --- Constants ---------------------------------------------------------------
+
+[[constant]]
+id = "pi"
+symbol = "π"
+name = "ratio of a circle's circumference to its diameter"
+value = 3.141592653589793
+unit = "1"
+exact = true
+source = { title = "Pi (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pi" }
+
+[[constant]]
+id = "e"
+symbol = "e"
+name = "Euler's number, base of the natural logarithm"
+value = 2.718281828459045
+unit = "1"
+exact = true
+source = { title = "E (mathematical constant) (Wikipedia)", url = "https://en.wikipedia.org/wiki/E_(mathematical_constant)" }
+
+[[constant]]
+id = "phi"
+symbol = "φ"
+name = "golden ratio, (1 + √5) / 2"
+value = 1.618033988749895
+unit = "1"
+exact = true
+source = { title = "Golden ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Golden_ratio" }
+
+[[constant]]
+id = "sqrt2"
+symbol = "√2"
+name = "square root of 2"
+value = 1.4142135623730951
+unit = "1"
+exact = true
+source = { title = "Square root of 2 (Wikipedia)", url = "https://en.wikipedia.org/wiki/Square_root_of_2" }
+
+# --- Plane geometry ----------------------------------------------------------
+
+[[formula]]
+id = "circle_area"
+name = "Area of a circle"
+expr = "pi * r^2"
+output = { symbol = "A", name = "area", unit = "m^2" }
+variables = [{ symbol = "r", name = "radius", unit = "m", aliases = ["radius"] }]
+tags = ["geometry"]
+source = { title = "Area of a circle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Area_of_a_circle" }
+checks = [{ inputs = [2], output = 12.566370614359172 }]
+
+[[formula]]
+id = "circle_circumference"
+name = "Circumference of a circle"
+expr = "2 * pi * r"
+output = { symbol = "C", name = "circumference", unit = "m" }
+variables = [{ symbol = "r", name = "radius", unit = "m", aliases = ["radius"] }]
+tags = ["geometry"]
+source = { title = "Circumference (Wikipedia)", url = "https://en.wikipedia.org/wiki/Circumference" }
+checks = [{ inputs = [1], output = 6.283185307179586 }]
+
+[[formula]]
+id = "rectangle_area"
+name = "Area of a rectangle"
+expr = "a * b"
+output = { symbol = "A", name = "area", unit = "m^2" }
+variables = [
+  { symbol = "a", name = "length", unit = "m", aliases = ["length", "long"] },
+  { symbol = "b", name = "width", unit = "m", aliases = ["width", "wide"] },
+]
+tags = ["geometry"]
+source = { title = "Rectangle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rectangle" }
+checks = [{ inputs = [3, 4], output = 12 }]
+
+[[formula]]
+id = "rectangle_perimeter"
+name = "Perimeter of a rectangle"
+expr = "2 * (a + b)"
+output = { symbol = "P", name = "perimeter", unit = "m" }
+variables = [
+  { symbol = "a", name = "length", unit = "m" },
+  { symbol = "b", name = "width", unit = "m" },
+]
+tags = ["geometry"]
+source = { title = "Perimeter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Perimeter" }
+checks = [{ inputs = [3, 4], output = 14 }]
+
+[[formula]]
+id = "triangle_area"
+name = "Area of a triangle (base and height)"
+expr = "b * h / 2"
+output = { symbol = "A", name = "area", unit = "m^2" }
+variables = [
+  { symbol = "b", name = "base", unit = "m", aliases = ["base"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+]
+tags = ["geometry"]
+source = { title = "Triangle: area (Wikipedia)", url = "https://en.wikipedia.org/wiki/Triangle" }
+checks = [{ inputs = [6, 4], output = 12 }]
+
+[[formula]]
+id = "heron"
+name = "Heron's formula"
+description = "Area of a triangle from its three sides."
+expr = "sqrt(s * (s - a) * (s - b) * (s - c))"
+output = { symbol = "A", name = "area", unit = "m^2" }
+variables = [
+  { symbol = "a", name = "side a", unit = "m" },
+  { symbol = "b", name = "side b", unit = "m" },
+  { symbol = "c", name = "side c", unit = "m" },
+  { symbol = "s", name = "semi-perimeter (a + b + c) / 2", unit = "m" },
+]
+tags = ["geometry"]
+source = { title = "Heron's formula (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heron%27s_formula" }
+checks = [{ inputs = [3, 4, 5, 6], output = 6 }]
+
+[[formula]]
+id = "trapezoid_area"
+name = "Area of a trapezoid"
+expr = "(a + b) / 2 * h"
+output = { symbol = "A", name = "area", unit = "m^2" }
+variables = [
+  { symbol = "a", name = "first parallel side", unit = "m" },
+  { symbol = "b", name = "second parallel side", unit = "m" },
+  { symbol = "h", name = "height", unit = "m" },
+]
+tags = ["geometry"]
+source = { title = "Trapezoid (Wikipedia)", url = "https://en.wikipedia.org/wiki/Trapezoid" }
+checks = [{ inputs = [3, 5, 2], output = 8 }]
+
+[[formula]]
+id = "pythagoras"
+name = "Pythagorean theorem (hypotenuse)"
+expr = "sqrt(a^2 + b^2)"
+output = { symbol = "c", name = "hypotenuse", unit = "m" }
+variables = [
+  { symbol = "a", name = "first leg", unit = "m" },
+  { symbol = "b", name = "second leg", unit = "m" },
+]
+tags = ["geometry", "trigonometry"]
+source = { title = "Pythagorean theorem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pythagorean_theorem" }
+checks = [{ inputs = [3, 4], output = 5 }]
+
+[[formula]]
+id = "distance_2d"
+name = "Distance between two points in the plane"
+expr = "sqrt((x2 - x1)^2 + (y2 - y1)^2)"
+output = { symbol = "d", name = "distance", unit = "m" }
+variables = [
+  { symbol = "x1", name = "x of the first point", unit = "m" },
+  { symbol = "y1", name = "y of the first point", unit = "m" },
+  { symbol = "x2", name = "x of the second point", unit = "m" },
+  { symbol = "y2", name = "y of the second point", unit = "m" },
+]
+tags = ["geometry"]
+source = { title = "Euclidean distance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Euclidean_distance" }
+checks = [{ inputs = [1, 1, 4, 5], output = 5 }]
+
+[[formula]]
+id = "law_of_cosines"
+name = "Law of cosines"
+expr = "sqrt(a^2 + b^2 - 2 * a * b * cos(γ))"
+output = { symbol = "c", name = "side opposite to γ", unit = "m" }
+variables = [
+  { symbol = "a", name = "side a", unit = "m" },
+  { symbol = "b", name = "side b", unit = "m" },
+  { symbol = "γ", name = "angle between a and b", unit = "rad" },
+]
+tags = ["geometry", "trigonometry"]
+source = { title = "Law of cosines (Wikipedia)", url = "https://en.wikipedia.org/wiki/Law_of_cosines" }
+checks = [{ inputs = [3, 4, 1.5707963267948966], output = 5 }]
+
+[[formula]]
+id = "regular_polygon_area"
+name = "Area of a regular polygon"
+expr = "n * s^2 / (4 * tan(pi / n))"
+output = { symbol = "A", name = "area", unit = "m^2" }
+variables = [
+  { symbol = "n", name = "number of sides", unit = "1" },
+  { symbol = "s", name = "side length", unit = "m" },
+]
+tags = ["geometry"]
+source = { title = "Regular polygon: area (Wikipedia)", url = "https://en.wikipedia.org/wiki/Regular_polygon" }
+checks = [{ inputs = [4, 3], output = 9 }]
+
+[[formula]]
+id = "arc_length"
+name = "Length of a circular arc"
+expr = "r * θ"
+output = { symbol = "L", name = "arc length", unit = "m" }
+variables = [
+  { symbol = "r", name = "radius", unit = "m" },
+  { symbol = "θ", name = "central angle", unit = "rad" },
+]
+tags = ["geometry"]
+source = { title = "Arc length (Wikipedia)", url = "https://en.wikipedia.org/wiki/Arc_length" }
+checks = [{ inputs = [2, 1.5], output = 3 }]
+
+[[formula]]
+id = "ellipse_area"
+name = "Area of an ellipse"
+expr = "pi * a * b"
+output = { symbol = "A", name = "area", unit = "m^2" }
+variables = [
+  { symbol = "a", name = "semi-major axis", unit = "m" },
+  { symbol = "b", name = "semi-minor axis", unit = "m" },
+]
+tags = ["geometry"]
+source = { title = "Ellipse: area (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ellipse" }
+checks = [{ inputs = [1, 1], output = 3.141592653589793 }]
+
+# --- Solid geometry ----------------------------------------------------------
+
+[[formula]]
+id = "sphere_volume"
+name = "Volume of a sphere"
+expr = "4 / 3 * pi * r^3"
+output = { symbol = "V", name = "volume", unit = "m^3" }
+variables = [{ symbol = "r", name = "radius", unit = "m" }]
+tags = ["geometry", "solid"]
+source = { title = "Sphere (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sphere" }
+checks = [{ inputs = [1], output = 4.1887902047863905 }]
+
+[[formula]]
+id = "sphere_surface"
+name = "Surface area of a sphere"
+expr = "4 * pi * r^2"
+output = { symbol = "A", name = "surface area", unit = "m^2" }
+variables = [{ symbol = "r", name = "radius", unit = "m" }]
+tags = ["geometry", "solid"]
+source = { title = "Sphere (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sphere" }
+checks = [{ inputs = [1], output = 12.566370614359172 }]
+
+[[formula]]
+id = "cylinder_volume"
+name = "Volume of a cylinder"
+expr = "pi * r^2 * h"
+output = { symbol = "V", name = "volume", unit = "m^3" }
+variables = [
+  { symbol = "r", name = "radius", unit = "m" },
+  { symbol = "h", name = "height", unit = "m" },
+]
+tags = ["geometry", "solid"]
+source = { title = "Cylinder (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cylinder" }
+checks = [{ inputs = [1, 2], output = 6.283185307179586 }]
+
+[[formula]]
+id = "cone_volume"
+name = "Volume of a cone"
+expr = "pi * r^2 * h / 3"
+output = { symbol = "V", name = "volume", unit = "m^3" }
+variables = [
+  { symbol = "r", name = "base radius", unit = "m" },
+  { symbol = "h", name = "height", unit = "m" },
+]
+tags = ["geometry", "solid"]
+source = { title = "Cone (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cone" }
+checks = [{ inputs = [1, 3], output = 3.141592653589793 }]
+
+[[formula]]
+id = "box_volume"
+name = "Volume of a rectangular box"
+expr = "a * b * c"
+output = { symbol = "V", name = "volume", unit = "m^3" }
+variables = [
+  { symbol = "a", name = "length", unit = "m" },
+  { symbol = "b", name = "width", unit = "m" },
+  { symbol = "c", name = "height", unit = "m" },
+]
+tags = ["geometry", "solid"]
+source = { title = "Cuboid (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cuboid" }
+checks = [{ inputs = [2, 3, 4], output = 24 }]
+
+[[formula]]
+id = "pyramid_volume"
+name = "Volume of a pyramid"
+expr = "B * h / 3"
+output = { symbol = "V", name = "volume", unit = "m^3" }
+variables = [
+  { symbol = "B", name = "base area", unit = "m^2" },
+  { symbol = "h", name = "height", unit = "m" },
+]
+tags = ["geometry", "solid"]
+source = { title = "Pyramid (geometry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pyramid_(geometry)" }
+checks = [{ inputs = [9, 4], output = 12 }]
+
+# --- Algebra and analysis ----------------------------------------------------
+
+[[formula]]
+id = "quadratic_root"
+name = "Quadratic formula (larger root)"
+expr = "(-b + sqrt(b^2 - 4 * a * c)) / (2 * a)"
+output = { symbol = "x", name = "root of a x² + b x + c = 0", unit = "1" }
+variables = [
+  { symbol = "a", name = "quadratic coefficient", unit = "1" },
+  { symbol = "b", name = "linear coefficient", unit = "1" },
+  { symbol = "c", name = "constant term", unit = "1" },
+]
+tags = ["algebra"]
+source = { title = "Quadratic formula (Wikipedia)", url = "https://en.wikipedia.org/wiki/Quadratic_formula" }
+checks = [{ inputs = [1, -3, 2], output = 2 }]
+
+[[formula]]
+id = "arithmetic_series"
+name = "Sum of an arithmetic series"
+expr = "n * (a1 + an) / 2"
+output = { symbol = "S", name = "sum of the n terms", unit = "1" }
+variables = [
+  { symbol = "n", name = "number of terms", unit = "1" },
+  { symbol = "a1", name = "first term", unit = "1" },
+  { symbol = "an", name = "last term", unit = "1" },
+]
+tags = ["algebra", "series"]
+source = { title = "Arithmetic progression (Wikipedia)", url = "https://en.wikipedia.org/wiki/Arithmetic_progression" }
+checks = [{ inputs = [100, 1, 100], output = 5050 }]
+
+[[formula]]
+id = "geometric_series"
+name = "Sum of a geometric series"
+expr = "a * (1 - r^n) / (1 - r)"
+output = { symbol = "S", name = "sum of the n terms", unit = "1" }
+variables = [
+  { symbol = "a", name = "first term", unit = "1" },
+  { symbol = "r", name = "common ratio", unit = "1" },
+  { symbol = "n", name = "number of terms", unit = "1" },
+]
+tags = ["algebra", "series"]
+source = { title = "Geometric series (Wikipedia)", url = "https://en.wikipedia.org/wiki/Geometric_series" }
+checks = [{ inputs = [1, 2, 10], output = 1023 }]
+
+[[formula]]
+id = "sum_of_first_n"
+name = "Sum of the first n natural numbers"
+expr = "n * (n + 1) / 2"
+output = { symbol = "S", name = "1 + 2 + … + n", unit = "1" }
+variables = [{ symbol = "n", name = "n", unit = "1" }]
+tags = ["algebra", "series"]
+source = { title = "Triangular number (Wikipedia)", url = "https://en.wikipedia.org/wiki/Triangular_number" }
+checks = [{ inputs = [10], output = 55 }]
+
+[[formula]]
+id = "sum_of_squares"
+name = "Sum of the first n squares"
+expr = "n * (n + 1) * (2 * n + 1) / 6"
+output = { symbol = "S", name = "1² + 2² + … + n²", unit = "1" }
+variables = [{ symbol = "n", name = "n", unit = "1" }]
+tags = ["algebra", "series"]
+source = { title = "Square pyramidal number (Wikipedia)", url = "https://en.wikipedia.org/wiki/Square_pyramidal_number" }
+checks = [{ inputs = [3], output = 14 }]
+
+[[formula]]
+id = "exponential_growth"
+name = "Exponential growth"
+expr = "N0 * exp(k * t)"
+output = { symbol = "N", name = "quantity at time t", unit = "1" }
+variables = [
+  { symbol = "N0", name = "initial quantity", unit = "1" },
+  { symbol = "k", name = "growth rate", unit = "1/s" },
+  { symbol = "t", name = "time", unit = "s" },
+]
+tags = ["analysis", "growth"]
+source = { title = "Exponential growth (Wikipedia)", url = "https://en.wikipedia.org/wiki/Exponential_growth" }
+checks = [{ inputs = [10, 0, 5], output = 10 }]
+
+[[formula]]
+id = "logistic"
+name = "Logistic function"
+expr = "L / (1 + exp(-k * (x - x0)))"
+output = { symbol = "y", name = "value", unit = "1" }
+variables = [
+  { symbol = "L", name = "maximum value", unit = "1" },
+  { symbol = "k", name = "steepness", unit = "1" },
+  { symbol = "x", name = "input", unit = "1" },
+  { symbol = "x0", name = "midpoint", unit = "1" },
+]
+tags = ["analysis", "growth"]
+source = { title = "Logistic function (Wikipedia)", url = "https://en.wikipedia.org/wiki/Logistic_function" }
+checks = [{ inputs = [10, 1, 3, 3], output = 5 }]
+
+[[formula]]
+id = "log_change_of_base"
+name = "Logarithm in any base"
+expr = "log(x) / log(b)"
+output = { symbol = "y", name = "log base b of x", unit = "1" }
+variables = [
+  { symbol = "x", name = "argument", unit = "1" },
+  { symbol = "b", name = "base", unit = "1" },
+]
+tags = ["algebra"]
+source = { title = "Logarithm: change of base (Wikipedia)", url = "https://en.wikipedia.org/wiki/Logarithm" }
+checks = [{ inputs = [8, 2], output = 3 }]
+
+# --- Statistics and probability ----------------------------------------------
+
+[[formula]]
+id = "z_score"
+name = "Standard score (z-score)"
+expr = "(x - μ) / σ"
+output = { symbol = "z", name = "standard score", unit = "1" }
+variables = [
+  { symbol = "x", name = "value", unit = "1" },
+  { symbol = "μ", name = "mean", unit = "1", aliases = ["mean"] },
+  { symbol = "σ", name = "standard deviation", unit = "1", aliases = ["std", "sd"] },
+]
+tags = ["statistics"]
+source = { title = "Standard score (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_score" }
+checks = [{ inputs = [130, 100, 15], output = 2 }]
+
+[[formula]]
+id = "normal_pdf"
+name = "Normal probability density"
+expr = "exp(-(x - μ)^2 / (2 * σ^2)) / (σ * sqrt(2 * pi))"
+output = { symbol = "f", name = "probability density", unit = "1" }
+variables = [
+  { symbol = "x", name = "value", unit = "1" },
+  { symbol = "μ", name = "mean", unit = "1" },
+  { symbol = "σ", name = "standard deviation", unit = "1" },
+]
+tags = ["statistics", "probability"]
+source = { title = "Normal distribution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Normal_distribution" }
+checks = [{ inputs = [0, 0, 1], output = 0.3989422804014327 }]
+
+[[formula]]
+id = "exponential_pdf"
+name = "Exponential probability density"
+expr = "λ * exp(-λ * x)"
+output = { symbol = "f", name = "probability density", unit = "1" }
+variables = [
+  { symbol = "λ", name = "rate", unit = "1" },
+  { symbol = "x", name = "value", unit = "1" },
+]
+tags = ["statistics", "probability"]
+source = { title = "Exponential distribution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Exponential_distribution" }
+checks = [{ inputs = [2, 0], output = 2 }]
+
+[[formula]]
+id = "standard_error"
+name = "Standard error of the mean"
+expr = "σ / sqrt(n)"
+output = { symbol = "SE", name = "standard error", unit = "1" }
+variables = [
+  { symbol = "σ", name = "standard deviation", unit = "1" },
+  { symbol = "n", name = "sample size", unit = "1" },
+]
+tags = ["statistics"]
+source = { title = "Standard error (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_error" }
+checks = [{ inputs = [10, 25], output = 2 }]
+
+[[formula]]
+id = "percent_change"
+name = "Percentage change"
+expr = "(new - old) / old * 100"
+output = { symbol = "p", name = "change in percent", unit = "1" }
+variables = [
+  { symbol = "old", name = "old value", unit = "1", aliases = ["before", "previous"] },
+  { symbol = "new", name = "new value", unit = "1", aliases = ["after", "current"] },
+]
+tags = ["statistics", "everyday"]
+source = { title = "Relative change (Wikipedia)", url = "https://en.wikipedia.org/wiki/Relative_change" }
+checks = [{ inputs = [80, 100], output = 25 }]
+
+[[formula]]
+id = "weighted_mean_2"
+name = "Weighted mean of two values"
+expr = "(w1 * x1 + w2 * x2) / (w1 + w2)"
+output = { symbol = "m", name = "weighted mean", unit = "1" }
+variables = [
+  { symbol = "x1", name = "first value", unit = "1" },
+  { symbol = "w1", name = "first weight", unit = "1" },
+  { symbol = "x2", name = "second value", unit = "1" },
+  { symbol = "w2", name = "second weight", unit = "1" },
+]
+tags = ["statistics"]
+source = { title = "Weighted arithmetic mean (Wikipedia)", url = "https://en.wikipedia.org/wiki/Weighted_arithmetic_mean" }
+checks = [{ inputs = [10, 1, 20, 3], output = 17.5 }]
+
+[[formula]]
+id = "binomial_variance"
+name = "Variance of a binomial distribution"
+expr = "n * p * (1 - p)"
+output = { symbol = "var", name = "variance", unit = "1" }
+variables = [
+  { symbol = "n", name = "number of trials", unit = "1" },
+  { symbol = "p", name = "probability of success", unit = "1" },
+]
+tags = ["statistics", "probability"]
+source = { title = "Binomial distribution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Binomial_distribution" }
+checks = [{ inputs = [100, 0.5], output = 25 }]
