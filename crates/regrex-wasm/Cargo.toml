@@ -13,9 +13,9 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-regrex-core = { path = "../regrex-core", version = "0.0.1", default-features = false }
-regrex-io = { path = "../regrex-io", version = "0.0.1" }
-regrex-formulas = { path = "../regrex-formulas", version = "0.0.1" }
+regrex-core = { path = "../regrex-core", version = "0.1.0", default-features = false }
+regrex-io = { path = "../regrex-io", version = "0.1.0" }
+regrex-formulas = { path = "../regrex-formulas", version = "0.1.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 wasm-bindgen = "0.2"

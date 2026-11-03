@@ -1082,7 +1082,7 @@ dependencies = [
 
 [[package]]
 name = "regrex-cli"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "clap",
  "regrex-core",
@@ -1093,14 +1093,14 @@ dependencies = [
 
 [[package]]
 name = "regrex-core"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "rayon",
 ]
 
 [[package]]
 name = "regrex-formulas"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "toml",
@@ -1108,7 +1108,7 @@ dependencies = [
 
 [[package]]
 name = "regrex-io"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "arrow-array",
  "arrow-cast",
@@ -1126,7 +1126,7 @@ dependencies = [
 
 [[package]]
 name = "regrex-py"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "pyo3",
  "regrex-core",
@@ -1135,7 +1135,7 @@ dependencies = [
 
 [[package]]
 name = "regrex-wasm"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "regrex-core",
  "regrex-formulas",
