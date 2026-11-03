@@ -1,3 +1,4 @@
+import { dependencyGraph, scatter, scatterLegend } from "./charts";
 import { Engine } from "./engine";
 import { columnarFormat, readColumnar } from "./formats";
 import type { DatasetInfo, Derived, Known } from "./types";
@@ -36,6 +37,8 @@ const ui = {
   meter: $("meter-fill"),
   progressText: $("progress-text"),
   results: $("results"),
+  graph: $<HTMLDetailsElement>("graph"),
+  graphWrap: $("graph-wrap"),
   cards: $("cards"),
   independent: $("independent"),
   download: $<HTMLButtonElement>("download"),
@@ -540,7 +543,51 @@ function derivedCard(d: Derived): HTMLElement {
       ),
     );
   }
+  card.append(chartToggle(d));
   return card;
+}
+
+/** A "Chart" section that plots the file against the formula when opened. */
+function chartToggle(d: Derived): HTMLElement {
+  const body = el("div", { class: "chart-body" });
+  const details = el("details", { class: "chart-toggle" }, el("summary", {}, "Chart: file against formula"), body);
+  details.addEventListener("toggle", async () => {
+    if (!details.open || body.childElementCount > 0) return;
+    body.append(el("p", { class: "muted" }, "Drawing…"));
+    try {
+      const values = await engine.values(d.column, d.formula);
+      body.replaceChildren(scatter(d, values), scatterLegend(d));
+    } catch (e) {
+      body.replaceChildren(el("p", { class: "muted" }, `No chart for this formula: ${(e as Error).message}`));
+    }
+  });
+  return details;
+}
+
+/** The dependency graph of the columns found, with each computed column linked to its card. */
+function renderGraph(derived: Derived[]) {
+  const graph = dependencyGraph(derived);
+  ui.graph.hidden = graph === null;
+  if (!graph) return ui.graphWrap.replaceChildren();
+  for (const node of graph.querySelectorAll<SVGGElement>(".node.derived")) {
+    node.setAttribute("tabindex", "0");
+    node.setAttribute("role", "link");
+    const go = () => {
+      const card = ui.cards.querySelector<HTMLElement>(`article[data-column="${CSS.escape(node.dataset.column ?? "")}"]`);
+      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+      card?.classList.remove("flash");
+      void card?.offsetWidth; // restart the animation
+      card?.classList.add("flash");
+    };
+    node.addEventListener("click", go);
+    node.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        go();
+      }
+    });
+  }
+  ui.graphWrap.replaceChildren(graph);
 }
 
 function renderResults(columns: string[], stopped?: { why: "user" | "time"; skipped: string[] }) {
@@ -551,6 +598,7 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
   ui.cards.replaceChildren(
     ...(cards.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
   );
+  renderGraph(state.derived);
   const found = new Set(state.derived.map((d) => d.column));
   const rest = columns.filter((c) => !found.has(c));
   const notes = rest.length ? [`No formula found for: ${rest.join(", ")}.`] : [];
