@@ -642,3 +642,637 @@ variables = [
 tags = ["signals", "digital"]
 source = { title = "Pulse-width modulation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pulse-width_modulation" }
 checks = [{ inputs = [0.25, 12], output = 3 }]
+
+[[formula]]
+id = "current_from_power"
+name = "Current from power and voltage"
+expr = "P / V"
+output = { symbol = "I", name = "current", unit = "A", aliases = ["current", "amps"] }
+variables = [
+  { symbol = "P", name = "power", unit = "W", aliases = ["power", "watts"] },
+  { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage", "volts"] },
+]
+tags = ["dc_circuits"]
+source = { title = "Electric power (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_power" }
+checks = [{ inputs = [60, 230], output = 0.2608695652173913 }]
+
+[[formula]]
+id = "resistance_from_power"
+name = "Resistance from power and voltage"
+expr = "V^2 / P"
+output = { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance"] }
+variables = [
+  { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage", "volts"] },
+  { symbol = "P", name = "power", unit = "W", aliases = ["power", "watts"] },
+]
+tags = ["dc_circuits"]
+source = { title = "Electric power (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_power" }
+checks = [{ inputs = [230, 1000], output = 52.9 }]
+
+[[formula]]
+id = "three_resistors_parallel"
+name = "Three resistors in parallel"
+expr = "1 / (1 / a + 1 / b + 1 / c)"
+output = { symbol = "R", name = "equivalent resistance", unit = "ohm", aliases = ["resistance", "req"] }
+variables = [
+  { symbol = "a", name = "first resistance", unit = "ohm", aliases = ["r1"] },
+  { symbol = "b", name = "second resistance", unit = "ohm", aliases = ["r2"] },
+  { symbol = "c", name = "third resistance", unit = "ohm", aliases = ["r3"] },
+]
+tags = ["dc_circuits"]
+source = { title = "Series and parallel circuits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_circuits" }
+checks = [{ inputs = [100, 200, 400], output = 57.142857142857146 }]
+
+[[formula]]
+id = "conductance"
+name = "Conductance"
+expr = "1 / R"
+output = { symbol = "G", name = "conductance", unit = "S", aliases = ["conductance"] }
+variables = [
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "R"] },
+]
+tags = ["dc_circuits"]
+source = { title = "Electrical resistance and conductance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electrical_resistance_and_conductance" }
+checks = [{ inputs = [50], output = 0.02 }]
+
+[[formula]]
+id = "resistance_temperature"
+name = "Resistance at a temperature"
+expr = "R * (1 + a * d)"
+output = { symbol = "Rt", name = "resistance", unit = "ohm", aliases = ["resistance"] }
+variables = [
+  { symbol = "R", name = "resistance at the reference temperature", unit = "ohm", aliases = ["r0"] },
+  { symbol = "a", name = "temperature coefficient", unit = "1/K", aliases = ["alpha", "tcr"] },
+  { symbol = "d", name = "temperature change", unit = "K", aliases = ["delta_t", "dt"] },
+]
+tags = ["dc_circuits", "materials"]
+source = { title = "Temperature coefficient (Wikipedia)", url = "https://en.wikipedia.org/wiki/Temperature_coefficient" }
+checks = [{ inputs = [100, 0.0039, 50], output = 119.5 }]
+
+[[formula]]
+id = "battery_internal_resistance"
+name = "Terminal voltage of a battery"
+expr = "E - I * r"
+output = { symbol = "V", name = "terminal voltage", unit = "V", aliases = ["voltage"] }
+variables = [
+  { symbol = "E", name = "open-circuit voltage", unit = "V", aliases = ["emf", "E"] },
+  { symbol = "I", name = "current", unit = "A", aliases = ["current", "I"] },
+  { symbol = "r", name = "internal resistance", unit = "ohm", aliases = ["internal_resistance", "r"] },
+]
+tags = ["dc_circuits", "batteries"]
+source = { title = "Internal resistance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Internal_resistance" }
+checks = [{ inputs = [12.6, 20, 0.02], output = 12.2 }]
+
+[[formula]]
+id = "max_power_transfer"
+name = "Maximum power delivered to a load"
+expr = "V^2 / (4 * R)"
+output = { symbol = "P", name = "maximum power", unit = "W", aliases = ["power"] }
+variables = [
+  { symbol = "V", name = "source voltage", unit = "V", aliases = ["voltage", "V"] },
+  { symbol = "R", name = "source resistance", unit = "ohm", aliases = ["resistance", "R"] },
+]
+tags = ["dc_circuits"]
+source = { title = "Maximum power transfer theorem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Maximum_power_transfer_theorem" }
+checks = [{ inputs = [12, 4], output = 9 }]
+
+[[formula]]
+id = "wheatstone_bridge"
+name = "Unknown resistor of a balanced Wheatstone bridge"
+expr = "b * c / a"
+output = { symbol = "Rx", name = "unknown resistance", unit = "ohm", aliases = ["rx", "resistance"] }
+variables = [
+  { symbol = "b", name = "second resistor", unit = "ohm", aliases = ["r2"] },
+  { symbol = "c", name = "third resistor", unit = "ohm", aliases = ["r3"] },
+  { symbol = "a", name = "first resistor", unit = "ohm", aliases = ["r1"] },
+]
+tags = ["dc_circuits", "measurement"]
+source = { title = "Wheatstone bridge (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wheatstone_bridge" }
+checks = [{ inputs = [200, 150, 100], output = 300 }]
+
+[[formula]]
+id = "c_rate"
+name = "C-rate of a battery (per hour)"
+expr = "I * 3600 / C"
+output = { symbol = "r", name = "C-rate", unit = "1/h", aliases = ["c_rate"] }
+variables = [
+  { symbol = "I", name = "current", unit = "A", aliases = ["current", "I"] },
+  { symbol = "C", name = "capacity", unit = "C", aliases = ["capacity"] },
+]
+tags = ["batteries"]
+source = { title = "C rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/C_rate" }
+checks = [{ inputs = [2, 18000], output = 0.4 }]
+
+[[formula]]
+id = "capacitor_voltage_from_charge"
+name = "Voltage of a capacitor"
+expr = "Q / C"
+output = { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage"] }
+variables = [
+  { symbol = "Q", name = "charge", unit = "C", aliases = ["charge", "Q"] },
+  { symbol = "C", name = "capacitance", unit = "F", aliases = ["capacitance", "C"] },
+]
+tags = ["capacitors"]
+source = { title = "Capacitance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capacitance" }
+checks = [{ inputs = [0.001, 0.0001], output = 10 }]
+
+[[formula]]
+id = "three_capacitors_series"
+name = "Three capacitors in series"
+expr = "1 / (1 / a + 1 / b + 1 / c)"
+output = { symbol = "C", name = "equivalent capacitance", unit = "F", aliases = ["capacitance", "ceq"] }
+variables = [
+  { symbol = "a", name = "first capacitance", unit = "F", aliases = ["c1"] },
+  { symbol = "b", name = "second capacitance", unit = "F", aliases = ["c2"] },
+  { symbol = "c", name = "third capacitance", unit = "F", aliases = ["c3"] },
+]
+tags = ["capacitors"]
+source = { title = "Series and parallel circuits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Series_and_parallel_circuits" }
+checks = [{ inputs = [1e-06, 2e-06, 4e-06], output = 5.714285714285714e-07 }]
+
+[[formula]]
+id = "inductors_in_parallel"
+name = "Two inductors in parallel"
+expr = "a * b / (a + b)"
+output = { symbol = "L", name = "equivalent inductance", unit = "H", aliases = ["inductance", "leq"] }
+variables = [
+  { symbol = "a", name = "first inductance", unit = "H", aliases = ["l1"] },
+  { symbol = "b", name = "second inductance", unit = "H", aliases = ["l2"] },
+]
+tags = ["inductors"]
+source = { title = "Inductance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Inductance" }
+checks = [{ inputs = [0.01, 0.02], output = 0.006666666666666667 }]
+
+[[formula]]
+id = "solenoid_inductance"
+name = "Inductance of a solenoid"
+expr = "mu_0 * N^2 * A / l"
+output = { symbol = "L", name = "inductance", unit = "H", aliases = ["inductance"] }
+variables = [
+  { symbol = "N", name = "turns", unit = "1", aliases = ["turns", "N"] },
+  { symbol = "A", name = "cross-section area", unit = "m^2", aliases = ["area", "A"] },
+  { symbol = "l", name = "length", unit = "m", aliases = ["length", "l"] },
+]
+tags = ["inductors"]
+source = { title = "Inductance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Inductance" }
+checks = [{ inputs = [200, 0.0001, 0.05], output = 0.0001005309649016 }]
+
+[[formula]]
+id = "rl_current_rise"
+name = "Current in an RL circuit"
+expr = "V / R * (1 - exp(-R * t / L))"
+output = { symbol = "I", name = "current", unit = "A", aliases = ["current"] }
+variables = [
+  { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage", "V"] },
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "R"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "t"] },
+  { symbol = "L", name = "inductance", unit = "H", aliases = ["inductance", "L"] },
+]
+tags = ["transients"]
+source = { title = "RL circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/RL_circuit" }
+checks = [{ inputs = [12, 6, 0.01, 0.02], output = 1.900425863264272 }]
+
+[[formula]]
+id = "impedance_rc_series"
+name = "Impedance of a series RC circuit"
+expr = "sqrt(R^2 + 1 / (2 * pi * f * C)^2)"
+output = { symbol = "Z", name = "impedance", unit = "ohm", aliases = ["impedance"] }
+variables = [
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "R"] },
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+  { symbol = "C", name = "capacitance", unit = "F", aliases = ["capacitance", "C"] },
+]
+tags = ["ac_circuits"]
+source = { title = "Electrical impedance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electrical_impedance" }
+checks = [{ inputs = [1000, 50, 2e-06], output = 1879.635494200523 }]
+
+[[formula]]
+id = "impedance_rl_series"
+name = "Impedance of a series RL circuit"
+expr = "sqrt(R^2 + (2 * pi * f * L)^2)"
+output = { symbol = "Z", name = "impedance", unit = "ohm", aliases = ["impedance"] }
+variables = [
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "R"] },
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+  { symbol = "L", name = "inductance", unit = "H", aliases = ["inductance", "L"] },
+]
+tags = ["ac_circuits"]
+source = { title = "Electrical impedance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electrical_impedance" }
+checks = [{ inputs = [100, 50, 0.5], output = 186.20958891185867 }]
+
+[[formula]]
+id = "phase_angle_rl"
+name = "Phase angle of an RL circuit"
+expr = "atan(2 * pi * f * L / R)"
+output = { symbol = "p", name = "phase angle", unit = "rad", aliases = ["phase", "phi"] }
+variables = [
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+  { symbol = "L", name = "inductance", unit = "H", aliases = ["inductance", "L"] },
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "R"] },
+]
+tags = ["ac_circuits"]
+source = { title = "Phase (waves) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Phase_(waves)" }
+checks = [{ inputs = [50, 0.5, 100], output = 1.0038848218538872 }]
+
+[[formula]]
+id = "power_factor"
+name = "Power factor"
+expr = "P / S"
+output = { symbol = "pf", name = "power factor", unit = "1", aliases = ["power_factor", "pf", "cos_phi"] }
+variables = [
+  { symbol = "P", name = "real power", unit = "W", aliases = ["real_power", "watts"] },
+  { symbol = "S", name = "apparent power", unit = "W", aliases = ["apparent_power", "va"] },
+]
+tags = ["ac_circuits", "power"]
+source = { title = "Power factor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Power_factor" }
+checks = [{ inputs = [800, 1000], output = 0.8 }]
+
+[[formula]]
+id = "reactive_power"
+name = "Reactive power"
+expr = "sqrt(S^2 - P^2)"
+output = { symbol = "Q", name = "reactive power", unit = "W", aliases = ["reactive_power", "var"] }
+variables = [
+  { symbol = "S", name = "apparent power", unit = "W", aliases = ["apparent_power", "va"] },
+  { symbol = "P", name = "real power", unit = "W", aliases = ["real_power", "watts"] },
+]
+tags = ["ac_circuits", "power"]
+source = { title = "AC power (Wikipedia)", url = "https://en.wikipedia.org/wiki/AC_power" }
+checks = [{ inputs = [1000, 800], output = 600 }]
+
+[[formula]]
+id = "peak_from_rms"
+name = "Peak voltage from RMS"
+expr = "V * sqrt(2)"
+output = { symbol = "Vp", name = "peak voltage", unit = "V", aliases = ["peak", "vpeak"] }
+variables = [
+  { symbol = "V", name = "RMS voltage", unit = "V", aliases = ["rms", "vrms"] },
+]
+tags = ["ac_circuits"]
+source = { title = "Root mean square (Wikipedia)", url = "https://en.wikipedia.org/wiki/Root_mean_square" }
+checks = [{ inputs = [230], output = 325.2691193458119 }]
+
+[[formula]]
+id = "peak_to_peak"
+name = "Peak-to-peak voltage"
+expr = "2 * V"
+output = { symbol = "Vpp", name = "peak-to-peak voltage", unit = "V", aliases = ["vpp", "peak_to_peak"] }
+variables = [
+  { symbol = "V", name = "peak voltage", unit = "V", aliases = ["peak", "vpeak"] },
+]
+tags = ["ac_circuits"]
+source = { title = "Amplitude (Wikipedia)", url = "https://en.wikipedia.org/wiki/Amplitude" }
+checks = [{ inputs = [325], output = 650 }]
+
+[[formula]]
+id = "transformer_current"
+name = "Transformer current ratio"
+expr = "I * a / b"
+output = { symbol = "Is", name = "secondary current", unit = "A", aliases = ["secondary_current", "is"] }
+variables = [
+  { symbol = "I", name = "primary current", unit = "A", aliases = ["primary_current", "ip"] },
+  { symbol = "a", name = "primary turns", unit = "1", aliases = ["np", "primary_turns"] },
+  { symbol = "b", name = "secondary turns", unit = "1", aliases = ["ns", "secondary_turns"] },
+]
+tags = ["power", "transformers"]
+source = { title = "Transformer (Wikipedia)", url = "https://en.wikipedia.org/wiki/Transformer" }
+checks = [{ inputs = [2, 1000, 100], output = 20 }]
+
+[[formula]]
+id = "rl_cutoff_frequency"
+name = "Cutoff frequency of an RL filter"
+expr = "R / (2 * pi * L)"
+output = { symbol = "f", name = "cutoff frequency", unit = "Hz", aliases = ["cutoff", "fc"] }
+variables = [
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "R"] },
+  { symbol = "L", name = "inductance", unit = "H", aliases = ["inductance", "L"] },
+]
+tags = ["filters"]
+source = { title = "RL circuit (Wikipedia)", url = "https://en.wikipedia.org/wiki/RL_circuit" }
+checks = [{ inputs = [1000, 0.01], output = 15915.494309189533 }]
+
+[[formula]]
+id = "rc_filter_gain"
+name = "Gain of an RC low-pass filter"
+expr = "1 / sqrt(1 + (2 * pi * f * R * C)^2)"
+output = { symbol = "g", name = "gain", unit = "1", aliases = ["gain"] }
+variables = [
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+  { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance", "R"] },
+  { symbol = "C", name = "capacitance", unit = "F", aliases = ["capacitance", "C"] },
+]
+tags = ["filters"]
+source = { title = "Low-pass filter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Low-pass_filter" }
+checks = [{ inputs = [1000, 1000, 2e-07], output = 0.6226769922994999 }]
+
+[[formula]]
+id = "lc_bandwidth"
+name = "Bandwidth of a resonant circuit"
+expr = "f / Q"
+output = { symbol = "B", name = "bandwidth", unit = "Hz", aliases = ["bandwidth"] }
+variables = [
+  { symbol = "f", name = "resonant frequency", unit = "Hz", aliases = ["frequency", "f0"] },
+  { symbol = "Q", name = "quality factor", unit = "1", aliases = ["q", "quality"] },
+]
+tags = ["filters"]
+source = { title = "Bandwidth (signal processing) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bandwidth_(signal_processing)" }
+checks = [{ inputs = [10000, 50], output = 200 }]
+
+[[formula]]
+id = "differential_amplifier"
+name = "Difference amplifier output"
+expr = "f / r * (b - a)"
+output = { symbol = "V", name = "output voltage", unit = "V", aliases = ["vout", "output"] }
+variables = [
+  { symbol = "f", name = "feedback resistor", unit = "ohm", aliases = ["rf"] },
+  { symbol = "r", name = "input resistor", unit = "ohm", aliases = ["rin", "r1"] },
+  { symbol = "b", name = "non-inverting input", unit = "V", aliases = ["v2", "vplus"] },
+  { symbol = "a", name = "inverting input", unit = "V", aliases = ["v1", "vminus"] },
+]
+tags = ["amplifiers"]
+source = { title = "Differential amplifier (Wikipedia)", url = "https://en.wikipedia.org/wiki/Differential_amplifier" }
+checks = [{ inputs = [10000, 1000, 1.2, 1], output = 1.9999999999999996 }]
+
+[[formula]]
+id = "summing_amplifier"
+name = "Inverting summing amplifier"
+expr = "-f * (a / r + b / s)"
+output = { symbol = "V", name = "output voltage", unit = "V", aliases = ["vout", "output"] }
+variables = [
+  { symbol = "f", name = "feedback resistor", unit = "ohm", aliases = ["rf"] },
+  { symbol = "a", name = "first input", unit = "V", aliases = ["v1"] },
+  { symbol = "r", name = "first input resistor", unit = "ohm", aliases = ["r1"] },
+  { symbol = "b", name = "second input", unit = "V", aliases = ["v2"] },
+  { symbol = "s", name = "second input resistor", unit = "ohm", aliases = ["r2"] },
+]
+tags = ["amplifiers"]
+source = { title = "Operational amplifier applications (Wikipedia)", url = "https://en.wikipedia.org/wiki/Operational_amplifier_applications" }
+checks = [{ inputs = [10000, 0.5, 10000, 0.2, 5000], output = -0.9 }]
+
+[[formula]]
+id = "gain_bandwidth"
+name = "Bandwidth from the gain-bandwidth product"
+expr = "g / a"
+output = { symbol = "B", name = "bandwidth", unit = "Hz", aliases = ["bandwidth"] }
+variables = [
+  { symbol = "g", name = "gain-bandwidth product", unit = "Hz", aliases = ["gbw", "gbp"] },
+  { symbol = "a", name = "closed-loop gain", unit = "1", aliases = ["gain"] },
+]
+tags = ["amplifiers"]
+source = { title = "Gain–bandwidth product (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gain–bandwidth_product" }
+checks = [{ inputs = [1000000, 20], output = 50000 }]
+
+[[formula]]
+id = "voltage_gain_db"
+name = "Voltage gain in decibels"
+expr = "20 * log10(o / i)"
+output = { symbol = "G", name = "gain in dB", unit = "1", aliases = ["gain_db", "db"] }
+variables = [
+  { symbol = "o", name = "output voltage", unit = "V", aliases = ["vout", "output"] },
+  { symbol = "i", name = "input voltage", unit = "V", aliases = ["vin", "input"] },
+]
+tags = ["amplifiers"]
+source = { title = "Gain (electronics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gain_(electronics)" }
+checks = [{ inputs = [5, 0.05], output = 40 }]
+
+[[formula]]
+id = "transistor_collector_current"
+name = "Collector current of a BJT"
+expr = "b * i"
+output = { symbol = "Ic", name = "collector current", unit = "A", aliases = ["collector_current", "ic"] }
+variables = [
+  { symbol = "b", name = "current gain", unit = "1", aliases = ["beta", "hfe"] },
+  { symbol = "i", name = "base current", unit = "A", aliases = ["base_current", "ib"] },
+]
+tags = ["semiconductors"]
+source = { title = "Bipolar junction transistor (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bipolar_junction_transistor" }
+checks = [{ inputs = [100, 2e-05], output = 0.002 }]
+
+[[formula]]
+id = "diode_current"
+name = "Shockley diode equation"
+expr = "s * (exp(V / (n * u)) - 1)"
+output = { symbol = "I", name = "diode current", unit = "A", aliases = ["current"] }
+variables = [
+  { symbol = "s", name = "saturation current", unit = "A", aliases = ["saturation", "is"] },
+  { symbol = "V", name = "diode voltage", unit = "V", aliases = ["voltage", "vd"] },
+  { symbol = "n", name = "ideality factor", unit = "1", aliases = ["ideality", "n"] },
+  { symbol = "u", name = "thermal voltage", unit = "V", aliases = ["vt", "thermal_voltage"] },
+]
+tags = ["semiconductors"]
+source = { title = "Shockley diode equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Shockley_diode_equation" }
+checks = [{ inputs = [1e-12, 0.6, 1, 0.02585], output = 0.012031953282638291 }]
+
+[[formula]]
+id = "thermal_voltage"
+name = "Thermal voltage"
+expr = "k_B * T / q_e"
+output = { symbol = "Vt", name = "thermal voltage", unit = "V", aliases = ["vt", "thermal_voltage"] }
+variables = [
+  { symbol = "T", name = "temperature", unit = "K", aliases = ["temperature", "T"] },
+]
+tags = ["semiconductors"]
+source = { title = "Boltzmann constant (Wikipedia)", url = "https://en.wikipedia.org/wiki/Boltzmann_constant" }
+checks = [{ inputs = [300], output = 0.025851999786435535 }]
+
+[[formula]]
+id = "zener_series_resistor"
+name = "Series resistor for a Zener regulator"
+expr = "(s - z) / i"
+output = { symbol = "R", name = "resistance", unit = "ohm", aliases = ["resistance"] }
+variables = [
+  { symbol = "s", name = "supply voltage", unit = "V", aliases = ["supply", "vin"] },
+  { symbol = "z", name = "Zener voltage", unit = "V", aliases = ["zener", "vz"] },
+  { symbol = "i", name = "current", unit = "A", aliases = ["current"] },
+]
+tags = ["semiconductors", "power_supplies"]
+source = { title = "Zener diode (Wikipedia)", url = "https://en.wikipedia.org/wiki/Zener_diode" }
+checks = [{ inputs = [12, 5.1, 0.02], output = 345 }]
+
+[[formula]]
+id = "ripple_voltage"
+name = "Ripple voltage of a rectifier"
+expr = "I / (f * C)"
+output = { symbol = "V", name = "ripple voltage", unit = "V", aliases = ["ripple"] }
+variables = [
+  { symbol = "I", name = "load current", unit = "A", aliases = ["current", "I"] },
+  { symbol = "f", name = "ripple frequency", unit = "Hz", aliases = ["frequency", "f"] },
+  { symbol = "C", name = "filter capacitance", unit = "F", aliases = ["capacitance", "C"] },
+]
+tags = ["power_supplies"]
+source = { title = "Ripple (electrical) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ripple_(electrical)" }
+checks = [{ inputs = [0.5, 100, 0.001], output = 5 }]
+
+[[formula]]
+id = "buck_converter_output"
+name = "Output voltage of a buck converter"
+expr = "D * V"
+output = { symbol = "Vo", name = "output voltage", unit = "V", aliases = ["vout", "output"] }
+variables = [
+  { symbol = "D", name = "duty cycle", unit = "1", aliases = ["duty", "d"] },
+  { symbol = "V", name = "input voltage", unit = "V", aliases = ["vin", "input"] },
+]
+tags = ["power_supplies"]
+source = { title = "Buck converter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Buck_converter" }
+checks = [{ inputs = [0.4, 12], output = 4.800000000000001 }]
+
+[[formula]]
+id = "boost_converter_output"
+name = "Output voltage of a boost converter"
+expr = "V / (1 - D)"
+output = { symbol = "Vo", name = "output voltage", unit = "V", aliases = ["vout", "output"] }
+variables = [
+  { symbol = "V", name = "input voltage", unit = "V", aliases = ["vin", "input"] },
+  { symbol = "D", name = "duty cycle", unit = "1", aliases = ["duty", "d"] },
+]
+tags = ["power_supplies"]
+source = { title = "Boost converter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Boost_converter" }
+checks = [{ inputs = [5, 0.6], output = 12.5 }]
+
+[[formula]]
+id = "linear_regulator_dissipation"
+name = "Power lost in a linear regulator"
+expr = "(i - o) * I"
+output = { symbol = "P", name = "dissipated power", unit = "W", aliases = ["power", "loss"] }
+variables = [
+  { symbol = "i", name = "input voltage", unit = "V", aliases = ["vin", "input"] },
+  { symbol = "o", name = "output voltage", unit = "V", aliases = ["vout", "output"] },
+  { symbol = "I", name = "load current", unit = "A", aliases = ["current", "I"] },
+]
+tags = ["power_supplies"]
+source = { title = "Linear regulator (Wikipedia)", url = "https://en.wikipedia.org/wiki/Linear_regulator" }
+checks = [{ inputs = [12, 5, 0.5], output = 3.5 }]
+
+[[formula]]
+id = "heatsink_temperature"
+name = "Junction temperature"
+expr = "a + P * r"
+output = { symbol = "Tj", name = "junction temperature", unit = "K", aliases = ["junction", "tj"] }
+variables = [
+  { symbol = "a", name = "ambient temperature", unit = "K", aliases = ["ambient", "ta"] },
+  { symbol = "P", name = "power", unit = "W", aliases = ["power", "P"] },
+  { symbol = "r", name = "thermal resistance", unit = "K/W", aliases = ["thermal_resistance", "rth"] },
+]
+tags = ["thermal"]
+source = { title = "Thermal resistance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Thermal_resistance" }
+checks = [{ inputs = [298, 5, 8], output = 338 }]
+
+[[formula]]
+id = "voltage_drop_cable"
+name = "Voltage drop in a two-wire cable"
+expr = "2 * I * r * L / A"
+output = { symbol = "V", name = "voltage drop", unit = "V", aliases = ["voltage_drop", "drop"] }
+variables = [
+  { symbol = "I", name = "current", unit = "A", aliases = ["current", "I"] },
+  { symbol = "r", name = "resistivity", unit = "ohm*m", aliases = ["resistivity", "rho"] },
+  { symbol = "L", name = "cable length", unit = "m", aliases = ["length", "L"] },
+  { symbol = "A", name = "cross-section area", unit = "m^2", aliases = ["area", "A"] },
+]
+tags = ["wiring"]
+source = { title = "Voltage drop (Wikipedia)", url = "https://en.wikipedia.org/wiki/Voltage_drop" }
+checks = [{ inputs = [10, 1.68e-08, 20, 2.5e-06], output = 2.688 }]
+
+[[formula]]
+id = "skin_depth"
+name = "Skin depth"
+expr = "sqrt(2 * r / (2 * pi * f * mu_0 * u))"
+output = { symbol = "d", name = "skin depth", unit = "m", aliases = ["skin_depth", "delta"] }
+variables = [
+  { symbol = "r", name = "resistivity", unit = "ohm*m", aliases = ["resistivity", "rho"] },
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+  { symbol = "u", name = "relative permeability", unit = "1", aliases = ["mu_r"] },
+]
+tags = ["electromagnetism", "rf"]
+source = { title = "Skin effect (Wikipedia)", url = "https://en.wikipedia.org/wiki/Skin_effect" }
+checks = [{ inputs = [1.68e-08, 1000000, 1], output = 6.523411464517666e-05 }]
+
+[[formula]]
+id = "free_space_path_loss"
+name = "Free-space path loss (dB)"
+expr = "20 * log10(4 * pi * d * f / c)"
+output = { symbol = "L", name = "path loss in dB", unit = "1", aliases = ["path_loss", "fspl"] }
+variables = [
+  { symbol = "d", name = "distance", unit = "m", aliases = ["distance", "d"] },
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+]
+tags = ["rf"]
+source = { title = "Free-space path loss (Wikipedia)", url = "https://en.wikipedia.org/wiki/Free-space_path_loss" }
+checks = [{ inputs = [1000, 2400000000], output = 100.0520080561155 }]
+
+[[formula]]
+id = "antenna_half_wave_length"
+name = "Half-wave dipole length"
+expr = "c / (2 * f)"
+output = { symbol = "L", name = "length", unit = "m", aliases = ["length", "dipole"] }
+variables = [
+  { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency", "f"] },
+]
+tags = ["rf"]
+source = { title = "Dipole antenna (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dipole_antenna" }
+checks = [{ inputs = [100000000], output = 1.49896229 }]
+
+[[formula]]
+id = "watts_from_dbm"
+name = "Power from dBm"
+expr = "10^(d / 10) / 1000"
+output = { symbol = "P", name = "power in watts", unit = "1", aliases = ["power", "watts"] }
+variables = [
+  { symbol = "d", name = "power in dBm", unit = "1", aliases = ["dbm"] },
+]
+tags = ["rf"]
+source = { title = "DBm (Wikipedia)", url = "https://en.wikipedia.org/wiki/DBm" }
+checks = [{ inputs = [20], output = 0.1 }]
+
+[[formula]]
+id = "dac_output_voltage"
+name = "DAC output voltage"
+expr = "V * d / 2^n"
+output = { symbol = "Vo", name = "output voltage", unit = "V", aliases = ["vout", "output"] }
+variables = [
+  { symbol = "V", name = "reference voltage", unit = "V", aliases = ["vref", "reference"] },
+  { symbol = "d", name = "digital code", unit = "1", aliases = ["code", "d"] },
+  { symbol = "n", name = "bits", unit = "1", aliases = ["bits", "n"] },
+]
+tags = ["conversion"]
+source = { title = "Digital-to-analog converter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Digital-to-analog_converter" }
+checks = [{ inputs = [5, 512, 10], output = 2.5 }]
+
+[[formula]]
+id = "adc_code"
+name = "ADC output code"
+expr = "floor(v / V * 2^n)"
+output = { symbol = "d", name = "digital code", unit = "1", aliases = ["code"] }
+variables = [
+  { symbol = "v", name = "input voltage", unit = "V", aliases = ["vin", "input"] },
+  { symbol = "V", name = "reference voltage", unit = "V", aliases = ["vref", "reference"] },
+  { symbol = "n", name = "bits", unit = "1", aliases = ["bits", "n"] },
+]
+tags = ["conversion"]
+source = { title = "Analog-to-digital converter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Analog-to-digital_converter" }
+checks = [{ inputs = [1.65, 3.3, 12], output = 2048 }]
+
+[[formula]]
+id = "quantization_snr"
+name = "SNR of an ideal ADC"
+expr = "6.02 * n + 1.76"
+output = { symbol = "SNR", name = "signal-to-noise ratio in dB", unit = "1", aliases = ["snr"] }
+variables = [
+  { symbol = "n", name = "bits", unit = "1", aliases = ["bits", "n"] },
+]
+tags = ["conversion"]
+source = { title = "Quantization (signal processing) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Quantization_(signal_processing)" }
+checks = [{ inputs = [12], output = 74 }]
+
+[[formula]]
+id = "timer_555_astable_frequency"
+name = "Frequency of a 555 astable oscillator"
+expr = "1.44 / ((a + 2 * b) * C)"
+output = { symbol = "f", name = "frequency", unit = "Hz", aliases = ["frequency"] }
+variables = [
+  { symbol = "a", name = "first resistor", unit = "ohm", aliases = ["r1", "ra"] },
+  { symbol = "b", name = "second resistor", unit = "ohm", aliases = ["r2", "rb"] },
+  { symbol = "C", name = "capacitance", unit = "F", aliases = ["capacitance", "C"] },
+]
+tags = ["timers"]
+source = { title = "555 timer IC (Wikipedia)", url = "https://en.wikipedia.org/wiki/555_timer_IC" }
+checks = [{ inputs = [1000, 10000, 1e-07], output = 685.7142857142858 }]

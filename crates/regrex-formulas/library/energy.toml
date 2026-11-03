@@ -250,3 +250,527 @@ variables = [
 tags = ["transport", "fuels"]
 source = { title = "Fuel economy in automobiles (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fuel_economy_in_automobiles" }
 checks = [{ inputs = [32, 480], output = 6.666666666666667 }]
+
+[[formula]]
+id = "standby_cost"
+name = "Yearly cost of standby power"
+expr = "P * 8760 / 1000 * p"
+output = { symbol = "C", name = "yearly cost", unit = "currency", aliases = ["cost"] }
+variables = [
+  { symbol = "P", name = "standby power in watts", unit = "1", aliases = ["watts", "power"] },
+  { symbol = "p", name = "price per kWh", unit = "currency", aliases = ["price", "tariff"] },
+]
+tags = ["electricity", "cost"]
+source = { title = "Standby power (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standby_power" }
+checks = [{ inputs = [5, 0.25], output = 10.95 }]
+
+[[formula]]
+id = "appliance_yearly_energy"
+name = "Yearly energy of an appliance"
+expr = "P * h * 365 / 1000"
+output = { symbol = "E", name = "energy in kWh per year", unit = "1", aliases = ["kwh", "energy"] }
+variables = [
+  { symbol = "P", name = "power in watts", unit = "1", aliases = ["watts", "power"] },
+  { symbol = "h", name = "hours per day", unit = "1", aliases = ["hours"] },
+]
+tags = ["electricity"]
+source = { title = "Electric energy consumption (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_energy_consumption" }
+checks = [{ inputs = [150, 4], output = 219 }]
+
+[[formula]]
+id = "peak_demand_charge"
+name = "Demand charge"
+expr = "k * p"
+output = { symbol = "C", name = "demand charge", unit = "currency", aliases = ["demand_charge", "cost"] }
+variables = [
+  { symbol = "k", name = "peak demand in kW", unit = "1", aliases = ["kw", "peak", "demand"] },
+  { symbol = "p", name = "price per kW", unit = "currency", aliases = ["price", "tariff"] },
+]
+tags = ["electricity", "cost"]
+source = { title = "Peak demand (Wikipedia)", url = "https://en.wikipedia.org/wiki/Peak_demand" }
+checks = [{ inputs = [45, 12], output = 540 }]
+
+[[formula]]
+id = "load_factor_electric"
+name = "Electrical load factor"
+expr = "a / p"
+output = { symbol = "f", name = "load factor", unit = "1", aliases = ["load_factor"] }
+variables = [
+  { symbol = "a", name = "average load in kW", unit = "1", aliases = ["average", "load"] },
+  { symbol = "p", name = "peak load in kW", unit = "1", aliases = ["peak"] },
+]
+tags = ["electricity"]
+source = { title = "Load factor (electrical) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Load_factor_(electrical)" }
+checks = [{ inputs = [60, 100], output = 0.6 }]
+
+[[formula]]
+id = "solar_array_size"
+name = "Solar array size for a daily need"
+expr = "E / (h * k)"
+output = { symbol = "P", name = "array size in kW", unit = "1", aliases = ["kw", "size"] }
+variables = [
+  { symbol = "E", name = "daily energy in kWh", unit = "1", aliases = ["kwh", "energy"] },
+  { symbol = "h", name = "peak sun hours", unit = "1", aliases = ["sun_hours", "psh"] },
+  { symbol = "k", name = "system efficiency", unit = "1", aliases = ["efficiency"] },
+]
+tags = ["solar"]
+source = { title = "Photovoltaic system (Wikipedia)", url = "https://en.wikipedia.org/wiki/Photovoltaic_system" }
+checks = [{ inputs = [20, 4.5, 0.8], output = 5.555555555555555 }]
+
+[[formula]]
+id = "solar_panels_needed"
+name = "Number of solar panels"
+expr = "ceil(1000 * k / w)"
+output = { symbol = "n", name = "panels", unit = "1", aliases = ["panels"] }
+variables = [
+  { symbol = "k", name = "array size in kW", unit = "1", aliases = ["kw", "size"] },
+  { symbol = "w", name = "panel rating in watts", unit = "1", aliases = ["watts", "panel"] },
+]
+tags = ["solar"]
+source = { title = "Solar panel (Wikipedia)", url = "https://en.wikipedia.org/wiki/Solar_panel" }
+checks = [{ inputs = [5.5, 400], output = 14 }]
+
+[[formula]]
+id = "solar_irradiance_on_tilt"
+name = "Irradiance on a tilted panel"
+expr = "g * cos(t)"
+output = { symbol = "I", name = "irradiance", unit = "W/m^2", aliases = ["irradiance"] }
+variables = [
+  { symbol = "g", name = "direct irradiance", unit = "W/m^2", aliases = ["direct", "dni"] },
+  { symbol = "t", name = "angle of incidence", unit = "rad", aliases = ["angle", "incidence"] },
+]
+tags = ["solar"]
+source = { title = "Solar irradiance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Solar_irradiance" }
+checks = [{ inputs = [900, 0.4], output = 828.9548946025966 }]
+
+[[formula]]
+id = "pv_temperature_loss"
+name = "Panel power at a cell temperature"
+expr = "P * (1 + c * (t - 25))"
+output = { symbol = "p", name = "power in watts", unit = "1", aliases = ["power", "watts"] }
+variables = [
+  { symbol = "P", name = "rated power in watts", unit = "1", aliases = ["rated"] },
+  { symbol = "c", name = "temperature coefficient per °C", unit = "1", aliases = ["coefficient"] },
+  { symbol = "t", name = "cell temperature in °C", unit = "1", aliases = ["cell_temperature", "temperature"] },
+]
+tags = ["solar"]
+source = { title = "Solar cell efficiency (Wikipedia)", url = "https://en.wikipedia.org/wiki/Solar_cell_efficiency" }
+checks = [{ inputs = [400, -0.004, 55], output = 352 }]
+
+[[formula]]
+id = "solar_simple_payback"
+name = "Payback of a solar installation"
+expr = "c / (E * p)"
+output = { symbol = "t", name = "payback in years", unit = "1", aliases = ["payback", "years"] }
+variables = [
+  { symbol = "c", name = "installation cost", unit = "currency", aliases = ["cost"] },
+  { symbol = "E", name = "yearly energy in kWh", unit = "1", aliases = ["kwh", "energy"] },
+  { symbol = "p", name = "price per kWh", unit = "currency", aliases = ["price", "tariff"] },
+]
+tags = ["solar", "cost"]
+source = { title = "Payback period (Wikipedia)", url = "https://en.wikipedia.org/wiki/Payback_period" }
+checks = [{ inputs = [8000, 6500, 0.2], output = 6.153846153846154 }]
+
+[[formula]]
+id = "levelized_cost_of_energy"
+name = "Levelized cost of energy (simple)"
+expr = "(c + n * o) / (n * E)"
+output = { symbol = "L", name = "cost per kWh", unit = "currency", aliases = ["lcoe"] }
+variables = [
+  { symbol = "c", name = "capital cost", unit = "currency", aliases = ["capex"] },
+  { symbol = "n", name = "years", unit = "1", aliases = ["years"] },
+  { symbol = "o", name = "yearly operating cost", unit = "currency", aliases = ["opex"] },
+  { symbol = "E", name = "yearly energy in kWh", unit = "1", aliases = ["kwh", "energy"] },
+]
+tags = ["economics"]
+source = { title = "Levelized cost of electricity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Levelized_cost_of_electricity" }
+checks = [{ inputs = [100000, 25, 1500, 150000], output = 0.03666666666666667 }]
+
+[[formula]]
+id = "wind_power_density"
+name = "Wind power density"
+expr = "r * v^3 / 2"
+output = { symbol = "P", name = "power density", unit = "W/m^2", aliases = ["power_density"] }
+variables = [
+  { symbol = "r", name = "air density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "v", name = "wind speed", unit = "m/s", aliases = ["speed", "wind"] },
+]
+tags = ["wind"]
+source = { title = "Wind power (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wind_power" }
+checks = [{ inputs = [1.225, 8], output = 313.6 }]
+
+[[formula]]
+id = "wind_speed_at_height"
+name = "Wind speed at a height (power law)"
+expr = "v * (h / r)^a"
+output = { symbol = "u", name = "wind speed", unit = "m/s", aliases = ["speed"] }
+variables = [
+  { symbol = "v", name = "reference wind speed", unit = "m/s", aliases = ["reference_speed", "v"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+  { symbol = "r", name = "reference height", unit = "m", aliases = ["reference_height"] },
+  { symbol = "a", name = "shear exponent", unit = "1", aliases = ["alpha"] },
+]
+tags = ["wind"]
+source = { title = "Wind profile power law (Wikipedia)", url = "https://en.wikipedia.org/wiki/Wind_profile_power_law" }
+checks = [{ inputs = [6, 80, 10, 0.143], output = 8.077800415660693 }]
+
+[[formula]]
+id = "tip_speed_ratio"
+name = "Tip speed ratio"
+expr = "w * r / v"
+output = { symbol = "l", name = "tip speed ratio", unit = "1", aliases = ["tsr"] }
+variables = [
+  { symbol = "w", name = "rotor speed", unit = "rad/s", aliases = ["omega"] },
+  { symbol = "r", name = "blade length", unit = "m", aliases = ["radius", "blade"] },
+  { symbol = "v", name = "wind speed", unit = "m/s", aliases = ["speed", "wind"] },
+]
+tags = ["wind"]
+source = { title = "Tip-speed ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Tip-speed_ratio" }
+checks = [{ inputs = [1.8, 40, 10], output = 7.2 }]
+
+[[formula]]
+id = "pumped_storage_energy"
+name = "Energy stored by pumped hydro"
+expr = "r * g * V * h"
+output = { symbol = "E", name = "energy", unit = "J", aliases = ["energy"] }
+variables = [
+  { symbol = "r", name = "water density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] },
+  { symbol = "h", name = "head", unit = "m", aliases = ["head", "height"] },
+]
+tags = ["storage", "hydro"]
+source = { title = "Pumped-storage hydroelectricity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pumped-storage_hydroelectricity" }
+checks = [{ inputs = [1000, 1000000, 300], output = 2941995000000 }]
+
+[[formula]]
+id = "flywheel_energy"
+name = "Energy of a flywheel"
+expr = "I * w^2 / 2"
+output = { symbol = "E", name = "energy", unit = "J", aliases = ["energy"] }
+variables = [
+  { symbol = "I", name = "moment of inertia", unit = "kg*m^2", aliases = ["inertia"] },
+  { symbol = "w", name = "angular velocity", unit = "rad/s", aliases = ["omega"] },
+]
+tags = ["storage"]
+source = { title = "Flywheel energy storage (Wikipedia)", url = "https://en.wikipedia.org/wiki/Flywheel_energy_storage" }
+checks = [{ inputs = [50, 600], output = 9000000 }]
+
+[[formula]]
+id = "battery_round_trip"
+name = "Usable energy after round-trip losses"
+expr = "E * k"
+output = { symbol = "U", name = "usable energy in kWh", unit = "1", aliases = ["usable", "kwh"] }
+variables = [
+  { symbol = "E", name = "stored energy in kWh", unit = "1", aliases = ["stored", "kwh", "energy"] },
+  { symbol = "k", name = "round-trip efficiency", unit = "1", aliases = ["efficiency"] },
+]
+tags = ["storage", "batteries"]
+source = { title = "Round-trip efficiency (Wikipedia)", url = "https://en.wikipedia.org/wiki/Round-trip_efficiency" }
+checks = [{ inputs = [13.5, 0.9], output = 12.15 }]
+
+[[formula]]
+id = "battery_cycles_degradation"
+name = "Battery capacity after cycles"
+expr = "C * (1 - d)^n"
+output = { symbol = "c", name = "capacity", unit = "1", aliases = ["capacity", "remaining"] }
+variables = [
+  { symbol = "C", name = "initial capacity", unit = "1", aliases = ["initial", "capacity0"] },
+  { symbol = "d", name = "loss per cycle", unit = "1", aliases = ["degradation"] },
+  { symbol = "n", name = "cycles", unit = "1", aliases = ["cycles"] },
+]
+tags = ["storage", "batteries"]
+source = { title = "Battery degradation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Battery_degradation" }
+checks = [{ inputs = [100, 0.0002, 1500], output = 74.07959935048582 }]
+
+[[formula]]
+id = "ev_range"
+name = "Electric car range"
+expr = "E / c"
+output = { symbol = "d", name = "range in km", unit = "1", aliases = ["range", "distance"] }
+variables = [
+  { symbol = "E", name = "usable battery in kWh", unit = "1", aliases = ["battery", "kwh"] },
+  { symbol = "c", name = "consumption in kWh per km", unit = "1", aliases = ["consumption"] },
+]
+tags = ["transport", "electric_vehicles"]
+source = { title = "Electric vehicle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_vehicle" }
+checks = [{ inputs = [60, 0.16], output = 375 }]
+
+[[formula]]
+id = "ev_charging_time"
+name = "Electric car charging time"
+expr = "E / (P * k)"
+output = { symbol = "t", name = "charging time in hours", unit = "1", aliases = ["hours", "time"] }
+variables = [
+  { symbol = "E", name = "energy to add in kWh", unit = "1", aliases = ["kwh", "energy"] },
+  { symbol = "P", name = "charger power in kW", unit = "1", aliases = ["kw", "power"] },
+  { symbol = "k", name = "charging efficiency", unit = "1", aliases = ["efficiency"] },
+]
+tags = ["transport", "electric_vehicles"]
+source = { title = "Charging station (Wikipedia)", url = "https://en.wikipedia.org/wiki/Charging_station" }
+checks = [{ inputs = [40, 11, 0.9], output = 4.040404040404041 }]
+
+[[formula]]
+id = "ev_cost_per_km"
+name = "Electric car cost per km"
+expr = "c * p"
+output = { symbol = "k", name = "cost per km", unit = "currency", aliases = ["cost_per_km"] }
+variables = [
+  { symbol = "c", name = "consumption in kWh per km", unit = "1", aliases = ["consumption"] },
+  { symbol = "p", name = "price per kWh", unit = "currency", aliases = ["price", "tariff"] },
+]
+tags = ["transport", "electric_vehicles", "cost"]
+source = { title = "Electric vehicle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Electric_vehicle" }
+checks = [{ inputs = [0.17, 0.3], output = 0.051000000000000004 }]
+
+[[formula]]
+id = "fuel_cost_per_km"
+name = "Fuel cost per km"
+expr = "l / 100 * p"
+output = { symbol = "k", name = "cost per km", unit = "currency", aliases = ["cost_per_km"] }
+variables = [
+  { symbol = "l", name = "litres per 100 km", unit = "1", aliases = ["consumption", "l100km"] },
+  { symbol = "p", name = "fuel price per litre", unit = "currency", aliases = ["price"] },
+]
+tags = ["transport", "cost"]
+source = { title = "Fuel economy in automobiles (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fuel_economy_in_automobiles" }
+checks = [{ inputs = [6.5, 1.6], output = 0.10400000000000001 }]
+
+[[formula]]
+id = "mpg_to_l100km"
+name = "Miles per gallon (US) to litres per 100 km"
+expr = "235.215 / m"
+output = { symbol = "l", name = "litres per 100 km", unit = "1", aliases = ["l100km", "consumption"] }
+variables = [
+  { symbol = "m", name = "miles per US gallon", unit = "1", aliases = ["mpg"] },
+]
+tags = ["transport", "conversion"]
+source = { title = "Fuel economy in automobiles (Wikipedia)", url = "https://en.wikipedia.org/wiki/Fuel_economy_in_automobiles" }
+checks = [{ inputs = [30], output = 7.8405000000000005 }]
+
+[[formula]]
+id = "co2_from_driving"
+name = "CO₂ from driving a car"
+expr = "d * l / 100 * k"
+output = { symbol = "m", name = "CO₂ in kg", unit = "1", aliases = ["co2", "emissions"] }
+variables = [
+  { symbol = "d", name = "distance in km", unit = "1", aliases = ["distance", "km"] },
+  { symbol = "l", name = "litres per 100 km", unit = "1", aliases = ["consumption", "l100km"] },
+  { symbol = "k", name = "kg CO₂ per litre", unit = "1", aliases = ["emission_factor"] },
+]
+tags = ["transport", "emissions"]
+source = { title = "Vehicle emissions (Wikipedia)", url = "https://en.wikipedia.org/wiki/Vehicle_emissions" }
+checks = [{ inputs = [15000, 6, 2.31], output = 2079 }]
+
+[[formula]]
+id = "co2_from_flight"
+name = "CO₂ from a flight"
+expr = "d * k"
+output = { symbol = "m", name = "CO₂ in kg", unit = "1", aliases = ["co2", "emissions"] }
+variables = [
+  { symbol = "d", name = "distance in km", unit = "1", aliases = ["distance", "km"] },
+  { symbol = "k", name = "kg CO₂ per passenger-km", unit = "1", aliases = ["emission_factor"] },
+]
+tags = ["transport", "emissions"]
+source = { title = "Environmental impact of aviation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Environmental_impact_of_aviation" }
+checks = [{ inputs = [1200, 0.15], output = 180 }]
+
+[[formula]]
+id = "carbon_intensity"
+name = "Carbon intensity"
+expr = "m / E"
+output = { symbol = "i", name = "carbon intensity", unit = "1", aliases = ["carbon_intensity"] }
+variables = [
+  { symbol = "m", name = "emissions in kg CO₂", unit = "1", aliases = ["co2", "emissions"] },
+  { symbol = "E", name = "energy in kWh", unit = "1", aliases = ["kwh", "energy"] },
+]
+tags = ["emissions"]
+source = { title = "Emission intensity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Emission_intensity" }
+checks = [{ inputs = [450, 1000], output = 0.45 }]
+
+[[formula]]
+id = "trees_to_offset"
+name = "Trees needed to offset emissions"
+expr = "m / a"
+output = { symbol = "n", name = "trees", unit = "1", aliases = ["trees"] }
+variables = [
+  { symbol = "m", name = "CO₂ per year in kg", unit = "1", aliases = ["co2", "emissions"] },
+  { symbol = "a", name = "CO₂ absorbed per tree per year in kg", unit = "1", aliases = ["absorption"] },
+]
+tags = ["emissions"]
+source = { title = "Carbon offsets and credits (Wikipedia)", url = "https://en.wikipedia.org/wiki/Carbon_offsets_and_credits" }
+checks = [{ inputs = [4000, 21], output = 190.47619047619048 }]
+
+[[formula]]
+id = "u_value_from_r"
+name = "U-value from thermal resistance"
+expr = "1 / R"
+output = { symbol = "U", name = "U-value", unit = "W/(m^2*K)", aliases = ["u_value"] }
+variables = [
+  { symbol = "R", name = "thermal resistance", unit = "m^2*K/W", aliases = ["r_value", "resistance"] },
+]
+tags = ["buildings", "insulation"]
+source = { title = "Thermal transmittance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Thermal_transmittance" }
+checks = [{ inputs = [2.5], output = 0.4 }]
+
+[[formula]]
+id = "r_value_layer"
+name = "Thermal resistance of a layer"
+expr = "d / k"
+output = { symbol = "R", name = "thermal resistance", unit = "m^2*K/W", aliases = ["r_value", "resistance"] }
+variables = [
+  { symbol = "d", name = "thickness", unit = "m", aliases = ["thickness"] },
+  { symbol = "k", name = "thermal conductivity", unit = "W/(m*K)", aliases = ["conductivity", "lambda"] },
+]
+tags = ["buildings", "insulation"]
+source = { title = "R-value (insulation) (Wikipedia)", url = "https://en.wikipedia.org/wiki/R-value_(insulation)" }
+checks = [{ inputs = [0.1, 0.04], output = 2.5 }]
+
+[[formula]]
+id = "heat_loss_ventilation"
+name = "Ventilation heat loss"
+expr = "0.33 * n * V * d"
+output = { symbol = "Q", name = "heat loss in watts", unit = "1", aliases = ["heat_loss"] }
+variables = [
+  { symbol = "n", name = "air changes per hour", unit = "1", aliases = ["ach"] },
+  { symbol = "V", name = "room volume in m³", unit = "1", aliases = ["volume"] },
+  { symbol = "d", name = "temperature difference in °C", unit = "1", aliases = ["delta_t"] },
+]
+tags = ["buildings", "heating"]
+source = { title = "Ventilation (architecture) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ventilation_(architecture)" }
+checks = [{ inputs = [0.5, 250, 20], output = 825 }]
+
+[[formula]]
+id = "annual_heating_energy"
+name = "Annual heating energy from degree days"
+expr = "24 * H * D / 1000"
+output = { symbol = "E", name = "energy in kWh", unit = "1", aliases = ["kwh", "energy"] }
+variables = [
+  { symbol = "H", name = "heat loss coefficient in W/K", unit = "1", aliases = ["heat_loss_coefficient"] },
+  { symbol = "D", name = "heating degree days", unit = "1", aliases = ["hdd", "degree_days"] },
+]
+tags = ["buildings", "heating"]
+source = { title = "Heating degree day (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heating_degree_day" }
+checks = [{ inputs = [250, 2500], output = 15000 }]
+
+[[formula]]
+id = "boiler_fuel_use"
+name = "Fuel needed by a boiler"
+expr = "Q / k"
+output = { symbol = "E", name = "fuel energy in kWh", unit = "1", aliases = ["fuel", "kwh"] }
+variables = [
+  { symbol = "Q", name = "heat delivered in kWh", unit = "1", aliases = ["heat", "kwh"] },
+  { symbol = "k", name = "boiler efficiency", unit = "1", aliases = ["efficiency"] },
+]
+tags = ["heating"]
+source = { title = "Boiler (Wikipedia)", url = "https://en.wikipedia.org/wiki/Boiler" }
+checks = [{ inputs = [15000, 0.9], output = 16666.666666666668 }]
+
+[[formula]]
+id = "heat_pump_running_cost"
+name = "Heat pump running cost"
+expr = "Q / c * p"
+output = { symbol = "C", name = "cost", unit = "currency", aliases = ["cost"] }
+variables = [
+  { symbol = "Q", name = "heat delivered in kWh", unit = "1", aliases = ["heat", "kwh"] },
+  { symbol = "c", name = "seasonal COP", unit = "1", aliases = ["cop", "scop"] },
+  { symbol = "p", name = "price per kWh", unit = "currency", aliases = ["price", "tariff"] },
+]
+tags = ["heating", "cost"]
+source = { title = "Heat pump (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heat_pump" }
+checks = [{ inputs = [10000, 3.2, 0.25], output = 781.25 }]
+
+[[formula]]
+id = "water_heating_energy"
+name = "Energy to heat water"
+expr = "4186 * m * d / 3600000"
+output = { symbol = "E", name = "energy in kWh", unit = "1", aliases = ["kwh", "energy"] }
+variables = [
+  { symbol = "m", name = "water mass in kg", unit = "1", aliases = ["mass", "litres"] },
+  { symbol = "d", name = "temperature rise in °C", unit = "1", aliases = ["delta_t"] },
+]
+tags = ["heating", "water"]
+source = { title = "Water heating (Wikipedia)", url = "https://en.wikipedia.org/wiki/Water_heating" }
+checks = [{ inputs = [150, 45], output = 7.84875 }]
+
+[[formula]]
+id = "shower_energy"
+name = "Energy of a shower"
+expr = "f * t * 4186 * d / 3600000"
+output = { symbol = "E", name = "energy in kWh", unit = "1", aliases = ["kwh", "energy"] }
+variables = [
+  { symbol = "f", name = "flow in litres per minute", unit = "1", aliases = ["flow"] },
+  { symbol = "t", name = "duration in minutes", unit = "1", aliases = ["minutes"] },
+  { symbol = "d", name = "temperature rise in °C", unit = "1", aliases = ["delta_t"] },
+]
+tags = ["water", "heating"]
+source = { title = "Shower (Wikipedia)", url = "https://en.wikipedia.org/wiki/Shower" }
+checks = [{ inputs = [8, 8, 30], output = 2.2325333333333335 }]
+
+[[formula]]
+id = "lighting_power_density"
+name = "Lighting power density"
+expr = "P / A"
+output = { symbol = "d", name = "power per area", unit = "W/m^2", aliases = ["lpd"] }
+variables = [
+  { symbol = "P", name = "lighting power", unit = "W", aliases = ["power"] },
+  { symbol = "A", name = "floor area", unit = "m^2", aliases = ["area"] },
+]
+tags = ["buildings", "lighting"]
+source = { title = "Lighting (Wikipedia)", url = "https://en.wikipedia.org/wiki/Lighting" }
+checks = [{ inputs = [1200, 150], output = 8 }]
+
+[[formula]]
+id = "luminous_efficacy"
+name = "Luminous efficacy"
+expr = "f / P"
+output = { symbol = "e", name = "luminous efficacy", unit = "lm/W", aliases = ["efficacy", "lm_per_w"] }
+variables = [
+  { symbol = "f", name = "luminous flux", unit = "lm", aliases = ["lumens", "flux"] },
+  { symbol = "P", name = "power", unit = "W", aliases = ["power", "watts"] },
+]
+tags = ["lighting"]
+source = { title = "Luminous efficacy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Luminous_efficacy" }
+checks = [{ inputs = [800, 9], output = 88.88888888888889 }]
+
+[[formula]]
+id = "water_footprint"
+name = "Water use of a household"
+expr = "n * l * d"
+output = { symbol = "V", name = "water in litres", unit = "1", aliases = ["water", "litres"] }
+variables = [
+  { symbol = "n", name = "people", unit = "1", aliases = ["people"] },
+  { symbol = "l", name = "litres per person per day", unit = "1", aliases = ["litres_per_day"] },
+  { symbol = "d", name = "days", unit = "1", aliases = ["days"] },
+]
+tags = ["water"]
+source = { title = "Water footprint (Wikipedia)", url = "https://en.wikipedia.org/wiki/Water_footprint" }
+checks = [{ inputs = [4, 130, 30], output = 15600 }]
+
+[[formula]]
+id = "rainwater_harvest"
+name = "Rainwater collected from a roof"
+expr = "A * r * k"
+output = { symbol = "V", name = "water in litres", unit = "1", aliases = ["water", "litres"] }
+variables = [
+  { symbol = "A", name = "roof area in m²", unit = "1", aliases = ["area", "roof"] },
+  { symbol = "r", name = "rainfall in mm", unit = "1", aliases = ["rainfall", "mm"] },
+  { symbol = "k", name = "runoff coefficient", unit = "1", aliases = ["runoff"] },
+]
+tags = ["water"]
+source = { title = "Rainwater harvesting (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rainwater_harvesting" }
+checks = [{ inputs = [100, 600, 0.8], output = 48000 }]
+
+[[formula]]
+id = "generator_fuel_use"
+name = "Generator fuel use"
+expr = "P * t / (E * k)"
+output = { symbol = "V", name = "fuel in litres", unit = "1", aliases = ["fuel", "litres"] }
+variables = [
+  { symbol = "P", name = "average load in kW", unit = "1", aliases = ["kw", "load"] },
+  { symbol = "t", name = "hours", unit = "1", aliases = ["hours"] },
+  { symbol = "E", name = "energy per litre in kWh", unit = "1", aliases = ["energy_density"] },
+  { symbol = "k", name = "efficiency", unit = "1", aliases = ["efficiency"] },
+]
+tags = ["fuels", "generators"]
+source = { title = "Engine-generator (Wikipedia)", url = "https://en.wikipedia.org/wiki/Engine-generator" }
+checks = [{ inputs = [5, 8, 10, 0.3], output = 13.333333333333334 }]

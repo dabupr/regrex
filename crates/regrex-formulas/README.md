@@ -12,9 +12,12 @@ Regrex uses it to give a **"known formula" badge** to a candidate found in the d
 | Electronics and signals | [`electronics.toml`](library/electronics.toml) | DC/AC circuits, components, filters, decibels, noise, sampling |
 | Finance and business | [`finance.toml`](library/finance.toml) | prices, VAT, margins, interest, loans, returns, depreciation |
 | Computing | [`computing.toml`](library/computing.toml) | data sizes, transfer, performance laws, queues, reliability, information theory |
-| Health and sport | [`health.toml`](library/health.toml) | BMI, metabolic rate, heart rate, blood pressure, nutrition, strength |
+| Health and sport | [`health.toml`](library/health.toml) | BMI and body composition, metabolic rate, heart and lungs, nutrition, drug dosing, clinical scores, fitness |
 | Business and operations | [`business.toml`](library/business.toml) | sales and marketing KPIs, accounting ratios, inventory, operations, payroll, HR, hospitality |
-| Energy and environment | [`energy.toml`](library/energy.toml) | electricity use and cost, solar, wind and hydro power, heating, batteries, fuels, CO₂ |
+| Energy and environment | [`energy.toml`](library/energy.toml) | electricity use and cost, solar, wind and hydro power, heating, insulation, batteries, electric cars, fuels, CO₂, water |
+| Engineering | [`engineering.toml`](library/engineering.toml) | stress and strain, beams and columns, shafts, gears, springs, pipes and pumps, civil works, machining, welding |
+| Astronomy | [`astronomy.toml`](library/astronomy.toml) | magnitudes and distances, stars, orbits and rockets, telescopes, cosmology |
+| Earth and weather | [`earth.toml`](library/earth.toml) | humidity and comfort indices, atmosphere, hydrology, earthquakes, geology, oceans, maps, sun and climate |
 | Unit conversions | [`conversions.toml`](library/conversions.toml) | temperature, length, mass, speed, energy, pressure, angle |
 
 Physical constants are the CODATA 2022 values published by NIST.

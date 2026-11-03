@@ -360,3 +360,519 @@ variables = [
 tags = ["clinical"]
 source = { title = "Blood alcohol content (Wikipedia)", url = "https://en.wikipedia.org/wiki/Blood_alcohol_content" }
 checks = [{ inputs = [28, 0.68, 75, 0.15, 2], output = 0.2490196078431372 }]
+
+[[formula]]
+id = "bmi_imperial"
+name = "Body mass index (imperial)"
+expr = "703 * w / h^2"
+output = { symbol = "BMI", name = "body mass index", unit = "1", aliases = ["bmi"] }
+variables = [
+  { symbol = "w", name = "weight in pounds", unit = "1", aliases = ["weight", "lbs"] },
+  { symbol = "h", name = "height in inches", unit = "1", aliases = ["height", "inches"] },
+]
+tags = ["body_composition"]
+source = { title = "Body mass index (Wikipedia)", url = "https://en.wikipedia.org/wiki/Body_mass_index" }
+checks = [{ inputs = [160, 68], output = 24.325259515570934 }]
+
+[[formula]]
+id = "body_fat_navy_men"
+name = "Body fat (US Navy, men)"
+expr = "86.010 * log10(a - n) - 70.041 * log10(h) + 36.76"
+output = { symbol = "bf", name = "body fat percent", unit = "1", aliases = ["body_fat"] }
+variables = [
+  { symbol = "a", name = "abdomen in inches", unit = "1", aliases = ["abdomen", "waist"] },
+  { symbol = "n", name = "neck in inches", unit = "1", aliases = ["neck"] },
+  { symbol = "h", name = "height in inches", unit = "1", aliases = ["height"] },
+]
+tags = ["body_composition"]
+source = { title = "Body fat percentage (Wikipedia)", url = "https://en.wikipedia.org/wiki/Body_fat_percentage" }
+checks = [{ inputs = [34, 15, 70], output = 17.51308539731425 }]
+
+[[formula]]
+id = "body_fat_bmi_adults"
+name = "Body fat from BMI (Deurenberg)"
+expr = "1.2 * b + 0.23 * a - 10.8 * s - 5.4"
+output = { symbol = "bf", name = "body fat percent", unit = "1", aliases = ["body_fat"] }
+variables = [
+  { symbol = "b", name = "body mass index", unit = "1", aliases = ["bmi"] },
+  { symbol = "a", name = "age", unit = "1", aliases = ["age"] },
+  { symbol = "s", name = "sex (1 male, 0 female)", unit = "1", aliases = ["sex", "male"] },
+]
+tags = ["body_composition"]
+source = { title = "Body fat percentage (Wikipedia)", url = "https://en.wikipedia.org/wiki/Body_fat_percentage" }
+checks = [{ inputs = [24, 40, 1], output = 21.799999999999997 }]
+
+[[formula]]
+id = "lean_body_mass_boer_men"
+name = "Lean body mass (Boer, men)"
+expr = "0.407 * w + 0.267 * h - 19.2"
+output = { symbol = "L", name = "lean body mass in kg", unit = "1", aliases = ["lean_mass", "lbm"] }
+variables = [
+  { symbol = "w", name = "weight in kg", unit = "1", aliases = ["weight"] },
+  { symbol = "h", name = "height in cm", unit = "1", aliases = ["height"] },
+]
+tags = ["body_composition"]
+source = { title = "Lean body mass (Wikipedia)", url = "https://en.wikipedia.org/wiki/Lean_body_mass" }
+checks = [{ inputs = [80, 180], output = 61.42 }]
+
+[[formula]]
+id = "ponderal_index"
+name = "Ponderal index"
+expr = "m / h^3"
+output = { symbol = "PI", name = "ponderal index", unit = "kg/m^3", aliases = ["ponderal"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["weight", "mass"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+]
+tags = ["body_composition"]
+source = { title = "Corpulence index (Wikipedia)", url = "https://en.wikipedia.org/wiki/Corpulence_index" }
+checks = [{ inputs = [70, 1.75], output = 13.061224489795919 }]
+
+[[formula]]
+id = "ideal_body_weight_robinson_men"
+name = "Ideal body weight (Robinson, men)"
+expr = "52 + 1.9 * (h - 60)"
+output = { symbol = "w", name = "ideal weight in kg", unit = "1", aliases = ["ideal_weight"] }
+variables = [
+  { symbol = "h", name = "height in inches", unit = "1", aliases = ["height"] },
+]
+tags = ["body_composition"]
+source = { title = "Human body weight (Wikipedia)", url = "https://en.wikipedia.org/wiki/Human_body_weight" }
+checks = [{ inputs = [70], output = 71 }]
+
+[[formula]]
+id = "adjusted_body_weight"
+name = "Adjusted body weight"
+expr = "i + 0.4 * (a - i)"
+output = { symbol = "w", name = "adjusted weight in kg", unit = "1", aliases = ["adjusted_weight"] }
+variables = [
+  { symbol = "i", name = "ideal weight in kg", unit = "1", aliases = ["ideal_weight"] },
+  { symbol = "a", name = "actual weight in kg", unit = "1", aliases = ["weight", "actual"] },
+]
+tags = ["body_composition", "dosing"]
+source = { title = "Human body weight (Wikipedia)", url = "https://en.wikipedia.org/wiki/Human_body_weight" }
+checks = [{ inputs = [70, 110], output = 86 }]
+
+[[formula]]
+id = "bmr_katch_mcardle"
+name = "Basal metabolic rate (Katch-McArdle)"
+expr = "370 + 21.6 * l"
+output = { symbol = "BMR", name = "kcal per day", unit = "1", aliases = ["bmr"] }
+variables = [
+  { symbol = "l", name = "lean body mass in kg", unit = "1", aliases = ["lean_mass", "lbm"] },
+]
+tags = ["energy", "metabolism"]
+source = { title = "Basal metabolic rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Basal_metabolic_rate" }
+checks = [{ inputs = [60], output = 1666 }]
+
+[[formula]]
+id = "calorie_deficit_weight_loss"
+name = "Weight loss from a calorie deficit"
+expr = "d * t / 7700"
+output = { symbol = "w", name = "weight lost in kg", unit = "1", aliases = ["weight_loss"] }
+variables = [
+  { symbol = "d", name = "daily deficit in kcal", unit = "1", aliases = ["deficit"] },
+  { symbol = "t", name = "days", unit = "1", aliases = ["days"] },
+]
+tags = ["nutrition"]
+source = { title = "Dieting (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dieting" }
+checks = [{ inputs = [500, 30], output = 1.948051948051948 }]
+
+[[formula]]
+id = "protein_requirement"
+name = "Daily protein requirement"
+expr = "g * w"
+output = { symbol = "p", name = "protein in grams", unit = "1", aliases = ["protein"] }
+variables = [
+  { symbol = "g", name = "grams per kg", unit = "1", aliases = ["grams_per_kg", "factor"] },
+  { symbol = "w", name = "weight in kg", unit = "1", aliases = ["weight"] },
+]
+tags = ["nutrition"]
+source = { title = "Protein (nutrient) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Protein_(nutrient)" }
+checks = [{ inputs = [1.6, 75], output = 120 }]
+
+[[formula]]
+id = "alcohol_units"
+name = "Units of alcohol"
+expr = "v * a / 1000"
+output = { symbol = "u", name = "alcohol units", unit = "1", aliases = ["units"] }
+variables = [
+  { symbol = "v", name = "volume in ml", unit = "1", aliases = ["volume", "ml"] },
+  { symbol = "a", name = "alcohol by volume in percent", unit = "1", aliases = ["abv"] },
+]
+tags = ["nutrition", "alcohol"]
+source = { title = "Unit of alcohol (Wikipedia)", url = "https://en.wikipedia.org/wiki/Unit_of_alcohol" }
+checks = [{ inputs = [500, 5], output = 2.5 }]
+
+[[formula]]
+id = "alcohol_grams"
+name = "Grams of alcohol in a drink"
+expr = "v * a / 100 * 0.789"
+output = { symbol = "g", name = "alcohol in grams", unit = "1", aliases = ["alcohol", "grams"] }
+variables = [
+  { symbol = "v", name = "volume in ml", unit = "1", aliases = ["volume", "ml"] },
+  { symbol = "a", name = "alcohol by volume in percent", unit = "1", aliases = ["abv"] },
+]
+tags = ["nutrition", "alcohol"]
+source = { title = "Standard drink (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_drink" }
+checks = [{ inputs = [330, 5], output = 13.018500000000001 }]
+
+[[formula]]
+id = "caffeine_remaining"
+name = "Caffeine left in the body"
+expr = "d * 0.5^(t / h)"
+output = { symbol = "c", name = "caffeine left in mg", unit = "1", aliases = ["caffeine", "remaining"] }
+variables = [
+  { symbol = "d", name = "dose in mg", unit = "1", aliases = ["dose"] },
+  { symbol = "t", name = "hours since intake", unit = "1", aliases = ["hours", "time"] },
+  { symbol = "h", name = "half-life in hours", unit = "1", aliases = ["half_life"] },
+]
+tags = ["pharmacology"]
+source = { title = "Caffeine (Wikipedia)", url = "https://en.wikipedia.org/wiki/Caffeine" }
+checks = [{ inputs = [200, 10, 5], output = 50 }]
+
+[[formula]]
+id = "drug_concentration_iv"
+name = "Drug concentration after an IV dose"
+expr = "d / v * exp(-k * t)"
+output = { symbol = "C", name = "concentration", unit = "kg/m^3", aliases = ["concentration"] }
+variables = [
+  { symbol = "d", name = "dose", unit = "kg", aliases = ["dose"] },
+  { symbol = "v", name = "volume of distribution", unit = "m^3", aliases = ["volume", "vd"] },
+  { symbol = "k", name = "elimination rate", unit = "1/s", aliases = ["k", "elimination"] },
+  { symbol = "t", name = "time", unit = "s", aliases = ["time", "t"] },
+]
+tags = ["pharmacology"]
+source = { title = "Pharmacokinetics (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pharmacokinetics" }
+checks = [{ inputs = [0.0005, 0.04, 0.0001, 3600], output = 0.008720954075887887 }]
+
+[[formula]]
+id = "elimination_half_life"
+name = "Elimination half-life"
+expr = "0.693 * v / c"
+output = { symbol = "t", name = "half-life", unit = "s", aliases = ["half_life"] }
+variables = [
+  { symbol = "v", name = "volume of distribution", unit = "m^3", aliases = ["volume", "vd"] },
+  { symbol = "c", name = "clearance", unit = "m^3/s", aliases = ["clearance", "cl"] },
+]
+tags = ["pharmacology"]
+source = { title = "Biological half-life (Wikipedia)", url = "https://en.wikipedia.org/wiki/Biological_half-life" }
+checks = [{ inputs = [0.04, 2e-06], output = 13860 }]
+
+[[formula]]
+id = "loading_dose"
+name = "Loading dose"
+expr = "c * v / f"
+output = { symbol = "D", name = "loading dose", unit = "kg", aliases = ["dose", "loading_dose"] }
+variables = [
+  { symbol = "c", name = "target concentration", unit = "kg/m^3", aliases = ["target", "concentration"] },
+  { symbol = "v", name = "volume of distribution", unit = "m^3", aliases = ["volume", "vd"] },
+  { symbol = "f", name = "bioavailability", unit = "1", aliases = ["bioavailability", "f"] },
+]
+tags = ["pharmacology"]
+source = { title = "Loading dose (Wikipedia)", url = "https://en.wikipedia.org/wiki/Loading_dose" }
+checks = [{ inputs = [0.01, 0.05, 0.8], output = 0.000625 }]
+
+[[formula]]
+id = "maintenance_dose_rate"
+name = "Maintenance dose rate"
+expr = "c * l / f"
+output = { symbol = "R", name = "dose rate", unit = "kg/s", aliases = ["dose_rate"] }
+variables = [
+  { symbol = "c", name = "target concentration", unit = "kg/m^3", aliases = ["target", "concentration"] },
+  { symbol = "l", name = "clearance", unit = "m^3/s", aliases = ["clearance", "cl"] },
+  { symbol = "f", name = "bioavailability", unit = "1", aliases = ["bioavailability", "f"] },
+]
+tags = ["pharmacology"]
+source = { title = "Pharmacokinetics (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pharmacokinetics" }
+checks = [{ inputs = [0.01, 1e-06, 0.8], output = 1.25e-08 }]
+
+[[formula]]
+id = "iv_drip_rate"
+name = "IV drip rate"
+expr = "v * d / t"
+output = { symbol = "r", name = "drops per minute", unit = "1", aliases = ["drip_rate", "drops"] }
+variables = [
+  { symbol = "v", name = "volume in ml", unit = "1", aliases = ["volume", "ml"] },
+  { symbol = "d", name = "drop factor in drops per ml", unit = "1", aliases = ["drop_factor"] },
+  { symbol = "t", name = "time in minutes", unit = "1", aliases = ["minutes", "time"] },
+]
+tags = ["nursing"]
+source = { title = "Intravenous therapy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Intravenous_therapy" }
+checks = [{ inputs = [1000, 20, 480], output = 41.666666666666664 }]
+
+[[formula]]
+id = "infusion_rate"
+name = "Infusion rate in ml per hour"
+expr = "v / t"
+output = { symbol = "r", name = "ml per hour", unit = "1", aliases = ["rate", "ml_per_hour"] }
+variables = [
+  { symbol = "v", name = "volume in ml", unit = "1", aliases = ["volume", "ml"] },
+  { symbol = "t", name = "time in hours", unit = "1", aliases = ["hours", "time"] },
+]
+tags = ["nursing"]
+source = { title = "Intravenous therapy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Intravenous_therapy" }
+checks = [{ inputs = [500, 4], output = 125 }]
+
+[[formula]]
+id = "paediatric_dose_clark"
+name = "Paediatric dose (Clark's rule)"
+expr = "w / 150 * d"
+output = { symbol = "D", name = "child dose", unit = "1", aliases = ["dose", "child_dose"] }
+variables = [
+  { symbol = "w", name = "child weight in pounds", unit = "1", aliases = ["weight", "lbs"] },
+  { symbol = "d", name = "adult dose", unit = "1", aliases = ["adult_dose"] },
+]
+tags = ["dosing"]
+source = { title = "Dose (biochemistry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dose_(biochemistry)" }
+checks = [{ inputs = [50, 500], output = 166.66666666666666 }]
+
+[[formula]]
+id = "corrected_calcium"
+name = "Corrected calcium"
+expr = "c + 0.8 * (4 - a)"
+output = { symbol = "C", name = "corrected calcium in mg/dL", unit = "1", aliases = ["corrected_calcium"] }
+variables = [
+  { symbol = "c", name = "measured calcium in mg/dL", unit = "1", aliases = ["calcium"] },
+  { symbol = "a", name = "albumin in g/dL", unit = "1", aliases = ["albumin"] },
+]
+tags = ["clinical"]
+source = { title = "Hypocalcaemia (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hypocalcaemia" }
+checks = [{ inputs = [8.2, 3], output = 9 }]
+
+[[formula]]
+id = "anion_gap"
+name = "Anion gap"
+expr = "n - (c + b)"
+output = { symbol = "AG", name = "anion gap", unit = "1", aliases = ["anion_gap"] }
+variables = [
+  { symbol = "n", name = "sodium in mmol/L", unit = "1", aliases = ["sodium", "na"] },
+  { symbol = "c", name = "chloride in mmol/L", unit = "1", aliases = ["chloride", "cl"] },
+  { symbol = "b", name = "bicarbonate in mmol/L", unit = "1", aliases = ["bicarbonate", "hco3"] },
+]
+tags = ["clinical"]
+source = { title = "Anion gap (Wikipedia)", url = "https://en.wikipedia.org/wiki/Anion_gap" }
+checks = [{ inputs = [140, 104, 24], output = 12 }]
+
+[[formula]]
+id = "serum_osmolality"
+name = "Calculated serum osmolality"
+expr = "2 * n + g / 18 + u / 2.8"
+output = { symbol = "O", name = "osmolality in mOsm/kg", unit = "1", aliases = ["osmolality"] }
+variables = [
+  { symbol = "n", name = "sodium in mmol/L", unit = "1", aliases = ["sodium", "na"] },
+  { symbol = "g", name = "glucose in mg/dL", unit = "1", aliases = ["glucose"] },
+  { symbol = "u", name = "blood urea nitrogen in mg/dL", unit = "1", aliases = ["bun", "urea"] },
+]
+tags = ["clinical"]
+source = { title = "Plasma osmolality (Wikipedia)", url = "https://en.wikipedia.org/wiki/Plasma_osmolality" }
+checks = [{ inputs = [140, 90, 14], output = 290 }]
+
+[[formula]]
+id = "qtc_bazett"
+name = "Corrected QT interval (Bazett)"
+expr = "q / sqrt(r)"
+output = { symbol = "QTc", name = "corrected QT in seconds", unit = "1", aliases = ["qtc"] }
+variables = [
+  { symbol = "q", name = "QT interval in seconds", unit = "1", aliases = ["qt"] },
+  { symbol = "r", name = "RR interval in seconds", unit = "1", aliases = ["rr"] },
+]
+tags = ["cardiology"]
+source = { title = "QT interval (Wikipedia)", url = "https://en.wikipedia.org/wiki/QT_interval" }
+checks = [{ inputs = [0.4, 0.8], output = 0.447213595499958 }]
+
+[[formula]]
+id = "qtc_fridericia"
+name = "Corrected QT interval (Fridericia)"
+expr = "q / cbrt(r)"
+output = { symbol = "QTc", name = "corrected QT in seconds", unit = "1", aliases = ["qtc"] }
+variables = [
+  { symbol = "q", name = "QT interval in seconds", unit = "1", aliases = ["qt"] },
+  { symbol = "r", name = "RR interval in seconds", unit = "1", aliases = ["rr"] },
+]
+tags = ["cardiology"]
+source = { title = "QT interval (Wikipedia)", url = "https://en.wikipedia.org/wiki/QT_interval" }
+checks = [{ inputs = [0.4, 0.8], output = 0.43088693800637673 }]
+
+[[formula]]
+id = "heart_rate_from_rr"
+name = "Heart rate from the RR interval"
+expr = "60 / r"
+output = { symbol = "HR", name = "beats per minute", unit = "1", aliases = ["heart_rate", "bpm"] }
+variables = [
+  { symbol = "r", name = "RR interval in seconds", unit = "1", aliases = ["rr"] },
+]
+tags = ["cardiology"]
+source = { title = "Heart rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Heart_rate" }
+checks = [{ inputs = [0.75], output = 80 }]
+
+[[formula]]
+id = "cardiac_output"
+name = "Cardiac output"
+expr = "h * s"
+output = { symbol = "Q", name = "cardiac output", unit = "m^3/s", aliases = ["cardiac_output", "co"] }
+variables = [
+  { symbol = "h", name = "heart rate", unit = "Hz", aliases = ["heart_rate", "hr"] },
+  { symbol = "s", name = "stroke volume", unit = "m^3", aliases = ["stroke_volume", "sv"] },
+]
+tags = ["cardiology"]
+source = { title = "Cardiac output (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cardiac_output" }
+checks = [{ inputs = [1.2, 7e-05], output = 8.4e-05 }]
+
+[[formula]]
+id = "cardiac_index"
+name = "Cardiac index"
+expr = "q / a"
+output = { symbol = "CI", name = "cardiac index", unit = "m/s", aliases = ["cardiac_index"] }
+variables = [
+  { symbol = "q", name = "cardiac output", unit = "m^3/s", aliases = ["cardiac_output", "co"] },
+  { symbol = "a", name = "body surface area", unit = "m^2", aliases = ["bsa"] },
+]
+tags = ["cardiology"]
+source = { title = "Cardiac index (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cardiac_index" }
+checks = [{ inputs = [8.33e-05, 1.9], output = 4.38421052631579e-05 }]
+
+[[formula]]
+id = "ejection_fraction"
+name = "Ejection fraction"
+expr = "(d - s) / d"
+output = { symbol = "EF", name = "ejection fraction", unit = "1", aliases = ["ef", "ejection_fraction"] }
+variables = [
+  { symbol = "d", name = "end-diastolic volume", unit = "m^3", aliases = ["edv"] },
+  { symbol = "s", name = "end-systolic volume", unit = "m^3", aliases = ["esv"] },
+]
+tags = ["cardiology"]
+source = { title = "Ejection fraction (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ejection_fraction" }
+checks = [{ inputs = [0.00012, 5e-05], output = 0.5833333333333333 }]
+
+[[formula]]
+id = "oxygen_delivery"
+name = "Oxygen content of arterial blood"
+expr = "1.34 * h * s + 0.003 * p"
+output = { symbol = "C", name = "oxygen content in mL/dL", unit = "1", aliases = ["cao2", "oxygen_content"] }
+variables = [
+  { symbol = "h", name = "haemoglobin in g/dL", unit = "1", aliases = ["hemoglobin", "hb"] },
+  { symbol = "s", name = "oxygen saturation", unit = "1", aliases = ["sao2", "saturation"] },
+  { symbol = "p", name = "arterial oxygen pressure in mmHg", unit = "1", aliases = ["pao2"] },
+]
+tags = ["respiratory"]
+source = { title = "Oxygen saturation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Oxygen_saturation" }
+checks = [{ inputs = [15, 0.98, 95], output = 19.983 }]
+
+[[formula]]
+id = "minute_ventilation"
+name = "Minute ventilation"
+expr = "t * r"
+output = { symbol = "V", name = "minute ventilation", unit = "m^3/s", aliases = ["ventilation", "ve"] }
+variables = [
+  { symbol = "t", name = "tidal volume", unit = "m^3", aliases = ["tidal_volume", "vt"] },
+  { symbol = "r", name = "breathing rate", unit = "Hz", aliases = ["respiratory_rate", "rr"] },
+]
+tags = ["respiratory"]
+source = { title = "Minute ventilation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Minute_ventilation" }
+checks = [{ inputs = [0.0005, 0.2], output = 0.0001 }]
+
+[[formula]]
+id = "vo2max_cooper"
+name = "VO2 max from the Cooper test"
+expr = "(d - 504.9) / 44.73"
+output = { symbol = "VO2", name = "VO2 max in mL/(kg·min)", unit = "1", aliases = ["vo2max"] }
+variables = [
+  { symbol = "d", name = "distance in 12 minutes in metres", unit = "1", aliases = ["distance"] },
+]
+tags = ["fitness"]
+source = { title = "Cooper test (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cooper_test" }
+checks = [{ inputs = [2800], output = 51.31008271853342 }]
+
+[[formula]]
+id = "vo2max_heart_rate_ratio"
+name = "VO2 max from heart rates (Uth)"
+expr = "15.3 * m / r"
+output = { symbol = "VO2", name = "VO2 max in mL/(kg·min)", unit = "1", aliases = ["vo2max"] }
+variables = [
+  { symbol = "m", name = "maximum heart rate", unit = "1", aliases = ["hr_max"] },
+  { symbol = "r", name = "resting heart rate", unit = "1", aliases = ["hr_rest"] },
+]
+tags = ["fitness"]
+source = { title = "VO2 max (Wikipedia)", url = "https://en.wikipedia.org/wiki/VO2_max" }
+checks = [{ inputs = [190, 60], output = 48.45 }]
+
+[[formula]]
+id = "one_rep_max_brzycki"
+name = "One-rep max (Brzycki)"
+expr = "w * 36 / (37 - r)"
+output = { symbol = "orm", name = "one-rep max", unit = "1", aliases = ["one_rep_max", "1rm"] }
+variables = [
+  { symbol = "w", name = "weight lifted", unit = "1", aliases = ["weight"] },
+  { symbol = "r", name = "repetitions", unit = "1", aliases = ["reps"] },
+]
+tags = ["fitness"]
+source = { title = "One-repetition maximum (Wikipedia)", url = "https://en.wikipedia.org/wiki/One-repetition_maximum" }
+checks = [{ inputs = [100, 8], output = 124.13793103448276 }]
+
+[[formula]]
+id = "training_impulse"
+name = "Training load (session RPE)"
+expr = "r * t"
+output = { symbol = "L", name = "training load", unit = "1", aliases = ["load", "trimp"] }
+variables = [
+  { symbol = "r", name = "rating of perceived exertion", unit = "1", aliases = ["rpe"] },
+  { symbol = "t", name = "duration in minutes", unit = "1", aliases = ["minutes", "duration"] },
+]
+tags = ["fitness"]
+source = { title = "Training load (Wikipedia)", url = "https://en.wikipedia.org/wiki/Training_load" }
+checks = [{ inputs = [7, 60], output = 420 }]
+
+[[formula]]
+id = "steps_to_distance"
+name = "Distance from steps"
+expr = "s * l / 1000"
+output = { symbol = "d", name = "distance in km", unit = "1", aliases = ["distance", "km"] }
+variables = [
+  { symbol = "s", name = "steps", unit = "1", aliases = ["steps"] },
+  { symbol = "l", name = "stride length in metres", unit = "1", aliases = ["stride"] },
+]
+tags = ["fitness"]
+source = { title = "Pedometer (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pedometer" }
+checks = [{ inputs = [10000, 0.75], output = 7.5 }]
+
+[[formula]]
+id = "swimming_pace"
+name = "Swimming pace per 100 m"
+expr = "100 * t / d"
+output = { symbol = "p", name = "time per 100 m", unit = "s", aliases = ["pace"] }
+variables = [
+  { symbol = "t", name = "time", unit = "s", aliases = ["time"] },
+  { symbol = "d", name = "distance in metres", unit = "1", aliases = ["distance"] },
+]
+tags = ["fitness"]
+source = { title = "Swimming (sport) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Swimming_(sport)" }
+checks = [{ inputs = [1800, 1500], output = 120 }]
+
+[[formula]]
+id = "pregnancy_due_date"
+name = "Gestational age in weeks"
+expr = "d / 7"
+output = { symbol = "w", name = "weeks", unit = "1", aliases = ["weeks"] }
+variables = [
+  { symbol = "d", name = "days since the last period", unit = "1", aliases = ["days"] },
+]
+tags = ["maternal"]
+source = { title = "Gestational age (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gestational_age" }
+checks = [{ inputs = [140], output = 20 }]
+
+[[formula]]
+id = "apgar_total"
+name = "Apgar score total"
+expr = "a + p + g + c + r"
+output = { symbol = "s", name = "Apgar score", unit = "1", aliases = ["apgar"] }
+variables = [
+  { symbol = "a", name = "appearance", unit = "1", aliases = ["appearance"] },
+  { symbol = "p", name = "pulse", unit = "1", aliases = ["pulse"] },
+  { symbol = "g", name = "grimace", unit = "1", aliases = ["grimace"] },
+  { symbol = "c", name = "activity", unit = "1", aliases = ["activity"] },
+  { symbol = "r", name = "respiration", unit = "1", aliases = ["respiration"] },
+]
+tags = ["maternal", "neonatal"]
+source = { title = "Apgar score (Wikipedia)", url = "https://en.wikipedia.org/wiki/Apgar_score" }
+checks = [{ inputs = [2, 2, 1, 2, 2], output = 9 }]

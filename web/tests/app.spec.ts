@@ -55,7 +55,7 @@ test("uploads a file and reports unreadable ones", async ({ page }) => {
 test("searches the formula library", async ({ page }) => {
   await page.goto("./library.html");
   await expect(page.getByRole("heading", { name: "Library of known formulas" })).toBeVisible();
-  await expect(page.locator("#count")).toContainText(/of \d{3} formulas/);
+  await expect(page.locator("#count")).toContainText(/of \d+ formulas/);
   await page.getByLabel("Search").fill("kinetic");
   await expect(page.locator("article:not([hidden]) h2").first()).toContainText(/kinetic/i);
   await page.getByLabel("Search").fill("");

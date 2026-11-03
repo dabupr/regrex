@@ -1,0 +1,703 @@
+# Engineering: structures and strength of materials, machines, fluids in
+# pipes and pumps, manufacturing and civil works.
+#
+# Quantities use SI units unless the name says otherwise.
+
+id = "engineering"
+name = "Engineering"
+description = "Strength of materials, beams, machine elements, pipes and pumps, manufacturing and civil works."
+
+[[formula]]
+id = "normal_stress"
+name = "Normal stress"
+expr = "F / A"
+output = { symbol = "s", name = "stress", unit = "Pa", aliases = ["stress", "sigma"] }
+variables = [
+  { symbol = "F", name = "axial force", unit = "N", aliases = ["force", "load"] },
+  { symbol = "A", name = "cross-section area", unit = "m^2", aliases = ["area"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Stress (mechanics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Stress_(mechanics)" }
+checks = [{ inputs = [50000, 0.0005], output = 100000000 }]
+
+[[formula]]
+id = "shear_stress"
+name = "Average shear stress"
+expr = "V / A"
+output = { symbol = "t", name = "shear stress", unit = "Pa", aliases = ["shear_stress", "tau"] }
+variables = [
+  { symbol = "V", name = "shear force", unit = "N", aliases = ["shear_force", "force"] },
+  { symbol = "A", name = "shear area", unit = "m^2", aliases = ["area"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Shear stress (Wikipedia)", url = "https://en.wikipedia.org/wiki/Shear_stress" }
+checks = [{ inputs = [20000, 0.0004], output = 50000000 }]
+
+[[formula]]
+id = "strain"
+name = "Engineering strain"
+expr = "d / L"
+output = { symbol = "e", name = "strain", unit = "1", aliases = ["strain", "epsilon"] }
+variables = [
+  { symbol = "d", name = "change in length", unit = "m", aliases = ["elongation", "dl"] },
+  { symbol = "L", name = "original length", unit = "m", aliases = ["length"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Strain (mechanics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Strain_(mechanics)" }
+checks = [{ inputs = [0.0012, 2], output = 0.0006 }]
+
+[[formula]]
+id = "youngs_modulus"
+name = "Young's modulus"
+expr = "s / e"
+output = { symbol = "E", name = "Young's modulus", unit = "Pa", aliases = ["youngs_modulus", "modulus"] }
+variables = [
+  { symbol = "s", name = "stress", unit = "Pa", aliases = ["stress", "sigma"] },
+  { symbol = "e", name = "strain", unit = "1", aliases = ["strain", "epsilon"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Young's modulus (Wikipedia)", url = "https://en.wikipedia.org/wiki/Young's_modulus" }
+checks = [{ inputs = [200000000, 0.001], output = 200000000000 }]
+
+[[formula]]
+id = "axial_elongation"
+name = "Elongation of a bar under load"
+expr = "F * L / (A * E)"
+output = { symbol = "d", name = "elongation", unit = "m", aliases = ["elongation"] }
+variables = [
+  { symbol = "F", name = "axial force", unit = "N", aliases = ["force", "load"] },
+  { symbol = "L", name = "length", unit = "m", aliases = ["length"] },
+  { symbol = "A", name = "cross-section area", unit = "m^2", aliases = ["area"] },
+  { symbol = "E", name = "Young's modulus", unit = "Pa", aliases = ["modulus", "youngs_modulus"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Deformation (engineering) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Deformation_(engineering)" }
+checks = [{ inputs = [10000, 2, 0.0001, 200000000000], output = 0.001 }]
+
+[[formula]]
+id = "thermal_stress"
+name = "Thermal stress in a restrained bar"
+expr = "E * a * d"
+output = { symbol = "s", name = "stress", unit = "Pa", aliases = ["stress"] }
+variables = [
+  { symbol = "E", name = "Young's modulus", unit = "Pa", aliases = ["modulus"] },
+  { symbol = "a", name = "thermal expansion coefficient", unit = "1/K", aliases = ["alpha"] },
+  { symbol = "d", name = "temperature change", unit = "K", aliases = ["delta_t", "dt"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Thermal stress (Wikipedia)", url = "https://en.wikipedia.org/wiki/Thermal_stress" }
+checks = [{ inputs = [200000000000, 1.2e-05, 40], output = 96000000 }]
+
+[[formula]]
+id = "safety_factor"
+name = "Factor of safety"
+expr = "s / w"
+output = { symbol = "n", name = "factor of safety", unit = "1", aliases = ["safety_factor", "fos"] }
+variables = [
+  { symbol = "s", name = "strength", unit = "Pa", aliases = ["strength", "yield"] },
+  { symbol = "w", name = "working stress", unit = "Pa", aliases = ["stress", "working"] },
+]
+tags = ["design"]
+source = { title = "Factor of safety (Wikipedia)", url = "https://en.wikipedia.org/wiki/Factor_of_safety" }
+checks = [{ inputs = [250000000, 100000000], output = 2.5 }]
+
+[[formula]]
+id = "poisson_ratio"
+name = "Poisson's ratio"
+expr = "-l / a"
+output = { symbol = "v", name = "Poisson's ratio", unit = "1", aliases = ["poisson", "nu"] }
+variables = [
+  { symbol = "l", name = "lateral strain", unit = "1", aliases = ["lateral"] },
+  { symbol = "a", name = "axial strain", unit = "1", aliases = ["axial"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Poisson's ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Poisson's_ratio" }
+checks = [{ inputs = [-0.0003, 0.001], output = 0.3 }]
+
+[[formula]]
+id = "shear_modulus"
+name = "Shear modulus from Young's modulus"
+expr = "E / (2 * (1 + v))"
+output = { symbol = "G", name = "shear modulus", unit = "Pa", aliases = ["shear_modulus"] }
+variables = [
+  { symbol = "E", name = "Young's modulus", unit = "Pa", aliases = ["modulus"] },
+  { symbol = "v", name = "Poisson's ratio", unit = "1", aliases = ["poisson", "nu"] },
+]
+tags = ["strength_of_materials"]
+source = { title = "Shear modulus (Wikipedia)", url = "https://en.wikipedia.org/wiki/Shear_modulus" }
+checks = [{ inputs = [200000000000, 0.3], output = 76923076923.07692 }]
+
+[[formula]]
+id = "bending_stress"
+name = "Bending stress"
+expr = "M * y / I"
+output = { symbol = "s", name = "bending stress", unit = "Pa", aliases = ["stress"] }
+variables = [
+  { symbol = "M", name = "bending moment", unit = "N*m", aliases = ["moment"] },
+  { symbol = "y", name = "distance from the neutral axis", unit = "m", aliases = ["distance", "y"] },
+  { symbol = "I", name = "second moment of area", unit = "m^4", aliases = ["inertia"] },
+]
+tags = ["beams"]
+source = { title = "Bending (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bending" }
+checks = [{ inputs = [5000, 0.05, 1e-05], output = 24999999.999999996 }]
+
+[[formula]]
+id = "rectangle_second_moment"
+name = "Second moment of area of a rectangle"
+expr = "b * h^3 / 12"
+output = { symbol = "I", name = "second moment of area", unit = "m^4", aliases = ["inertia"] }
+variables = [
+  { symbol = "b", name = "width", unit = "m", aliases = ["width", "b"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height", "h"] },
+]
+tags = ["beams", "sections"]
+source = { title = "Second moment of area (Wikipedia)", url = "https://en.wikipedia.org/wiki/Second_moment_of_area" }
+checks = [{ inputs = [0.1, 0.2], output = 6.666666666666668e-05 }]
+
+[[formula]]
+id = "circle_second_moment"
+name = "Second moment of area of a solid circle"
+expr = "pi * d^4 / 64"
+output = { symbol = "I", name = "second moment of area", unit = "m^4", aliases = ["inertia"] }
+variables = [
+  { symbol = "d", name = "diameter", unit = "m", aliases = ["diameter"] },
+]
+tags = ["beams", "sections"]
+source = { title = "List of second moments of area (Wikipedia)", url = "https://en.wikipedia.org/wiki/List_of_second_moments_of_area" }
+checks = [{ inputs = [0.05], output = 3.067961575771283e-07 }]
+
+[[formula]]
+id = "section_modulus_rectangle"
+name = "Section modulus of a rectangle"
+expr = "b * h^2 / 6"
+output = { symbol = "S", name = "section modulus", unit = "m^3", aliases = ["section_modulus"] }
+variables = [
+  { symbol = "b", name = "width", unit = "m", aliases = ["width", "b"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height", "h"] },
+]
+tags = ["beams", "sections"]
+source = { title = "Section modulus (Wikipedia)", url = "https://en.wikipedia.org/wiki/Section_modulus" }
+checks = [{ inputs = [0.1, 0.2], output = 0.0006666666666666669 }]
+
+[[formula]]
+id = "simply_supported_max_moment"
+name = "Maximum moment of a uniformly loaded beam"
+expr = "w * L^2 / 8"
+output = { symbol = "M", name = "maximum moment", unit = "N*m", aliases = ["moment"] }
+variables = [
+  { symbol = "w", name = "load per length", unit = "N/m", aliases = ["load", "w"] },
+  { symbol = "L", name = "span", unit = "m", aliases = ["span", "length"] },
+]
+tags = ["beams"]
+source = { title = "Bending moment (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bending_moment" }
+checks = [{ inputs = [5000, 6], output = 22500 }]
+
+[[formula]]
+id = "simply_supported_point_moment"
+name = "Maximum moment with a central point load"
+expr = "P * L / 4"
+output = { symbol = "M", name = "maximum moment", unit = "N*m", aliases = ["moment"] }
+variables = [
+  { symbol = "P", name = "point load", unit = "N", aliases = ["load", "force"] },
+  { symbol = "L", name = "span", unit = "m", aliases = ["span", "length"] },
+]
+tags = ["beams"]
+source = { title = "Bending moment (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bending_moment" }
+checks = [{ inputs = [10000, 4], output = 10000 }]
+
+[[formula]]
+id = "simply_supported_deflection"
+name = "Deflection of a uniformly loaded beam"
+expr = "5 * w * L^4 / (384 * E * I)"
+output = { symbol = "d", name = "maximum deflection", unit = "m", aliases = ["deflection"] }
+variables = [
+  { symbol = "w", name = "load per length", unit = "N/m", aliases = ["load", "w"] },
+  { symbol = "L", name = "span", unit = "m", aliases = ["span", "length"] },
+  { symbol = "E", name = "Young's modulus", unit = "Pa", aliases = ["modulus"] },
+  { symbol = "I", name = "second moment of area", unit = "m^4", aliases = ["inertia"] },
+]
+tags = ["beams"]
+source = { title = "Deflection (engineering) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Deflection_(engineering)" }
+checks = [{ inputs = [5000, 6, 200000000000, 8e-05], output = 0.0052734374999999995 }]
+
+[[formula]]
+id = "cantilever_point_deflection"
+name = "Deflection of a cantilever with an end load"
+expr = "P * L^3 / (3 * E * I)"
+output = { symbol = "d", name = "tip deflection", unit = "m", aliases = ["deflection"] }
+variables = [
+  { symbol = "P", name = "end load", unit = "N", aliases = ["load", "force"] },
+  { symbol = "L", name = "length", unit = "m", aliases = ["length"] },
+  { symbol = "E", name = "Young's modulus", unit = "Pa", aliases = ["modulus"] },
+  { symbol = "I", name = "second moment of area", unit = "m^4", aliases = ["inertia"] },
+]
+tags = ["beams"]
+source = { title = "Deflection (engineering) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Deflection_(engineering)" }
+checks = [{ inputs = [1000, 2, 200000000000, 5e-06], output = 0.002666666666666666 }]
+
+[[formula]]
+id = "cantilever_max_moment"
+name = "Maximum moment of a cantilever with an end load"
+expr = "P * L"
+output = { symbol = "M", name = "maximum moment", unit = "N*m", aliases = ["moment"] }
+variables = [
+  { symbol = "P", name = "end load", unit = "N", aliases = ["load", "force"] },
+  { symbol = "L", name = "length", unit = "m", aliases = ["length"] },
+]
+tags = ["beams"]
+source = { title = "Cantilever (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cantilever" }
+checks = [{ inputs = [1000, 2], output = 2000 }]
+
+[[formula]]
+id = "euler_buckling"
+name = "Euler buckling load"
+expr = "pi^2 * E * I / (k * L)^2"
+output = { symbol = "P", name = "critical load", unit = "N", aliases = ["critical_load", "load"] }
+variables = [
+  { symbol = "E", name = "Young's modulus", unit = "Pa", aliases = ["modulus"] },
+  { symbol = "I", name = "second moment of area", unit = "m^4", aliases = ["inertia"] },
+  { symbol = "k", name = "effective length factor", unit = "1", aliases = ["k"] },
+  { symbol = "L", name = "length", unit = "m", aliases = ["length"] },
+]
+tags = ["columns"]
+source = { title = "Euler's critical load (Wikipedia)", url = "https://en.wikipedia.org/wiki/Euler's_critical_load" }
+checks = [{ inputs = [200000000000, 1e-06, 1, 3], output = 219324.54224643015 }]
+
+[[formula]]
+id = "slenderness_ratio"
+name = "Slenderness ratio"
+expr = "k * L / r"
+output = { symbol = "s", name = "slenderness ratio", unit = "1", aliases = ["slenderness"] }
+variables = [
+  { symbol = "k", name = "effective length factor", unit = "1", aliases = ["k"] },
+  { symbol = "L", name = "length", unit = "m", aliases = ["length"] },
+  { symbol = "r", name = "radius of gyration", unit = "m", aliases = ["radius_of_gyration"] },
+]
+tags = ["columns"]
+source = { title = "Slenderness ratio (Wikipedia)", url = "https://en.wikipedia.org/wiki/Slenderness_ratio" }
+checks = [{ inputs = [1, 3, 0.02], output = 150 }]
+
+[[formula]]
+id = "torsion_shear_stress"
+name = "Shear stress in a shaft under torsion"
+expr = "T * r / J"
+output = { symbol = "t", name = "shear stress", unit = "Pa", aliases = ["shear_stress", "tau"] }
+variables = [
+  { symbol = "T", name = "torque", unit = "N*m", aliases = ["torque"] },
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "J", name = "polar moment of area", unit = "m^4", aliases = ["polar_moment", "j"] },
+]
+tags = ["shafts"]
+source = { title = "Torsion (mechanics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Torsion_(mechanics)" }
+checks = [{ inputs = [500, 0.02, 2.5e-07], output = 40000000 }]
+
+[[formula]]
+id = "polar_moment_solid_shaft"
+name = "Polar moment of a solid shaft"
+expr = "pi * d^4 / 32"
+output = { symbol = "J", name = "polar moment of area", unit = "m^4", aliases = ["polar_moment", "j"] }
+variables = [
+  { symbol = "d", name = "diameter", unit = "m", aliases = ["diameter"] },
+]
+tags = ["shafts", "sections"]
+source = { title = "Polar moment of inertia (Wikipedia)", url = "https://en.wikipedia.org/wiki/Polar_moment_of_inertia" }
+checks = [{ inputs = [0.04], output = 2.5132741228718345e-07 }]
+
+[[formula]]
+id = "shaft_power"
+name = "Power transmitted by a shaft"
+expr = "2 * pi * n * T"
+output = { symbol = "P", name = "power", unit = "W", aliases = ["power"] }
+variables = [
+  { symbol = "n", name = "speed", unit = "Hz", aliases = ["speed", "rev_per_s"] },
+  { symbol = "T", name = "torque", unit = "N*m", aliases = ["torque"] },
+]
+tags = ["shafts", "machines"]
+source = { title = "Power (physics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Power_(physics)" }
+checks = [{ inputs = [25, 300], output = 47123.8898038469 }]
+
+[[formula]]
+id = "torque_from_power_rpm"
+name = "Torque from power and rpm"
+expr = "9.5488 * P / n"
+output = { symbol = "T", name = "torque in N·m", unit = "1", aliases = ["torque"] }
+variables = [
+  { symbol = "P", name = "power in watts", unit = "1", aliases = ["power", "watts"] },
+  { symbol = "n", name = "speed in rpm", unit = "1", aliases = ["rpm"] },
+]
+tags = ["machines"]
+source = { title = "Torque (Wikipedia)", url = "https://en.wikipedia.org/wiki/Torque" }
+checks = [{ inputs = [7500, 1450], output = 49.390344827586205 }]
+
+[[formula]]
+id = "gear_ratio"
+name = "Gear ratio"
+expr = "b / a"
+output = { symbol = "i", name = "gear ratio", unit = "1", aliases = ["gear_ratio", "ratio"] }
+variables = [
+  { symbol = "b", name = "teeth on the driven gear", unit = "1", aliases = ["driven", "teeth_out"] },
+  { symbol = "a", name = "teeth on the driving gear", unit = "1", aliases = ["driver", "teeth_in"] },
+]
+tags = ["machines", "gears"]
+source = { title = "Gear train (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gear_train" }
+checks = [{ inputs = [60, 20], output = 3 }]
+
+[[formula]]
+id = "output_speed_gears"
+name = "Output speed of a gear pair"
+expr = "n * a / b"
+output = { symbol = "m", name = "output speed", unit = "1", aliases = ["output_speed", "rpm_out"] }
+variables = [
+  { symbol = "n", name = "input speed", unit = "1", aliases = ["input_speed", "rpm_in"] },
+  { symbol = "a", name = "teeth on the driving gear", unit = "1", aliases = ["driver"] },
+  { symbol = "b", name = "teeth on the driven gear", unit = "1", aliases = ["driven"] },
+]
+tags = ["machines", "gears"]
+source = { title = "Gear train (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gear_train" }
+checks = [{ inputs = [1500, 20, 60], output = 500 }]
+
+[[formula]]
+id = "belt_length_open"
+name = "Length of an open belt"
+expr = "2 * C + pi * (D + d) / 2 + (D - d)^2 / (4 * C)"
+output = { symbol = "L", name = "belt length", unit = "m", aliases = ["belt_length", "length"] }
+variables = [
+  { symbol = "C", name = "centre distance", unit = "m", aliases = ["centre_distance"] },
+  { symbol = "D", name = "large pulley diameter", unit = "m", aliases = ["big_diameter"] },
+  { symbol = "d", name = "small pulley diameter", unit = "m", aliases = ["small_diameter"] },
+]
+tags = ["machines"]
+source = { title = "Belt (mechanical) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Belt_(mechanical)" }
+checks = [{ inputs = [1, 0.4, 0.2], output = 2.9524777960769377 }]
+
+[[formula]]
+id = "bolt_preload_torque"
+name = "Bolt tightening torque"
+expr = "k * d * F"
+output = { symbol = "T", name = "torque", unit = "N*m", aliases = ["torque"] }
+variables = [
+  { symbol = "k", name = "nut factor", unit = "1", aliases = ["nut_factor", "k"] },
+  { symbol = "d", name = "nominal diameter", unit = "m", aliases = ["diameter"] },
+  { symbol = "F", name = "preload", unit = "N", aliases = ["preload", "force"] },
+]
+tags = ["fasteners"]
+source = { title = "Torque wrench (Wikipedia)", url = "https://en.wikipedia.org/wiki/Torque_wrench" }
+checks = [{ inputs = [0.2, 0.012, 30000], output = 72 }]
+
+[[formula]]
+id = "bearing_life_l10"
+name = "Bearing life (L10)"
+expr = "(C / P)^3"
+output = { symbol = "L", name = "life in millions of revolutions", unit = "1", aliases = ["l10", "life"] }
+variables = [
+  { symbol = "C", name = "dynamic load rating", unit = "N", aliases = ["dynamic_rating", "c"] },
+  { symbol = "P", name = "equivalent load", unit = "N", aliases = ["load", "p"] },
+]
+tags = ["machines", "bearings"]
+source = { title = "Rolling-element bearing (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rolling-element_bearing" }
+checks = [{ inputs = [20000, 5000], output = 64 }]
+
+[[formula]]
+id = "spring_rate_helical"
+name = "Rate of a helical spring"
+expr = "G * d^4 / (8 * D^3 * n)"
+output = { symbol = "k", name = "spring rate", unit = "N/m", aliases = ["k", "spring_rate"] }
+variables = [
+  { symbol = "G", name = "shear modulus", unit = "Pa", aliases = ["shear_modulus"] },
+  { symbol = "d", name = "wire diameter", unit = "m", aliases = ["wire_diameter"] },
+  { symbol = "D", name = "coil diameter", unit = "m", aliases = ["coil_diameter"] },
+  { symbol = "n", name = "active coils", unit = "1", aliases = ["coils"] },
+]
+tags = ["machines", "springs"]
+source = { title = "Coil spring (Wikipedia)", url = "https://en.wikipedia.org/wiki/Coil_spring" }
+checks = [{ inputs = [79000000000, 0.002, 0.02, 10], output = 1974.9999999999998 }]
+
+[[formula]]
+id = "darcy_weisbach"
+name = "Head loss in a pipe (Darcy-Weisbach)"
+expr = "f * L / D * v^2 / (2 * g)"
+output = { symbol = "h", name = "head loss", unit = "m", aliases = ["head_loss"] }
+variables = [
+  { symbol = "f", name = "friction factor", unit = "1", aliases = ["friction_factor"] },
+  { symbol = "L", name = "pipe length", unit = "m", aliases = ["length"] },
+  { symbol = "D", name = "diameter", unit = "m", aliases = ["diameter"] },
+  { symbol = "v", name = "flow speed", unit = "m/s", aliases = ["speed", "velocity"] },
+]
+tags = ["pipes"]
+source = { title = "Darcy–Weisbach equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Darcy–Weisbach_equation" }
+checks = [{ inputs = [0.02, 100, 0.1, 2], output = 4.078864851911713 }]
+
+[[formula]]
+id = "hazen_williams_velocity"
+name = "Flow speed (Hazen-Williams)"
+expr = "0.849 * C * R^0.63 * S^0.54"
+output = { symbol = "v", name = "speed in m/s", unit = "1", aliases = ["speed", "velocity"] }
+variables = [
+  { symbol = "C", name = "roughness coefficient", unit = "1", aliases = ["c", "roughness"] },
+  { symbol = "R", name = "hydraulic radius in m", unit = "1", aliases = ["hydraulic_radius"] },
+  { symbol = "S", name = "slope of the energy line", unit = "1", aliases = ["slope"] },
+]
+tags = ["pipes"]
+source = { title = "Hazen–Williams equation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hazen–Williams_equation" }
+checks = [{ inputs = [130, 0.025, 0.01], output = 0.898572758100861 }]
+
+[[formula]]
+id = "laminar_friction_factor"
+name = "Friction factor in laminar flow"
+expr = "64 / r"
+output = { symbol = "f", name = "friction factor", unit = "1", aliases = ["friction_factor"] }
+variables = [
+  { symbol = "r", name = "Reynolds number", unit = "1", aliases = ["reynolds", "re"] },
+]
+tags = ["pipes"]
+source = { title = "Darcy friction factor formulae (Wikipedia)", url = "https://en.wikipedia.org/wiki/Darcy_friction_factor_formulae" }
+checks = [{ inputs = [1500], output = 0.042666666666666665 }]
+
+[[formula]]
+id = "hydraulic_diameter"
+name = "Hydraulic diameter"
+expr = "4 * A / P"
+output = { symbol = "D", name = "hydraulic diameter", unit = "m", aliases = ["hydraulic_diameter"] }
+variables = [
+  { symbol = "A", name = "flow area", unit = "m^2", aliases = ["area"] },
+  { symbol = "P", name = "wetted perimeter", unit = "m", aliases = ["perimeter"] },
+]
+tags = ["pipes"]
+source = { title = "Hydraulic diameter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hydraulic_diameter" }
+checks = [{ inputs = [0.02, 0.6], output = 0.13333333333333333 }]
+
+[[formula]]
+id = "pump_power"
+name = "Hydraulic power of a pump"
+expr = "r * g * Q * h / k"
+output = { symbol = "P", name = "shaft power", unit = "W", aliases = ["power"] }
+variables = [
+  { symbol = "r", name = "density", unit = "kg/m^3", aliases = ["density", "rho"] },
+  { symbol = "Q", name = "flow rate", unit = "m^3/s", aliases = ["flow"] },
+  { symbol = "h", name = "head", unit = "m", aliases = ["head"] },
+  { symbol = "k", name = "pump efficiency", unit = "1", aliases = ["efficiency"] },
+]
+tags = ["pumps"]
+source = { title = "Pump (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pump" }
+checks = [{ inputs = [1000, 0.01, 20, 0.7], output = 2801.9000000000005 }]
+
+[[formula]]
+id = "pump_affinity_flow"
+name = "Pump affinity law (flow)"
+expr = "Q * b / a"
+output = { symbol = "q", name = "new flow rate", unit = "m^3/s", aliases = ["flow2"] }
+variables = [
+  { symbol = "Q", name = "flow rate", unit = "m^3/s", aliases = ["flow"] },
+  { symbol = "b", name = "new speed", unit = "Hz", aliases = ["speed2"] },
+  { symbol = "a", name = "old speed", unit = "Hz", aliases = ["speed1"] },
+]
+tags = ["pumps"]
+source = { title = "Affinity laws (Wikipedia)", url = "https://en.wikipedia.org/wiki/Affinity_laws" }
+checks = [{ inputs = [0.02, 30, 25], output = 0.024 }]
+
+[[formula]]
+id = "pump_affinity_power"
+name = "Pump affinity law (power)"
+expr = "P * (b / a)^3"
+output = { symbol = "p", name = "new power", unit = "W", aliases = ["power2"] }
+variables = [
+  { symbol = "P", name = "power", unit = "W", aliases = ["power"] },
+  { symbol = "b", name = "new speed", unit = "Hz", aliases = ["speed2"] },
+  { symbol = "a", name = "old speed", unit = "Hz", aliases = ["speed1"] },
+]
+tags = ["pumps"]
+source = { title = "Affinity laws (Wikipedia)", url = "https://en.wikipedia.org/wiki/Affinity_laws" }
+checks = [{ inputs = [5000, 20, 25], output = 2560.0000000000005 }]
+
+[[formula]]
+id = "manning_velocity"
+name = "Open channel speed (Manning)"
+expr = "R^(2 / 3) * S^0.5 / n"
+output = { symbol = "v", name = "speed in m/s", unit = "1", aliases = ["speed", "velocity"] }
+variables = [
+  { symbol = "R", name = "hydraulic radius in m", unit = "1", aliases = ["hydraulic_radius"] },
+  { symbol = "S", name = "channel slope", unit = "1", aliases = ["slope"] },
+  { symbol = "n", name = "Manning coefficient", unit = "1", aliases = ["manning", "n"] },
+]
+tags = ["civil", "hydraulics"]
+source = { title = "Manning formula (Wikipedia)", url = "https://en.wikipedia.org/wiki/Manning_formula" }
+checks = [{ inputs = [0.5, 0.001, 0.013], output = 1.5323923806378645 }]
+
+[[formula]]
+id = "weir_flow"
+name = "Flow over a rectangular weir"
+expr = "1.84 * L * h^1.5"
+output = { symbol = "Q", name = "flow in m³/s", unit = "1", aliases = ["flow"] }
+variables = [
+  { symbol = "L", name = "crest length in m", unit = "1", aliases = ["length"] },
+  { symbol = "h", name = "head over the crest in m", unit = "1", aliases = ["head"] },
+]
+tags = ["civil", "hydraulics"]
+source = { title = "Weir (Wikipedia)", url = "https://en.wikipedia.org/wiki/Weir" }
+checks = [{ inputs = [2, 0.3], output = 0.6046857034857034 }]
+
+[[formula]]
+id = "concrete_volume_slab"
+name = "Concrete for a slab"
+expr = "l * w * t"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume", "concrete"] }
+variables = [
+  { symbol = "l", name = "length", unit = "m", aliases = ["length"] },
+  { symbol = "w", name = "width", unit = "m", aliases = ["width"] },
+  { symbol = "t", name = "thickness", unit = "m", aliases = ["thickness"] },
+]
+tags = ["civil", "construction"]
+source = { title = "Concrete slab (Wikipedia)", url = "https://en.wikipedia.org/wiki/Concrete_slab" }
+checks = [{ inputs = [6, 4, 0.15], output = 3.5999999999999996 }]
+
+[[formula]]
+id = "rebar_weight"
+name = "Weight of a rebar"
+expr = "d^2 / 162 * L"
+output = { symbol = "w", name = "weight in kg", unit = "1", aliases = ["weight"] }
+variables = [
+  { symbol = "d", name = "diameter in mm", unit = "1", aliases = ["diameter"] },
+  { symbol = "L", name = "length in m", unit = "1", aliases = ["length"] },
+]
+tags = ["civil", "construction"]
+source = { title = "Rebar (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rebar" }
+checks = [{ inputs = [12, 6], output = 5.333333333333333 }]
+
+[[formula]]
+id = "earthwork_volume"
+name = "Earthwork volume (average end area)"
+expr = "L * (a + b) / 2"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "L", name = "distance between sections", unit = "m", aliases = ["length", "distance"] },
+  { symbol = "a", name = "first cross-section area", unit = "m^2", aliases = ["area1"] },
+  { symbol = "b", name = "second cross-section area", unit = "m^2", aliases = ["area2"] },
+]
+tags = ["civil", "construction"]
+source = { title = "Cut and fill (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cut_and_fill" }
+checks = [{ inputs = [20, 12, 18], output = 300 }]
+
+[[formula]]
+id = "road_superelevation"
+name = "Superelevation of a curve"
+expr = "v^2 / (g * R) - f"
+output = { symbol = "e", name = "superelevation", unit = "1", aliases = ["superelevation"] }
+variables = [
+  { symbol = "v", name = "design speed", unit = "m/s", aliases = ["speed"] },
+  { symbol = "R", name = "curve radius", unit = "m", aliases = ["radius"] },
+  { symbol = "f", name = "side friction factor", unit = "1", aliases = ["friction"] },
+]
+tags = ["civil", "roads"]
+source = { title = "Banked turn (Wikipedia)", url = "https://en.wikipedia.org/wiki/Banked_turn" }
+checks = [{ inputs = [22, 250, 0.15], output = 0.04741705883252692 }]
+
+[[formula]]
+id = "stair_riser_count"
+name = "Number of stair risers"
+expr = "ceil(H / r)"
+output = { symbol = "n", name = "risers", unit = "1", aliases = ["risers", "steps"] }
+variables = [
+  { symbol = "H", name = "total rise", unit = "m", aliases = ["height", "rise"] },
+  { symbol = "r", name = "target riser height", unit = "m", aliases = ["riser"] },
+]
+tags = ["construction"]
+source = { title = "Stairs (Wikipedia)", url = "https://en.wikipedia.org/wiki/Stairs" }
+checks = [{ inputs = [2.7, 0.18], output = 16 }]
+
+[[formula]]
+id = "paint_needed"
+name = "Paint needed"
+expr = "A * c / s"
+output = { symbol = "V", name = "paint in litres", unit = "1", aliases = ["paint", "litres"] }
+variables = [
+  { symbol = "A", name = "area in m²", unit = "1", aliases = ["area"] },
+  { symbol = "c", name = "coats", unit = "1", aliases = ["coats"] },
+  { symbol = "s", name = "coverage in m² per litre", unit = "1", aliases = ["coverage"] },
+]
+tags = ["construction"]
+source = { title = "Paint (Wikipedia)", url = "https://en.wikipedia.org/wiki/Paint" }
+checks = [{ inputs = [45, 2, 10], output = 9 }]
+
+[[formula]]
+id = "cutting_speed"
+name = "Cutting speed (turning)"
+expr = "pi * D * n"
+output = { symbol = "v", name = "cutting speed", unit = "m/s", aliases = ["cutting_speed", "speed"] }
+variables = [
+  { symbol = "D", name = "workpiece diameter", unit = "m", aliases = ["diameter"] },
+  { symbol = "n", name = "spindle speed", unit = "Hz", aliases = ["speed", "rev_per_s"] },
+]
+tags = ["manufacturing", "machining"]
+source = { title = "Speeds and feeds (Wikipedia)", url = "https://en.wikipedia.org/wiki/Speeds_and_feeds" }
+checks = [{ inputs = [0.05, 20], output = 3.141592653589793 }]
+
+[[formula]]
+id = "spindle_speed_from_cutting"
+name = "Spindle speed from cutting speed"
+expr = "1000 * v / (pi * D)"
+output = { symbol = "n", name = "spindle speed in rpm", unit = "1", aliases = ["rpm"] }
+variables = [
+  { symbol = "v", name = "cutting speed in m/min", unit = "1", aliases = ["cutting_speed"] },
+  { symbol = "D", name = "tool diameter in mm", unit = "1", aliases = ["diameter"] },
+]
+tags = ["manufacturing", "machining"]
+source = { title = "Speeds and feeds (Wikipedia)", url = "https://en.wikipedia.org/wiki/Speeds_and_feeds" }
+checks = [{ inputs = [100, 10], output = 3183.098861837907 }]
+
+[[formula]]
+id = "feed_rate_milling"
+name = "Milling feed rate"
+expr = "n * z * f"
+output = { symbol = "F", name = "feed rate in mm/min", unit = "1", aliases = ["feed_rate"] }
+variables = [
+  { symbol = "n", name = "spindle speed in rpm", unit = "1", aliases = ["rpm"] },
+  { symbol = "z", name = "number of teeth", unit = "1", aliases = ["teeth", "flutes"] },
+  { symbol = "f", name = "feed per tooth in mm", unit = "1", aliases = ["chip_load"] },
+]
+tags = ["manufacturing", "machining"]
+source = { title = "Speeds and feeds (Wikipedia)", url = "https://en.wikipedia.org/wiki/Speeds_and_feeds" }
+checks = [{ inputs = [3000, 4, 0.05], output = 600 }]
+
+[[formula]]
+id = "material_removal_rate"
+name = "Material removal rate (milling)"
+expr = "a * w * f"
+output = { symbol = "Q", name = "removal rate", unit = "m^3/s", aliases = ["mrr"] }
+variables = [
+  { symbol = "a", name = "depth of cut", unit = "m", aliases = ["depth"] },
+  { symbol = "w", name = "width of cut", unit = "m", aliases = ["width"] },
+  { symbol = "f", name = "feed rate", unit = "m/s", aliases = ["feed"] },
+]
+tags = ["manufacturing", "machining"]
+source = { title = "Material removal rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Material_removal_rate" }
+checks = [{ inputs = [0.002, 0.01, 0.01], output = 2.0000000000000002e-07 }]
+
+[[formula]]
+id = "weld_heat_input"
+name = "Weld heat input"
+expr = "k * V * I / v"
+output = { symbol = "H", name = "heat input", unit = "J/m", aliases = ["heat_input"] }
+variables = [
+  { symbol = "k", name = "arc efficiency", unit = "1", aliases = ["efficiency"] },
+  { symbol = "V", name = "voltage", unit = "V", aliases = ["voltage"] },
+  { symbol = "I", name = "current", unit = "A", aliases = ["current"] },
+  { symbol = "v", name = "travel speed", unit = "m/s", aliases = ["speed", "travel_speed"] },
+]
+tags = ["manufacturing", "welding"]
+source = { title = "Welding (Wikipedia)", url = "https://en.wikipedia.org/wiki/Welding" }
+checks = [{ inputs = [0.8, 25, 200, 0.005], output = 800000 }]
+
+[[formula]]
+id = "sheet_metal_bend_allowance"
+name = "Bend allowance"
+expr = "t * (r + k * s)"
+output = { symbol = "B", name = "bend allowance", unit = "m", aliases = ["bend_allowance"] }
+variables = [
+  { symbol = "t", name = "bend angle", unit = "rad", aliases = ["angle"] },
+  { symbol = "r", name = "inside radius", unit = "m", aliases = ["radius"] },
+  { symbol = "k", name = "K-factor", unit = "1", aliases = ["k_factor"] },
+  { symbol = "s", name = "thickness", unit = "m", aliases = ["thickness"] },
+]
+tags = ["manufacturing", "sheet_metal"]
+source = { title = "Bending (metalworking) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bending_(metalworking)" }
+checks = [{ inputs = [1.5708, 0.002, 0.33, 0.002], output = 0.004178328 }]

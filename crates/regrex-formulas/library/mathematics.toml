@@ -1118,3 +1118,1138 @@ variables = [
 tags = ["growth"]
 source = { title = "Compound annual growth rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Compound_annual_growth_rate" }
 checks = [{ inputs = [1000, 0.05, 10], output = 1628.894626777442 }]
+
+[[formula]]
+id = "square_diagonal"
+name = "Diagonal of a square"
+expr = "a * sqrt(2)"
+output = { symbol = "d", name = "diagonal", unit = "m", aliases = ["diagonal"] }
+variables = [
+  { symbol = "a", name = "side", unit = "m", aliases = ["side", "length"] },
+]
+tags = ["geometry"]
+source = { title = "Square (Wikipedia)", url = "https://en.wikipedia.org/wiki/Square" }
+checks = [{ inputs = [3], output = 4.242640687119286 }]
+
+[[formula]]
+id = "square_perimeter"
+name = "Perimeter of a square"
+expr = "4 * a"
+output = { symbol = "P", name = "perimeter", unit = "m", aliases = ["perimeter"] }
+variables = [
+  { symbol = "a", name = "side", unit = "m", aliases = ["side", "length"] },
+]
+tags = ["geometry"]
+source = { title = "Square (Wikipedia)", url = "https://en.wikipedia.org/wiki/Square" }
+checks = [{ inputs = [2.5], output = 10 }]
+
+[[formula]]
+id = "rectangle_diagonal"
+name = "Diagonal of a rectangle"
+expr = "sqrt(a^2 + b^2)"
+output = { symbol = "d", name = "diagonal", unit = "m", aliases = ["diagonal"] }
+variables = [
+  { symbol = "a", name = "length", unit = "m", aliases = ["length"] },
+  { symbol = "b", name = "width", unit = "m", aliases = ["width"] },
+]
+tags = ["geometry"]
+source = { title = "Rectangle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Rectangle" }
+checks = [{ inputs = [4, 3], output = 5 }]
+
+[[formula]]
+id = "triangle_perimeter"
+name = "Perimeter of a triangle"
+expr = "a + b + c"
+output = { symbol = "P", name = "perimeter", unit = "m", aliases = ["perimeter"] }
+variables = [
+  { symbol = "a", name = "side a", unit = "m", aliases = ["side_a", "a"] },
+  { symbol = "b", name = "side b", unit = "m", aliases = ["side_b", "b"] },
+  { symbol = "c", name = "side c", unit = "m", aliases = ["side_c", "c"] },
+]
+tags = ["geometry"]
+source = { title = "Triangle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Triangle" }
+checks = [{ inputs = [3, 4, 5], output = 12 }]
+
+[[formula]]
+id = "equilateral_triangle_height"
+name = "Height of an equilateral triangle"
+expr = "sqrt(3) / 2 * a"
+output = { symbol = "h", name = "height", unit = "m", aliases = ["height"] }
+variables = [
+  { symbol = "a", name = "side", unit = "m", aliases = ["side"] },
+]
+tags = ["geometry"]
+source = { title = "Equilateral triangle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Equilateral_triangle" }
+checks = [{ inputs = [2], output = 1.7320508075688772 }]
+
+[[formula]]
+id = "right_triangle_area"
+name = "Area of a right triangle"
+expr = "a * b / 2"
+output = { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] }
+variables = [
+  { symbol = "a", name = "leg a", unit = "m", aliases = ["leg_a", "base"] },
+  { symbol = "b", name = "leg b", unit = "m", aliases = ["leg_b", "height"] },
+]
+tags = ["geometry"]
+source = { title = "Right triangle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Right_triangle" }
+checks = [{ inputs = [3, 4], output = 6 }]
+
+[[formula]]
+id = "triangle_inradius"
+name = "Inradius of a triangle"
+expr = "2 * A / (a + b + c)"
+output = { symbol = "r", name = "inradius", unit = "m", aliases = ["inradius"] }
+variables = [
+  { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] },
+  { symbol = "a", name = "side a", unit = "m", aliases = ["side_a"] },
+  { symbol = "b", name = "side b", unit = "m", aliases = ["side_b"] },
+  { symbol = "c", name = "side c", unit = "m", aliases = ["side_c"] },
+]
+tags = ["geometry"]
+source = { title = "Incircle and excircles (Wikipedia)", url = "https://en.wikipedia.org/wiki/Incircle_and_excircles" }
+checks = [{ inputs = [6, 3, 4, 5], output = 1 }]
+
+[[formula]]
+id = "triangle_circumradius"
+name = "Circumradius of a triangle"
+expr = "a * b * c / (4 * A)"
+output = { symbol = "R", name = "circumradius", unit = "m", aliases = ["circumradius"] }
+variables = [
+  { symbol = "a", name = "side a", unit = "m", aliases = ["side_a"] },
+  { symbol = "b", name = "side b", unit = "m", aliases = ["side_b"] },
+  { symbol = "c", name = "side c", unit = "m", aliases = ["side_c"] },
+  { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] },
+]
+tags = ["geometry"]
+source = { title = "Circumcircle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Circumcircle" }
+checks = [{ inputs = [3, 4, 5, 6], output = 2.5 }]
+
+[[formula]]
+id = "law_of_sines_side"
+name = "Law of sines (missing side)"
+expr = "a * sin(B) / sin(A)"
+output = { symbol = "b", name = "side b", unit = "m", aliases = ["side_b"] }
+variables = [
+  { symbol = "a", name = "side a", unit = "m", aliases = ["side_a"] },
+  { symbol = "A", name = "angle opposite a", unit = "rad", aliases = ["angle_a"] },
+  { symbol = "B", name = "angle opposite b", unit = "rad", aliases = ["angle_b"] },
+]
+tags = ["geometry", "trigonometry"]
+source = { title = "Law of sines (Wikipedia)", url = "https://en.wikipedia.org/wiki/Law_of_sines" }
+checks = [{ inputs = [5, 0.6, 0.9], output = 6.936485887410846 }]
+
+[[formula]]
+id = "triangle_area_sas"
+name = "Area of a triangle from two sides and the angle"
+expr = "a * b * sin(C) / 2"
+output = { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] }
+variables = [
+  { symbol = "a", name = "side a", unit = "m", aliases = ["side_a"] },
+  { symbol = "b", name = "side b", unit = "m", aliases = ["side_b"] },
+  { symbol = "C", name = "included angle", unit = "rad", aliases = ["angle"] },
+]
+tags = ["geometry", "trigonometry"]
+source = { title = "Triangle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Triangle" }
+checks = [{ inputs = [4, 6, 0.5], output = 5.753106463250436 }]
+
+[[formula]]
+id = "kite_area"
+name = "Area of a kite"
+expr = "p * q / 2"
+output = { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] }
+variables = [
+  { symbol = "p", name = "first diagonal", unit = "m", aliases = ["diagonal_1", "d1"] },
+  { symbol = "q", name = "second diagonal", unit = "m", aliases = ["diagonal_2", "d2"] },
+]
+tags = ["geometry"]
+source = { title = "Kite (geometry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kite_(geometry)" }
+checks = [{ inputs = [6, 4], output = 12 }]
+
+[[formula]]
+id = "regular_hexagon_area"
+name = "Area of a regular hexagon"
+expr = "3 * sqrt(3) / 2 * a^2"
+output = { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] }
+variables = [
+  { symbol = "a", name = "side", unit = "m", aliases = ["side"] },
+]
+tags = ["geometry"]
+source = { title = "Hexagon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hexagon" }
+checks = [{ inputs = [2], output = 10.392304845413264 }]
+
+[[formula]]
+id = "regular_polygon_perimeter"
+name = "Perimeter of a regular polygon"
+expr = "n * s"
+output = { symbol = "P", name = "perimeter", unit = "m", aliases = ["perimeter"] }
+variables = [
+  { symbol = "n", name = "number of sides", unit = "1", aliases = ["sides", "n_sides"] },
+  { symbol = "s", name = "side length", unit = "m", aliases = ["side", "length"] },
+]
+tags = ["geometry"]
+source = { title = "Regular polygon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Regular_polygon" }
+checks = [{ inputs = [6, 2.5], output = 15 }]
+
+[[formula]]
+id = "polygon_interior_angle_sum"
+name = "Sum of the interior angles of a polygon"
+expr = "(n - 2) * 180"
+output = { symbol = "S", name = "sum of interior angles", unit = "deg", aliases = ["angle_sum"] }
+variables = [
+  { symbol = "n", name = "number of sides", unit = "1", aliases = ["sides", "n_sides"] },
+]
+tags = ["geometry"]
+source = { title = "Polygon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Polygon" }
+checks = [{ inputs = [7], output = 900 }]
+
+[[formula]]
+id = "regular_polygon_interior_angle"
+name = "Interior angle of a regular polygon"
+expr = "(n - 2) * 180 / n"
+output = { symbol = "a", name = "interior angle", unit = "deg", aliases = ["angle", "interior_angle"] }
+variables = [
+  { symbol = "n", name = "number of sides", unit = "1", aliases = ["sides", "n_sides"] },
+]
+tags = ["geometry"]
+source = { title = "Regular polygon (Wikipedia)", url = "https://en.wikipedia.org/wiki/Regular_polygon" }
+checks = [{ inputs = [8], output = 135 }]
+
+[[formula]]
+id = "polygon_diagonals"
+name = "Number of diagonals of a polygon"
+expr = "n * (n - 3) / 2"
+output = { symbol = "D", name = "number of diagonals", unit = "1", aliases = ["diagonals"] }
+variables = [
+  { symbol = "n", name = "number of sides", unit = "1", aliases = ["sides", "n_sides"] },
+]
+tags = ["geometry", "combinatorics"]
+source = { title = "Diagonal (Wikipedia)", url = "https://en.wikipedia.org/wiki/Diagonal" }
+checks = [{ inputs = [10], output = 35 }]
+
+[[formula]]
+id = "circle_area_from_diameter"
+name = "Area of a circle from the diameter"
+expr = "pi * d^2 / 4"
+output = { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] }
+variables = [
+  { symbol = "d", name = "diameter", unit = "m", aliases = ["diameter"] },
+]
+tags = ["geometry"]
+source = { title = "Circle (Wikipedia)", url = "https://en.wikipedia.org/wiki/Circle" }
+checks = [{ inputs = [10], output = 78.53981633974483 }]
+
+[[formula]]
+id = "circle_chord_length"
+name = "Chord length of a circle"
+expr = "2 * r * sin(t / 2)"
+output = { symbol = "c", name = "chord length", unit = "m", aliases = ["chord"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "t", name = "central angle", unit = "rad", aliases = ["angle", "theta"] },
+]
+tags = ["geometry"]
+source = { title = "Chord (geometry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Chord_(geometry)" }
+checks = [{ inputs = [5, 1.2], output = 5.6464247339503535 }]
+
+[[formula]]
+id = "circle_segment_area"
+name = "Area of a circular segment"
+expr = "r^2 / 2 * (t - sin(t))"
+output = { symbol = "A", name = "area", unit = "m^2", aliases = ["area"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "t", name = "central angle", unit = "rad", aliases = ["angle", "theta"] },
+]
+tags = ["geometry"]
+source = { title = "Circular segment (Wikipedia)", url = "https://en.wikipedia.org/wiki/Circular_segment" }
+checks = [{ inputs = [3, 1.5], output = 2.261272560281755 }]
+
+[[formula]]
+id = "ellipse_perimeter_ramanujan"
+name = "Perimeter of an ellipse (Ramanujan)"
+expr = "pi * (3 * (a + b) - sqrt((3 * a + b) * (a + 3 * b)))"
+output = { symbol = "P", name = "perimeter", unit = "m", aliases = ["perimeter"] }
+variables = [
+  { symbol = "a", name = "semi-major axis", unit = "m", aliases = ["a", "semi_major"] },
+  { symbol = "b", name = "semi-minor axis", unit = "m", aliases = ["b", "semi_minor"] },
+]
+tags = ["geometry"]
+source = { title = "Ellipse (Wikipedia)", url = "https://en.wikipedia.org/wiki/Ellipse" }
+checks = [{ inputs = [5, 3], output = 25.526986393758545 }]
+
+[[formula]]
+id = "ellipse_eccentricity"
+name = "Eccentricity of an ellipse"
+expr = "sqrt(1 - b^2 / a^2)"
+output = { symbol = "e", name = "eccentricity", unit = "1", aliases = ["eccentricity"] }
+variables = [
+  { symbol = "a", name = "semi-major axis", unit = "m", aliases = ["a", "semi_major"] },
+  { symbol = "b", name = "semi-minor axis", unit = "m", aliases = ["b", "semi_minor"] },
+]
+tags = ["geometry"]
+source = { title = "Eccentricity (mathematics) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Eccentricity_(mathematics)" }
+checks = [{ inputs = [5, 3], output = 0.8 }]
+
+[[formula]]
+id = "cylinder_lateral_surface"
+name = "Lateral surface of a cylinder"
+expr = "2 * pi * r * h"
+output = { symbol = "A", name = "lateral area", unit = "m^2", aliases = ["area", "lateral_area"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+]
+tags = ["geometry"]
+source = { title = "Cylinder (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cylinder" }
+checks = [{ inputs = [2, 5], output = 62.83185307179586 }]
+
+[[formula]]
+id = "cone_surface"
+name = "Total surface of a cone"
+expr = "pi * r * (r + sqrt(h^2 + r^2))"
+output = { symbol = "A", name = "surface area", unit = "m^2", aliases = ["area", "surface"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+]
+tags = ["geometry"]
+source = { title = "Cone (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cone" }
+checks = [{ inputs = [3, 4], output = 75.39822368615503 }]
+
+[[formula]]
+id = "cone_slant_height"
+name = "Slant height of a cone"
+expr = "sqrt(r^2 + h^2)"
+output = { symbol = "l", name = "slant height", unit = "m", aliases = ["slant"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+]
+tags = ["geometry"]
+source = { title = "Cone (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cone" }
+checks = [{ inputs = [3, 4], output = 5 }]
+
+[[formula]]
+id = "frustum_volume"
+name = "Volume of a conical frustum"
+expr = "pi * h / 3 * (R^2 + R * r + r^2)"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+  { symbol = "R", name = "base radius", unit = "m", aliases = ["big_radius", "r1"] },
+  { symbol = "r", name = "top radius", unit = "m", aliases = ["small_radius", "r2"] },
+]
+tags = ["geometry"]
+source = { title = "Frustum (Wikipedia)", url = "https://en.wikipedia.org/wiki/Frustum" }
+checks = [{ inputs = [4, 3, 2], output = 79.58701389094142 }]
+
+[[formula]]
+id = "sphere_volume_from_diameter"
+name = "Volume of a sphere from the diameter"
+expr = "pi * d^3 / 6"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "d", name = "diameter", unit = "m", aliases = ["diameter"] },
+]
+tags = ["geometry"]
+source = { title = "Sphere (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sphere" }
+checks = [{ inputs = [2], output = 4.1887902047863905 }]
+
+[[formula]]
+id = "spherical_cap_volume"
+name = "Volume of a spherical cap"
+expr = "pi * h^2 * (3 * r - h) / 3"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "h", name = "cap height", unit = "m", aliases = ["height"] },
+  { symbol = "r", name = "sphere radius", unit = "m", aliases = ["radius"] },
+]
+tags = ["geometry"]
+source = { title = "Spherical cap (Wikipedia)", url = "https://en.wikipedia.org/wiki/Spherical_cap" }
+checks = [{ inputs = [1, 3], output = 8.377580409572781 }]
+
+[[formula]]
+id = "square_pyramid_surface"
+name = "Surface of a square pyramid"
+expr = "a^2 + 2 * a * sqrt(a^2 / 4 + h^2)"
+output = { symbol = "A", name = "surface area", unit = "m^2", aliases = ["area", "surface"] }
+variables = [
+  { symbol = "a", name = "base side", unit = "m", aliases = ["side", "base"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height"] },
+]
+tags = ["geometry"]
+source = { title = "Square pyramid (Wikipedia)", url = "https://en.wikipedia.org/wiki/Square_pyramid" }
+checks = [{ inputs = [6, 4], output = 96 }]
+
+[[formula]]
+id = "tetrahedron_volume"
+name = "Volume of a regular tetrahedron"
+expr = "a^3 / (6 * sqrt(2))"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "a", name = "edge", unit = "m", aliases = ["edge", "side"] },
+]
+tags = ["geometry"]
+source = { title = "Tetrahedron (Wikipedia)", url = "https://en.wikipedia.org/wiki/Tetrahedron" }
+checks = [{ inputs = [3], output = 3.1819805153394634 }]
+
+[[formula]]
+id = "octahedron_volume"
+name = "Volume of a regular octahedron"
+expr = "sqrt(2) / 3 * a^3"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "a", name = "edge", unit = "m", aliases = ["edge", "side"] },
+]
+tags = ["geometry"]
+source = { title = "Octahedron (Wikipedia)", url = "https://en.wikipedia.org/wiki/Octahedron" }
+checks = [{ inputs = [2], output = 3.771236166328254 }]
+
+[[formula]]
+id = "cube_diagonal"
+name = "Space diagonal of a cube"
+expr = "a * sqrt(3)"
+output = { symbol = "d", name = "space diagonal", unit = "m", aliases = ["diagonal"] }
+variables = [
+  { symbol = "a", name = "edge", unit = "m", aliases = ["edge", "side"] },
+]
+tags = ["geometry"]
+source = { title = "Cube (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cube" }
+checks = [{ inputs = [2], output = 3.4641016151377544 }]
+
+[[formula]]
+id = "box_diagonal"
+name = "Space diagonal of a box"
+expr = "sqrt(a^2 + b^2 + c^2)"
+output = { symbol = "d", name = "space diagonal", unit = "m", aliases = ["diagonal"] }
+variables = [
+  { symbol = "a", name = "length", unit = "m", aliases = ["length"] },
+  { symbol = "b", name = "width", unit = "m", aliases = ["width"] },
+  { symbol = "c", name = "height", unit = "m", aliases = ["height"] },
+]
+tags = ["geometry"]
+source = { title = "Cuboid (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cuboid" }
+checks = [{ inputs = [2, 3, 6], output = 7 }]
+
+[[formula]]
+id = "torus_surface"
+name = "Surface of a torus"
+expr = "4 * pi^2 * R * r"
+output = { symbol = "A", name = "surface area", unit = "m^2", aliases = ["area", "surface"] }
+variables = [
+  { symbol = "R", name = "major radius", unit = "m", aliases = ["major_radius"] },
+  { symbol = "r", name = "minor radius", unit = "m", aliases = ["minor_radius"] },
+]
+tags = ["geometry"]
+source = { title = "Torus (Wikipedia)", url = "https://en.wikipedia.org/wiki/Torus" }
+checks = [{ inputs = [3, 1], output = 118.4352528130723 }]
+
+[[formula]]
+id = "capsule_volume"
+name = "Volume of a capsule"
+expr = "pi * r^2 * (4 / 3 * r + a)"
+output = { symbol = "V", name = "volume", unit = "m^3", aliases = ["volume"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["radius"] },
+  { symbol = "a", name = "cylinder length", unit = "m", aliases = ["length"] },
+]
+tags = ["geometry"]
+source = { title = "Capsule (geometry) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Capsule_(geometry)" }
+checks = [{ inputs = [1, 4], output = 16.755160819145562 }]
+
+[[formula]]
+id = "polar_to_x"
+name = "Polar to Cartesian x"
+expr = "r * cos(t)"
+output = { symbol = "x", name = "x coordinate", unit = "m", aliases = ["x"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["r", "radius"] },
+  { symbol = "t", name = "angle", unit = "rad", aliases = ["theta", "angle"] },
+]
+tags = ["coordinates", "trigonometry"]
+source = { title = "Polar coordinate system (Wikipedia)", url = "https://en.wikipedia.org/wiki/Polar_coordinate_system" }
+checks = [{ inputs = [2, 0.5], output = 1.7551651237807455 }]
+
+[[formula]]
+id = "polar_to_y"
+name = "Polar to Cartesian y"
+expr = "r * sin(t)"
+output = { symbol = "y", name = "y coordinate", unit = "m", aliases = ["y"] }
+variables = [
+  { symbol = "r", name = "radius", unit = "m", aliases = ["r", "radius"] },
+  { symbol = "t", name = "angle", unit = "rad", aliases = ["theta", "angle"] },
+]
+tags = ["coordinates", "trigonometry"]
+source = { title = "Polar coordinate system (Wikipedia)", url = "https://en.wikipedia.org/wiki/Polar_coordinate_system" }
+checks = [{ inputs = [2, 0.5], output = 0.958851077208406 }]
+
+[[formula]]
+id = "polar_angle"
+name = "Angle of a point"
+expr = "atan2(y, x)"
+output = { symbol = "t", name = "angle", unit = "rad", aliases = ["theta", "angle"] }
+variables = [
+  { symbol = "y", name = "y coordinate", unit = "m", aliases = ["y"] },
+  { symbol = "x", name = "x coordinate", unit = "m", aliases = ["x"] },
+]
+tags = ["coordinates", "trigonometry"]
+source = { title = "Atan2 (Wikipedia)", url = "https://en.wikipedia.org/wiki/Atan2" }
+checks = [{ inputs = [3, 4], output = 0.6435011087932844 }]
+
+[[formula]]
+id = "vector_magnitude_2d"
+name = "Length of a 2D vector"
+expr = "sqrt(x^2 + y^2)"
+output = { symbol = "r", name = "magnitude", unit = "1", aliases = ["magnitude", "norm", "length"] }
+variables = [
+  { symbol = "x", name = "x component", unit = "1", aliases = ["x"] },
+  { symbol = "y", name = "y component", unit = "1", aliases = ["y"] },
+]
+tags = ["vectors"]
+source = { title = "Euclidean vector (Wikipedia)", url = "https://en.wikipedia.org/wiki/Euclidean_vector" }
+checks = [{ inputs = [3, 4], output = 5 }]
+
+[[formula]]
+id = "vector_magnitude_3d"
+name = "Length of a 3D vector"
+expr = "sqrt(x^2 + y^2 + z^2)"
+output = { symbol = "r", name = "magnitude", unit = "1", aliases = ["magnitude", "norm", "length"] }
+variables = [
+  { symbol = "x", name = "x component", unit = "1", aliases = ["x"] },
+  { symbol = "y", name = "y component", unit = "1", aliases = ["y"] },
+  { symbol = "z", name = "z component", unit = "1", aliases = ["z"] },
+]
+tags = ["vectors"]
+source = { title = "Euclidean vector (Wikipedia)", url = "https://en.wikipedia.org/wiki/Euclidean_vector" }
+checks = [{ inputs = [1, 2, 2], output = 3 }]
+
+[[formula]]
+id = "dot_product_2d"
+name = "Dot product of 2D vectors"
+expr = "a1 * b1 + a2 * b2"
+output = { symbol = "d", name = "dot product", unit = "1", aliases = ["dot"] }
+variables = [
+  { symbol = "a1", name = "first x", unit = "1", aliases = ["ax"] },
+  { symbol = "a2", name = "first y", unit = "1", aliases = ["ay"] },
+  { symbol = "b1", name = "second x", unit = "1", aliases = ["bx"] },
+  { symbol = "b2", name = "second y", unit = "1", aliases = ["by"] },
+]
+tags = ["vectors"]
+source = { title = "Dot product (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dot_product" }
+checks = [{ inputs = [1, 2, 3, 4], output = 11 }]
+
+[[formula]]
+id = "cross_product_2d"
+name = "Cross product of 2D vectors (z component)"
+expr = "a1 * b2 - a2 * b1"
+output = { symbol = "z", name = "cross product", unit = "1", aliases = ["cross"] }
+variables = [
+  { symbol = "a1", name = "first x", unit = "1", aliases = ["ax"] },
+  { symbol = "a2", name = "first y", unit = "1", aliases = ["ay"] },
+  { symbol = "b1", name = "second x", unit = "1", aliases = ["bx"] },
+  { symbol = "b2", name = "second y", unit = "1", aliases = ["by"] },
+]
+tags = ["vectors"]
+source = { title = "Cross product (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cross_product" }
+checks = [{ inputs = [1, 2, 3, 4], output = -2 }]
+
+[[formula]]
+id = "determinant_2x2"
+name = "Determinant of a 2×2 matrix"
+expr = "a * d - b * c"
+output = { symbol = "det", name = "determinant", unit = "1", aliases = ["determinant", "det"] }
+variables = [
+  { symbol = "a", name = "top left", unit = "1", aliases = ["a11"] },
+  { symbol = "b", name = "top right", unit = "1", aliases = ["a12"] },
+  { symbol = "c", name = "bottom left", unit = "1", aliases = ["a21"] },
+  { symbol = "d", name = "bottom right", unit = "1", aliases = ["a22"] },
+]
+tags = ["linear_algebra"]
+source = { title = "Determinant (Wikipedia)", url = "https://en.wikipedia.org/wiki/Determinant" }
+checks = [{ inputs = [3, 8, 4, 6], output = -14 }]
+
+[[formula]]
+id = "point_line_distance"
+name = "Distance from a point to a line"
+expr = "abs(a * x + b * y + c) / sqrt(a^2 + b^2)"
+output = { symbol = "d", name = "distance", unit = "1", aliases = ["distance"] }
+variables = [
+  { symbol = "a", name = "coefficient a", unit = "1", aliases = ["a"] },
+  { symbol = "b", name = "coefficient b", unit = "1", aliases = ["b"] },
+  { symbol = "c", name = "coefficient c", unit = "1", aliases = ["c"] },
+  { symbol = "x", name = "point x", unit = "1", aliases = ["x"] },
+  { symbol = "y", name = "point y", unit = "1", aliases = ["y"] },
+]
+tags = ["geometry"]
+source = { title = "Distance from a point to a line (Wikipedia)", url = "https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line" }
+checks = [{ inputs = [3, 4, -5, 2, 1], output = 1 }]
+
+[[formula]]
+id = "line_y_intercept"
+name = "Y-intercept of a line through a point"
+expr = "y - m * x"
+output = { symbol = "b", name = "intercept", unit = "1", aliases = ["intercept", "b"] }
+variables = [
+  { symbol = "y", name = "point y", unit = "1", aliases = ["y"] },
+  { symbol = "m", name = "slope", unit = "1", aliases = ["slope", "m"] },
+  { symbol = "x", name = "point x", unit = "1", aliases = ["x"] },
+]
+tags = ["algebra"]
+source = { title = "Y-intercept (Wikipedia)", url = "https://en.wikipedia.org/wiki/Y-intercept" }
+checks = [{ inputs = [7, 2, 3], output = 1 }]
+
+[[formula]]
+id = "manhattan_distance"
+name = "Manhattan distance"
+expr = "abs(x2 - x1) + abs(y2 - y1)"
+output = { symbol = "d", name = "distance", unit = "m", aliases = ["distance"] }
+variables = [
+  { symbol = "x1", name = "first x", unit = "m", aliases = ["x1"] },
+  { symbol = "y1", name = "first y", unit = "m", aliases = ["y1"] },
+  { symbol = "x2", name = "second x", unit = "m", aliases = ["x2"] },
+  { symbol = "y2", name = "second y", unit = "m", aliases = ["y2"] },
+]
+tags = ["geometry"]
+source = { title = "Taxicab geometry (Wikipedia)", url = "https://en.wikipedia.org/wiki/Taxicab_geometry" }
+checks = [{ inputs = [1, 2, 4, 6], output = 7 }]
+
+[[formula]]
+id = "pythagorean_leg"
+name = "Missing leg of a right triangle"
+expr = "sqrt(c^2 - a^2)"
+output = { symbol = "b", name = "leg", unit = "m", aliases = ["leg", "b"] }
+variables = [
+  { symbol = "c", name = "hypotenuse", unit = "m", aliases = ["hypotenuse", "c"] },
+  { symbol = "a", name = "other leg", unit = "m", aliases = ["leg_a", "a"] },
+]
+tags = ["geometry"]
+source = { title = "Pythagorean theorem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pythagorean_theorem" }
+checks = [{ inputs = [5, 3], output = 4 }]
+
+[[formula]]
+id = "inclination_angle"
+name = "Angle of a slope"
+expr = "atan(r / u)"
+output = { symbol = "t", name = "angle", unit = "rad", aliases = ["angle", "theta"] }
+variables = [
+  { symbol = "r", name = "rise", unit = "m", aliases = ["rise", "height"] },
+  { symbol = "u", name = "run", unit = "m", aliases = ["run", "horizontal"] },
+]
+tags = ["trigonometry"]
+source = { title = "Slope (Wikipedia)", url = "https://en.wikipedia.org/wiki/Slope" }
+checks = [{ inputs = [1, 4], output = 0.24497866312686414 }]
+
+[[formula]]
+id = "slope_percent"
+name = "Slope as a percentage"
+expr = "100 * r / u"
+output = { symbol = "s", name = "slope in percent", unit = "1", aliases = ["grade", "slope_percent"] }
+variables = [
+  { symbol = "r", name = "rise", unit = "m", aliases = ["rise"] },
+  { symbol = "u", name = "run", unit = "m", aliases = ["run"] },
+]
+tags = ["trigonometry"]
+source = { title = "Grade (slope) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Grade_(slope)" }
+checks = [{ inputs = [3, 40], output = 7.5 }]
+
+[[formula]]
+id = "quadratic_vertex_x"
+name = "Vertex of a parabola (x)"
+expr = "-b / (2 * a)"
+output = { symbol = "x", name = "vertex x", unit = "1", aliases = ["vertex_x"] }
+variables = [
+  { symbol = "b", name = "coefficient b", unit = "1", aliases = ["b"] },
+  { symbol = "a", name = "coefficient a", unit = "1", aliases = ["a"] },
+]
+tags = ["algebra"]
+source = { title = "Parabola (Wikipedia)", url = "https://en.wikipedia.org/wiki/Parabola" }
+checks = [{ inputs = [-4, 2], output = 1 }]
+
+[[formula]]
+id = "quadratic_other_root"
+name = "Second root of a quadratic"
+expr = "(-b - sqrt(b^2 - 4 * a * c)) / (2 * a)"
+output = { symbol = "x", name = "root", unit = "1", aliases = ["root", "x2"] }
+variables = [
+  { symbol = "a", name = "coefficient a", unit = "1", aliases = ["a"] },
+  { symbol = "b", name = "coefficient b", unit = "1", aliases = ["b"] },
+  { symbol = "c", name = "coefficient c", unit = "1", aliases = ["c"] },
+]
+tags = ["algebra"]
+source = { title = "Quadratic formula (Wikipedia)", url = "https://en.wikipedia.org/wiki/Quadratic_formula" }
+checks = [{ inputs = [1, -3, 2], output = 1 }]
+
+[[formula]]
+id = "cubic_function"
+name = "Cubic polynomial"
+expr = "a * x^3 + b * x^2 + c * x + d"
+output = { symbol = "y", name = "value", unit = "1", aliases = ["y"] }
+variables = [
+  { symbol = "x", name = "x", unit = "1", aliases = ["x"] },
+  { symbol = "a", name = "coefficient a", unit = "1", aliases = ["a"] },
+  { symbol = "b", name = "coefficient b", unit = "1", aliases = ["b"] },
+  { symbol = "c", name = "coefficient c", unit = "1", aliases = ["c"] },
+  { symbol = "d", name = "constant term", unit = "1", aliases = ["d"] },
+]
+tags = ["algebra"]
+source = { title = "Cubic function (Wikipedia)", url = "https://en.wikipedia.org/wiki/Cubic_function" }
+checks = [{ inputs = [2, 1, -2, 3, 4], output = 10 }]
+
+[[formula]]
+id = "exponential_function"
+name = "Exponential function"
+expr = "a * b^x"
+output = { symbol = "y", name = "value", unit = "1", aliases = ["y"] }
+variables = [
+  { symbol = "a", name = "initial value", unit = "1", aliases = ["a"] },
+  { symbol = "b", name = "base", unit = "1", aliases = ["base", "b"] },
+  { symbol = "x", name = "exponent", unit = "1", aliases = ["x"] },
+]
+tags = ["algebra"]
+source = { title = "Exponential function (Wikipedia)", url = "https://en.wikipedia.org/wiki/Exponential_function" }
+checks = [{ inputs = [3, 2, 4], output = 48 }]
+
+[[formula]]
+id = "nth_root"
+name = "n-th root"
+expr = "x^(1 / n)"
+output = { symbol = "y", name = "root", unit = "1", aliases = ["root"] }
+variables = [
+  { symbol = "x", name = "number", unit = "1", aliases = ["x"] },
+  { symbol = "n", name = "degree", unit = "1", aliases = ["n"] },
+]
+tags = ["algebra"]
+source = { title = "Nth root (Wikipedia)", url = "https://en.wikipedia.org/wiki/Nth_root" }
+checks = [{ inputs = [81, 4], output = 3 }]
+
+[[formula]]
+id = "reciprocal"
+name = "Reciprocal"
+expr = "1 / x"
+output = { symbol = "y", name = "reciprocal", unit = "1", aliases = ["reciprocal", "inverse"] }
+variables = [
+  { symbol = "x", name = "number", unit = "1", aliases = ["x"] },
+]
+tags = ["algebra"]
+source = { title = "Multiplicative inverse (Wikipedia)", url = "https://en.wikipedia.org/wiki/Multiplicative_inverse" }
+checks = [{ inputs = [8], output = 0.125 }]
+
+[[formula]]
+id = "arithmetic_term"
+name = "n-th term of an arithmetic sequence"
+expr = "a + (n - 1) * d"
+output = { symbol = "t", name = "term", unit = "1", aliases = ["term", "an"] }
+variables = [
+  { symbol = "a", name = "first term", unit = "1", aliases = ["first", "a1"] },
+  { symbol = "n", name = "index", unit = "1", aliases = ["n", "index"] },
+  { symbol = "d", name = "common difference", unit = "1", aliases = ["difference", "d"] },
+]
+tags = ["sequences"]
+source = { title = "Arithmetic progression (Wikipedia)", url = "https://en.wikipedia.org/wiki/Arithmetic_progression" }
+checks = [{ inputs = [3, 10, 4], output = 39 }]
+
+[[formula]]
+id = "geometric_term"
+name = "n-th term of a geometric sequence"
+expr = "a * r^(n - 1)"
+output = { symbol = "t", name = "term", unit = "1", aliases = ["term", "an"] }
+variables = [
+  { symbol = "a", name = "first term", unit = "1", aliases = ["first", "a1"] },
+  { symbol = "r", name = "common ratio", unit = "1", aliases = ["ratio", "r"] },
+  { symbol = "n", name = "index", unit = "1", aliases = ["n", "index"] },
+]
+tags = ["sequences"]
+source = { title = "Geometric progression (Wikipedia)", url = "https://en.wikipedia.org/wiki/Geometric_progression" }
+checks = [{ inputs = [2, 3, 5], output = 162 }]
+
+[[formula]]
+id = "infinite_geometric_series"
+name = "Sum of an infinite geometric series"
+expr = "a / (1 - r)"
+output = { symbol = "S", name = "sum", unit = "1", aliases = ["sum"] }
+variables = [
+  { symbol = "a", name = "first term", unit = "1", aliases = ["first", "a"] },
+  { symbol = "r", name = "common ratio", unit = "1", aliases = ["ratio", "r"] },
+]
+tags = ["sequences"]
+source = { title = "Geometric series (Wikipedia)", url = "https://en.wikipedia.org/wiki/Geometric_series" }
+checks = [{ inputs = [6, 0.25], output = 8 }]
+
+[[formula]]
+id = "sum_of_cubes"
+name = "Sum of the first n cubes"
+expr = "(n * (n + 1) / 2)^2"
+output = { symbol = "S", name = "sum", unit = "1", aliases = ["sum"] }
+variables = [
+  { symbol = "n", name = "n", unit = "1", aliases = ["n"] },
+]
+tags = ["sequences"]
+source = { title = "Squared triangular number (Wikipedia)", url = "https://en.wikipedia.org/wiki/Squared_triangular_number" }
+checks = [{ inputs = [6], output = 441 }]
+
+[[formula]]
+id = "triangular_number"
+name = "Triangular number"
+expr = "n * (n + 1) / 2"
+output = { symbol = "T", name = "triangular number", unit = "1", aliases = ["triangular"] }
+variables = [
+  { symbol = "n", name = "n", unit = "1", aliases = ["n"] },
+]
+tags = ["sequences"]
+source = { title = "Triangular number (Wikipedia)", url = "https://en.wikipedia.org/wiki/Triangular_number" }
+checks = [{ inputs = [9], output = 45 }]
+
+[[formula]]
+id = "sum_of_odd_numbers"
+name = "Sum of the first n odd numbers"
+expr = "n^2"
+output = { symbol = "S", name = "sum", unit = "1", aliases = ["sum"] }
+variables = [
+  { symbol = "n", name = "n", unit = "1", aliases = ["n"] },
+]
+tags = ["sequences"]
+source = { title = "Odd number (Wikipedia)", url = "https://en.wikipedia.org/wiki/Odd_number" }
+checks = [{ inputs = [12], output = 144 }]
+
+[[formula]]
+id = "handshakes"
+name = "Number of pairs (handshakes)"
+expr = "n * (n - 1) / 2"
+output = { symbol = "k", name = "number of pairs", unit = "1", aliases = ["pairs", "handshakes"] }
+variables = [
+  { symbol = "n", name = "people", unit = "1", aliases = ["people", "n"] },
+]
+tags = ["combinatorics"]
+source = { title = "Handshake problem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Handshake_problem" }
+checks = [{ inputs = [10], output = 45 }]
+
+[[formula]]
+id = "permutations_with_repetition"
+name = "Words of length k from n symbols"
+expr = "n^k"
+output = { symbol = "N", name = "arrangements", unit = "1", aliases = ["arrangements", "combinations"] }
+variables = [
+  { symbol = "n", name = "symbols", unit = "1", aliases = ["symbols", "n"] },
+  { symbol = "k", name = "length", unit = "1", aliases = ["length", "k"] },
+]
+tags = ["combinatorics"]
+source = { title = "Permutation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Permutation" }
+checks = [{ inputs = [26, 3], output = 17576 }]
+
+[[formula]]
+id = "round_robin_matches"
+name = "Matches in a round-robin tournament"
+expr = "n * (n - 1) / 2 * r"
+output = { symbol = "M", name = "matches", unit = "1", aliases = ["matches", "games"] }
+variables = [
+  { symbol = "n", name = "teams", unit = "1", aliases = ["teams", "n"] },
+  { symbol = "r", name = "rounds", unit = "1", aliases = ["rounds", "legs"] },
+]
+tags = ["combinatorics"]
+source = { title = "Round-robin tournament (Wikipedia)", url = "https://en.wikipedia.org/wiki/Round-robin_tournament" }
+checks = [{ inputs = [20, 2], output = 380 }]
+
+[[formula]]
+id = "stirling_approximation"
+name = "Stirling approximation of n!"
+expr = "sqrt(2 * pi * n) * (n / e)^n"
+output = { symbol = "f", name = "approximate factorial", unit = "1", aliases = ["factorial"] }
+variables = [
+  { symbol = "n", name = "n", unit = "1", aliases = ["n"] },
+]
+tags = ["combinatorics"]
+source = { title = "Stirling's approximation (Wikipedia)", url = "https://en.wikipedia.org/wiki/Stirling's_approximation" }
+checks = [{ inputs = [10], output = 3598695.6187410373 }]
+
+[[formula]]
+id = "mean_of_three"
+name = "Mean of three numbers"
+expr = "(a + b + c) / 3"
+output = { symbol = "m", name = "mean", unit = "1", aliases = ["mean", "average"] }
+variables = [
+  { symbol = "a", name = "first value", unit = "1", aliases = ["a", "x1"] },
+  { symbol = "b", name = "second value", unit = "1", aliases = ["b", "x2"] },
+  { symbol = "c", name = "third value", unit = "1", aliases = ["c", "x3"] },
+]
+tags = ["statistics"]
+source = { title = "Arithmetic mean (Wikipedia)", url = "https://en.wikipedia.org/wiki/Arithmetic_mean" }
+checks = [{ inputs = [7, 12, 20], output = 13 }]
+
+[[formula]]
+id = "weighted_mean_3"
+name = "Weighted mean of three values"
+expr = "(w1 * x1 + w2 * x2 + w3 * x3) / (w1 + w2 + w3)"
+output = { symbol = "m", name = "weighted mean", unit = "1", aliases = ["weighted_mean"] }
+variables = [
+  { symbol = "x1", name = "first value", unit = "1", aliases = ["x1"] },
+  { symbol = "w1", name = "first weight", unit = "1", aliases = ["w1"] },
+  { symbol = "x2", name = "second value", unit = "1", aliases = ["x2"] },
+  { symbol = "w2", name = "second weight", unit = "1", aliases = ["w2"] },
+  { symbol = "x3", name = "third value", unit = "1", aliases = ["x3"] },
+  { symbol = "w3", name = "third weight", unit = "1", aliases = ["w3"] },
+]
+tags = ["statistics"]
+source = { title = "Weighted arithmetic mean (Wikipedia)", url = "https://en.wikipedia.org/wiki/Weighted_arithmetic_mean" }
+checks = [{ inputs = [80, 2, 90, 3, 70, 5], output = 78 }]
+
+[[formula]]
+id = "variance_from_sd"
+name = "Variance from the standard deviation"
+expr = "s^2"
+output = { symbol = "v", name = "variance", unit = "1", aliases = ["variance", "var"] }
+variables = [
+  { symbol = "s", name = "standard deviation", unit = "1", aliases = ["sd", "std", "stdev"] },
+]
+tags = ["statistics"]
+source = { title = "Variance (Wikipedia)", url = "https://en.wikipedia.org/wiki/Variance" }
+checks = [{ inputs = [1.5], output = 2.25 }]
+
+[[formula]]
+id = "sample_size_proportion"
+name = "Sample size for a proportion"
+expr = "z^2 * p * (1 - p) / E^2"
+output = { symbol = "n", name = "sample size", unit = "1", aliases = ["sample_size", "n"] }
+variables = [
+  { symbol = "z", name = "z value", unit = "1", aliases = ["z"] },
+  { symbol = "p", name = "expected proportion", unit = "1", aliases = ["proportion", "p"] },
+  { symbol = "E", name = "margin of error", unit = "1", aliases = ["margin", "error"] },
+]
+tags = ["statistics", "survey"]
+source = { title = "Sample size determination (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sample_size_determination" }
+checks = [{ inputs = [1.96, 0.5, 0.05], output = 384.1599999999999 }]
+
+[[formula]]
+id = "sample_size_mean"
+name = "Sample size for a mean"
+expr = "(z * s / E)^2"
+output = { symbol = "n", name = "sample size", unit = "1", aliases = ["sample_size", "n"] }
+variables = [
+  { symbol = "z", name = "z value", unit = "1", aliases = ["z"] },
+  { symbol = "s", name = "standard deviation", unit = "1", aliases = ["sd", "sigma"] },
+  { symbol = "E", name = "margin of error", unit = "1", aliases = ["margin", "error"] },
+]
+tags = ["statistics"]
+source = { title = "Sample size determination (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sample_size_determination" }
+checks = [{ inputs = [1.96, 15, 3], output = 96.03999999999998 }]
+
+[[formula]]
+id = "standardize_back"
+name = "Value from a z-score"
+expr = "m + z * s"
+output = { symbol = "x", name = "value", unit = "1", aliases = ["x", "value"] }
+variables = [
+  { symbol = "m", name = "mean", unit = "1", aliases = ["mean", "mu"] },
+  { symbol = "z", name = "z-score", unit = "1", aliases = ["z", "z_score"] },
+  { symbol = "s", name = "standard deviation", unit = "1", aliases = ["sd", "sigma"] },
+]
+tags = ["statistics"]
+source = { title = "Standard score (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_score" }
+checks = [{ inputs = [100, 1.5, 15], output = 122.5 }]
+
+[[formula]]
+id = "uniform_variance"
+name = "Variance of a uniform distribution"
+expr = "(b - a)^2 / 12"
+output = { symbol = "v", name = "variance", unit = "1", aliases = ["variance"] }
+variables = [
+  { symbol = "b", name = "maximum", unit = "1", aliases = ["max", "b"] },
+  { symbol = "a", name = "minimum", unit = "1", aliases = ["min", "a"] },
+]
+tags = ["probability"]
+source = { title = "Continuous uniform distribution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Continuous_uniform_distribution" }
+checks = [{ inputs = [10, 4], output = 3 }]
+
+[[formula]]
+id = "poisson_probability_one"
+name = "Poisson probability of exactly one event"
+expr = "l * exp(-l)"
+output = { symbol = "p", name = "probability", unit = "1", aliases = ["probability", "p"] }
+variables = [
+  { symbol = "l", name = "mean rate", unit = "1", aliases = ["lambda", "rate"] },
+]
+tags = ["probability"]
+source = { title = "Poisson distribution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Poisson_distribution" }
+checks = [{ inputs = [2.5], output = 0.205212496559747 }]
+
+[[formula]]
+id = "geometric_distribution"
+name = "Geometric distribution"
+expr = "(1 - p)^(k - 1) * p"
+output = { symbol = "P", name = "probability", unit = "1", aliases = ["probability"] }
+variables = [
+  { symbol = "p", name = "success probability", unit = "1", aliases = ["p"] },
+  { symbol = "k", name = "trial of first success", unit = "1", aliases = ["k", "trial"] },
+]
+tags = ["probability"]
+source = { title = "Geometric distribution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Geometric_distribution" }
+checks = [{ inputs = [0.2, 3], output = 0.12800000000000003 }]
+
+[[formula]]
+id = "binomial_standard_deviation"
+name = "Standard deviation of a binomial"
+expr = "sqrt(n * p * (1 - p))"
+output = { symbol = "s", name = "standard deviation", unit = "1", aliases = ["sd", "std"] }
+variables = [
+  { symbol = "n", name = "trials", unit = "1", aliases = ["n", "trials"] },
+  { symbol = "p", name = "success probability", unit = "1", aliases = ["p"] },
+]
+tags = ["probability"]
+source = { title = "Binomial distribution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Binomial_distribution" }
+checks = [{ inputs = [100, 0.3], output = 4.58257569495584 }]
+
+[[formula]]
+id = "odds_from_probability"
+name = "Odds from a probability"
+expr = "p / (1 - p)"
+output = { symbol = "o", name = "odds", unit = "1", aliases = ["odds"] }
+variables = [
+  { symbol = "p", name = "probability", unit = "1", aliases = ["probability", "p"] },
+]
+tags = ["probability"]
+source = { title = "Odds (Wikipedia)", url = "https://en.wikipedia.org/wiki/Odds" }
+checks = [{ inputs = [0.8], output = 4.000000000000001 }]
+
+[[formula]]
+id = "probability_from_odds"
+name = "Probability from odds"
+expr = "o / (1 + o)"
+output = { symbol = "p", name = "probability", unit = "1", aliases = ["probability", "p"] }
+variables = [
+  { symbol = "o", name = "odds", unit = "1", aliases = ["odds"] },
+]
+tags = ["probability"]
+source = { title = "Odds (Wikipedia)", url = "https://en.wikipedia.org/wiki/Odds" }
+checks = [{ inputs = [3], output = 0.75 }]
+
+[[formula]]
+id = "logit"
+name = "Logit"
+expr = "ln(p / (1 - p))"
+output = { symbol = "y", name = "log-odds", unit = "1", aliases = ["logit", "log_odds"] }
+variables = [
+  { symbol = "p", name = "probability", unit = "1", aliases = ["probability", "p"] },
+]
+tags = ["probability"]
+source = { title = "Logit (Wikipedia)", url = "https://en.wikipedia.org/wiki/Logit" }
+checks = [{ inputs = [0.75], output = 1.0986122886681098 }]
+
+[[formula]]
+id = "expected_value_two_outcomes"
+name = "Expected value of two outcomes"
+expr = "p * a + (1 - p) * b"
+output = { symbol = "E", name = "expected value", unit = "1", aliases = ["expected", "ev"] }
+variables = [
+  { symbol = "p", name = "probability of the first", unit = "1", aliases = ["probability", "p"] },
+  { symbol = "a", name = "first outcome", unit = "1", aliases = ["win", "a"] },
+  { symbol = "b", name = "second outcome", unit = "1", aliases = ["lose", "b"] },
+]
+tags = ["probability"]
+source = { title = "Expected value (Wikipedia)", url = "https://en.wikipedia.org/wiki/Expected_value" }
+checks = [{ inputs = [0.3, 100, -20], output = 16 }]
+
+[[formula]]
+id = "cohens_d"
+name = "Effect size (Cohen's d)"
+expr = "(m1 - m2) / s"
+output = { symbol = "d", name = "effect size", unit = "1", aliases = ["cohens_d", "effect"] }
+variables = [
+  { symbol = "m1", name = "first mean", unit = "1", aliases = ["mean1", "m1"] },
+  { symbol = "m2", name = "second mean", unit = "1", aliases = ["mean2", "m2"] },
+  { symbol = "s", name = "pooled standard deviation", unit = "1", aliases = ["sd", "pooled_sd"] },
+]
+tags = ["statistics"]
+source = { title = "Effect size (Wikipedia)", url = "https://en.wikipedia.org/wiki/Effect_size" }
+checks = [{ inputs = [105, 100, 15], output = 0.3333333333333333 }]
+
+[[formula]]
+id = "root_mean_square_2"
+name = "Root mean square of two values"
+expr = "sqrt((a^2 + b^2) / 2)"
+output = { symbol = "r", name = "root mean square", unit = "1", aliases = ["rms"] }
+variables = [
+  { symbol = "a", name = "first value", unit = "1", aliases = ["a"] },
+  { symbol = "b", name = "second value", unit = "1", aliases = ["b"] },
+]
+tags = ["statistics"]
+source = { title = "Root mean square (Wikipedia)", url = "https://en.wikipedia.org/wiki/Root_mean_square" }
+checks = [{ inputs = [3, 4], output = 3.5355339059327378 }]
+
+[[formula]]
+id = "relative_error"
+name = "Relative error"
+expr = "abs(m - t) / abs(t)"
+output = { symbol = "e", name = "relative error", unit = "1", aliases = ["relative_error", "error"] }
+variables = [
+  { symbol = "m", name = "measured value", unit = "1", aliases = ["measured", "approx"] },
+  { symbol = "t", name = "true value", unit = "1", aliases = ["true", "exact"] },
+]
+tags = ["statistics"]
+source = { title = "Approximation error (Wikipedia)", url = "https://en.wikipedia.org/wiki/Approximation_error" }
+checks = [{ inputs = [9.8, 10], output = 0.019999999999999928 }]
+
+[[formula]]
+id = "percent_error"
+name = "Percent error"
+expr = "100 * abs(m - t) / abs(t)"
+output = { symbol = "e", name = "percent error", unit = "1", aliases = ["percent_error", "error"] }
+variables = [
+  { symbol = "m", name = "measured value", unit = "1", aliases = ["measured", "approx"] },
+  { symbol = "t", name = "true value", unit = "1", aliases = ["true", "exact"] },
+]
+tags = ["statistics"]
+source = { title = "Approximation error (Wikipedia)", url = "https://en.wikipedia.org/wiki/Approximation_error" }
+checks = [{ inputs = [9.5, 10], output = 5 }]
+
+[[formula]]
+id = "specificity"
+name = "Specificity (true negative rate)"
+expr = "n / (n + f)"
+output = { symbol = "s", name = "specificity", unit = "1", aliases = ["specificity", "tnr"] }
+variables = [
+  { symbol = "n", name = "true negatives", unit = "1", aliases = ["tn", "true_negatives"] },
+  { symbol = "f", name = "false positives", unit = "1", aliases = ["fp", "false_positives"] },
+]
+tags = ["statistics", "classification"]
+source = { title = "Sensitivity and specificity (Wikipedia)", url = "https://en.wikipedia.org/wiki/Sensitivity_and_specificity" }
+checks = [{ inputs = [90, 10], output = 0.9 }]
+
+[[formula]]
+id = "false_positive_rate"
+name = "False positive rate"
+expr = "f / (f + n)"
+output = { symbol = "r", name = "false positive rate", unit = "1", aliases = ["fpr"] }
+variables = [
+  { symbol = "f", name = "false positives", unit = "1", aliases = ["fp", "false_positives"] },
+  { symbol = "n", name = "true negatives", unit = "1", aliases = ["tn", "true_negatives"] },
+]
+tags = ["statistics", "classification"]
+source = { title = "False positive rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/False_positive_rate" }
+checks = [{ inputs = [10, 90], output = 0.1 }]
+
+[[formula]]
+id = "mean_absolute_error_term"
+name = "Absolute error"
+expr = "abs(y - p)"
+output = { symbol = "e", name = "absolute error", unit = "1", aliases = ["error", "abs_error"] }
+variables = [
+  { symbol = "y", name = "actual", unit = "1", aliases = ["actual", "y"] },
+  { symbol = "p", name = "predicted", unit = "1", aliases = ["predicted", "forecast"] },
+]
+tags = ["statistics"]
+source = { title = "Mean absolute error (Wikipedia)", url = "https://en.wikipedia.org/wiki/Mean_absolute_error" }
+checks = [{ inputs = [10, 12.5], output = 2.5 }]
+
+[[formula]]
+id = "bayes_theorem"
+name = "Bayes' theorem"
+expr = "b * a / c"
+output = { symbol = "p", name = "posterior probability", unit = "1", aliases = ["posterior"] }
+variables = [
+  { symbol = "b", name = "likelihood", unit = "1", aliases = ["likelihood"] },
+  { symbol = "a", name = "prior", unit = "1", aliases = ["prior"] },
+  { symbol = "c", name = "evidence", unit = "1", aliases = ["evidence", "marginal"] },
+]
+tags = ["probability"]
+source = { title = "Bayes' theorem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bayes'_theorem" }
+checks = [{ inputs = [0.9, 0.01, 0.05], output = 0.18000000000000002 }]

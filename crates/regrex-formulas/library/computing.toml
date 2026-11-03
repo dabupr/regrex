@@ -393,3 +393,522 @@ variables = [
 tags = ["security", "information_theory"]
 source = { title = "Password strength (Wikipedia)", url = "https://en.wikipedia.org/wiki/Password_strength" }
 checks = [{ inputs = [12, 62], output = 71.4503557246425 }]
+
+[[formula]]
+id = "bytes_to_bits"
+name = "Bytes to bits"
+expr = "8 * b"
+output = { symbol = "n", name = "bits", unit = "1", aliases = ["bits"] }
+variables = [
+  { symbol = "b", name = "bytes", unit = "1", aliases = ["bytes"] },
+]
+tags = ["data"]
+source = { title = "Byte (Wikipedia)", url = "https://en.wikipedia.org/wiki/Byte" }
+checks = [{ inputs = [256], output = 2048 }]
+
+[[formula]]
+id = "kibibytes_to_bytes"
+name = "Kibibytes to bytes"
+expr = "1024 * k"
+output = { symbol = "b", name = "bytes", unit = "1", aliases = ["bytes"] }
+variables = [
+  { symbol = "k", name = "kibibytes", unit = "1", aliases = ["kib", "kibibytes", "kb"] },
+]
+tags = ["data"]
+source = { title = "Kibibyte (Wikipedia)", url = "https://en.wikipedia.org/wiki/Kibibyte" }
+checks = [{ inputs = [64], output = 65536 }]
+
+[[formula]]
+id = "mebibytes_to_gibibytes"
+name = "Mebibytes to gibibytes"
+expr = "m / 1024"
+output = { symbol = "g", name = "gibibytes", unit = "1", aliases = ["gib", "gibibytes", "gb"] }
+variables = [
+  { symbol = "m", name = "mebibytes", unit = "1", aliases = ["mib", "mebibytes", "mb"] },
+]
+tags = ["data"]
+source = { title = "Gibibyte (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gibibyte" }
+checks = [{ inputs = [4096], output = 4 }]
+
+[[formula]]
+id = "download_time_mbps"
+name = "Download time"
+expr = "8 * s / r"
+output = { symbol = "t", name = "time in seconds", unit = "1", aliases = ["time", "seconds"] }
+variables = [
+  { symbol = "s", name = "file size in MB", unit = "1", aliases = ["size", "mb"] },
+  { symbol = "r", name = "speed in Mbit/s", unit = "1", aliases = ["speed", "mbps", "bandwidth"] },
+]
+tags = ["networking"]
+source = { title = "Data-rate units (Wikipedia)", url = "https://en.wikipedia.org/wiki/Data-rate_units" }
+checks = [{ inputs = [700, 50], output = 112 }]
+
+[[formula]]
+id = "data_transferred"
+name = "Data transferred at a rate"
+expr = "r * t / 8"
+output = { symbol = "s", name = "data in MB", unit = "1", aliases = ["data", "size", "mb"] }
+variables = [
+  { symbol = "r", name = "rate in Mbit/s", unit = "1", aliases = ["rate", "mbps"] },
+  { symbol = "t", name = "time in seconds", unit = "1", aliases = ["time", "seconds"] },
+]
+tags = ["networking"]
+source = { title = "Data-rate units (Wikipedia)", url = "https://en.wikipedia.org/wiki/Data-rate_units" }
+checks = [{ inputs = [100, 60], output = 750 }]
+
+[[formula]]
+id = "video_bitrate_size"
+name = "Size of a video"
+expr = "r * t / 8"
+output = { symbol = "s", name = "size in MB", unit = "1", aliases = ["size", "mb"] }
+variables = [
+  { symbol = "r", name = "bitrate in Mbit/s", unit = "1", aliases = ["bitrate", "mbps"] },
+  { symbol = "t", name = "duration in seconds", unit = "1", aliases = ["duration", "seconds"] },
+]
+tags = ["media"]
+source = { title = "Bit rate (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bit_rate" }
+checks = [{ inputs = [5, 3600], output = 2250 }]
+
+[[formula]]
+id = "uncompressed_video_rate"
+name = "Raw video data rate"
+expr = "w * h * b * f"
+output = { symbol = "r", name = "bits per second", unit = "1", aliases = ["bitrate", "bps"] }
+variables = [
+  { symbol = "w", name = "width in pixels", unit = "1", aliases = ["width"] },
+  { symbol = "h", name = "height in pixels", unit = "1", aliases = ["height"] },
+  { symbol = "b", name = "bits per pixel", unit = "1", aliases = ["bpp", "depth"] },
+  { symbol = "f", name = "frames per second", unit = "1", aliases = ["fps"] },
+]
+tags = ["media"]
+source = { title = "Uncompressed video (Wikipedia)", url = "https://en.wikipedia.org/wiki/Uncompressed_video" }
+checks = [{ inputs = [1920, 1080, 24, 30], output = 1492992000 }]
+
+[[formula]]
+id = "pixel_count"
+name = "Number of pixels"
+expr = "w * h"
+output = { symbol = "n", name = "pixels", unit = "1", aliases = ["pixels"] }
+variables = [
+  { symbol = "w", name = "width in pixels", unit = "1", aliases = ["width"] },
+  { symbol = "h", name = "height in pixels", unit = "1", aliases = ["height"] },
+]
+tags = ["media", "graphics"]
+source = { title = "Pixel (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pixel" }
+checks = [{ inputs = [1920, 1080], output = 2073600 }]
+
+[[formula]]
+id = "megapixels"
+name = "Megapixels"
+expr = "w * h / 1000000"
+output = { symbol = "M", name = "megapixels", unit = "1", aliases = ["megapixels", "mp"] }
+variables = [
+  { symbol = "w", name = "width in pixels", unit = "1", aliases = ["width"] },
+  { symbol = "h", name = "height in pixels", unit = "1", aliases = ["height"] },
+]
+tags = ["media", "graphics"]
+source = { title = "Image resolution (Wikipedia)", url = "https://en.wikipedia.org/wiki/Image_resolution" }
+checks = [{ inputs = [4000, 3000], output = 12 }]
+
+[[formula]]
+id = "pixel_density"
+name = "Pixel density of a screen"
+expr = "sqrt(w^2 + h^2) / d"
+output = { symbol = "p", name = "pixels per inch", unit = "1", aliases = ["ppi", "dpi"] }
+variables = [
+  { symbol = "w", name = "width in pixels", unit = "1", aliases = ["width"] },
+  { symbol = "h", name = "height in pixels", unit = "1", aliases = ["height"] },
+  { symbol = "d", name = "diagonal in inches", unit = "1", aliases = ["diagonal", "inches"] },
+]
+tags = ["graphics", "displays"]
+source = { title = "Pixel density (Wikipedia)", url = "https://en.wikipedia.org/wiki/Pixel_density" }
+checks = [{ inputs = [1920, 1080, 24], output = 91.7877987534291 }]
+
+[[formula]]
+id = "aspect_ratio"
+name = "Aspect ratio"
+expr = "w / h"
+output = { symbol = "r", name = "aspect ratio", unit = "1", aliases = ["aspect", "ratio"] }
+variables = [
+  { symbol = "w", name = "width", unit = "1", aliases = ["width"] },
+  { symbol = "h", name = "height", unit = "1", aliases = ["height"] },
+]
+tags = ["graphics"]
+source = { title = "Aspect ratio (image) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Aspect_ratio_(image)" }
+checks = [{ inputs = [1920, 1080], output = 1.7777777777777777 }]
+
+[[formula]]
+id = "print_size"
+name = "Print size in inches"
+expr = "p / d"
+output = { symbol = "s", name = "size in inches", unit = "1", aliases = ["inches", "size"] }
+variables = [
+  { symbol = "p", name = "pixels", unit = "1", aliases = ["pixels"] },
+  { symbol = "d", name = "dots per inch", unit = "1", aliases = ["dpi"] },
+]
+tags = ["graphics"]
+source = { title = "Dots per inch (Wikipedia)", url = "https://en.wikipedia.org/wiki/Dots_per_inch" }
+checks = [{ inputs = [3000, 300], output = 10 }]
+
+[[formula]]
+id = "color_depth_colors"
+name = "Number of colours"
+expr = "2^b"
+output = { symbol = "n", name = "colours", unit = "1", aliases = ["colors", "colours"] }
+variables = [
+  { symbol = "b", name = "bits per pixel", unit = "1", aliases = ["bits", "depth"] },
+]
+tags = ["graphics"]
+source = { title = "Color depth (Wikipedia)", url = "https://en.wikipedia.org/wiki/Color_depth" }
+checks = [{ inputs = [24], output = 16777216 }]
+
+[[formula]]
+id = "raid5_capacity"
+name = "Usable capacity of RAID 5"
+expr = "(n - 1) * s"
+output = { symbol = "C", name = "usable capacity", unit = "1", aliases = ["capacity", "usable"] }
+variables = [
+  { symbol = "n", name = "number of disks", unit = "1", aliases = ["disks", "n"] },
+  { symbol = "s", name = "disk size", unit = "1", aliases = ["size"] },
+]
+tags = ["storage"]
+source = { title = "Standard RAID levels (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_RAID_levels" }
+checks = [{ inputs = [4, 4000], output = 12000 }]
+
+[[formula]]
+id = "raid6_capacity"
+name = "Usable capacity of RAID 6"
+expr = "(n - 2) * s"
+output = { symbol = "C", name = "usable capacity", unit = "1", aliases = ["capacity", "usable"] }
+variables = [
+  { symbol = "n", name = "number of disks", unit = "1", aliases = ["disks", "n"] },
+  { symbol = "s", name = "disk size", unit = "1", aliases = ["size"] },
+]
+tags = ["storage"]
+source = { title = "Standard RAID levels (Wikipedia)", url = "https://en.wikipedia.org/wiki/Standard_RAID_levels" }
+checks = [{ inputs = [6, 8000], output = 32000 }]
+
+[[formula]]
+id = "iops_from_latency"
+name = "IOPS from latency"
+expr = "q / l"
+output = { symbol = "i", name = "I/O operations per second", unit = "1", aliases = ["iops"] }
+variables = [
+  { symbol = "q", name = "queue depth", unit = "1", aliases = ["queue_depth", "qd"] },
+  { symbol = "l", name = "latency in seconds", unit = "1", aliases = ["latency"] },
+]
+tags = ["storage", "performance"]
+source = { title = "IOPS (Wikipedia)", url = "https://en.wikipedia.org/wiki/IOPS" }
+checks = [{ inputs = [32, 0.0002], output = 160000 }]
+
+[[formula]]
+id = "cpu_time"
+name = "CPU time"
+expr = "n * c / f"
+output = { symbol = "t", name = "CPU time", unit = "s", aliases = ["time"] }
+variables = [
+  { symbol = "n", name = "instructions", unit = "1", aliases = ["instructions"] },
+  { symbol = "c", name = "cycles per instruction", unit = "1", aliases = ["cpi"] },
+  { symbol = "f", name = "clock frequency", unit = "Hz", aliases = ["clock", "frequency"] },
+]
+tags = ["performance"]
+source = { title = "CPU time (Wikipedia)", url = "https://en.wikipedia.org/wiki/CPU_time" }
+checks = [{ inputs = [2000000000, 1.5, 3000000000], output = 1 }]
+
+[[formula]]
+id = "mips"
+name = "MIPS"
+expr = "f / (c * 1000000)"
+output = { symbol = "M", name = "MIPS", unit = "1/s", aliases = ["mips"] }
+variables = [
+  { symbol = "f", name = "clock frequency", unit = "Hz", aliases = ["clock", "frequency"] },
+  { symbol = "c", name = "cycles per instruction", unit = "1", aliases = ["cpi"] },
+]
+tags = ["performance"]
+source = { title = "Instructions per second (Wikipedia)", url = "https://en.wikipedia.org/wiki/Instructions_per_second" }
+checks = [{ inputs = [3000000000, 1.5], output = 2000 }]
+
+[[formula]]
+id = "flops_peak"
+name = "Peak FLOPS"
+expr = "n * f * k"
+output = { symbol = "F", name = "floating-point operations per second", unit = "Hz", aliases = ["flops"] }
+variables = [
+  { symbol = "n", name = "cores", unit = "1", aliases = ["cores"] },
+  { symbol = "f", name = "clock frequency", unit = "Hz", aliases = ["clock", "frequency"] },
+  { symbol = "k", name = "operations per cycle per core", unit = "1", aliases = ["flops_per_cycle"] },
+]
+tags = ["performance"]
+source = { title = "FLOPS (Wikipedia)", url = "https://en.wikipedia.org/wiki/FLOPS" }
+checks = [{ inputs = [8, 3000000000, 16], output = 384000000000 }]
+
+[[formula]]
+id = "arithmetic_intensity"
+name = "Arithmetic intensity"
+expr = "f / b"
+output = { symbol = "I", name = "arithmetic intensity", unit = "1", aliases = ["intensity"] }
+variables = [
+  { symbol = "f", name = "floating-point operations", unit = "1", aliases = ["flops", "ops"] },
+  { symbol = "b", name = "bytes moved", unit = "1", aliases = ["bytes"] },
+]
+tags = ["performance"]
+source = { title = "Roofline model (Wikipedia)", url = "https://en.wikipedia.org/wiki/Roofline_model" }
+checks = [{ inputs = [2000000, 800000], output = 2.5 }]
+
+[[formula]]
+id = "roofline"
+name = "Attainable performance (roofline)"
+expr = "abs(p + i * b - abs(p - i * b)) / 2"
+output = { symbol = "P", name = "attainable performance", unit = "1", aliases = ["performance"] }
+variables = [
+  { symbol = "p", name = "peak compute", unit = "1", aliases = ["peak_flops"] },
+  { symbol = "i", name = "arithmetic intensity", unit = "1", aliases = ["intensity"] },
+  { symbol = "b", name = "memory bandwidth", unit = "1", aliases = ["bandwidth"] },
+]
+tags = ["performance"]
+source = { title = "Roofline model (Wikipedia)", url = "https://en.wikipedia.org/wiki/Roofline_model" }
+checks = [{ inputs = [1000, 2, 200], output = 400 }]
+
+[[formula]]
+id = "latency_percent_improvement"
+name = "Speed improvement in percent"
+expr = "100 * (o - n) / o"
+output = { symbol = "p", name = "improvement in percent", unit = "1", aliases = ["improvement"] }
+variables = [
+  { symbol = "o", name = "old time", unit = "s", aliases = ["old_time", "before"] },
+  { symbol = "n", name = "new time", unit = "s", aliases = ["new_time", "after"] },
+]
+tags = ["performance"]
+source = { title = "Speedup (Wikipedia)", url = "https://en.wikipedia.org/wiki/Speedup" }
+checks = [{ inputs = [2.5, 1.8], output = 28 }]
+
+[[formula]]
+id = "queue_wait_mm1"
+name = "Average wait in an M/M/1 queue"
+expr = "l / (m * (m - l))"
+output = { symbol = "W", name = "waiting time", unit = "s", aliases = ["wait", "waiting_time"] }
+variables = [
+  { symbol = "l", name = "arrival rate", unit = "1/s", aliases = ["lambda", "arrival_rate"] },
+  { symbol = "m", name = "service rate", unit = "1/s", aliases = ["mu", "service_rate"] },
+]
+tags = ["queueing"]
+source = { title = "M/M/1 queue (Wikipedia)", url = "https://en.wikipedia.org/wiki/M/M/1_queue" }
+checks = [{ inputs = [8, 10], output = 0.4 }]
+
+[[formula]]
+id = "queue_length_mm1"
+name = "Average number in an M/M/1 system"
+expr = "r / (1 - r)"
+output = { symbol = "L", name = "customers in the system", unit = "1", aliases = ["queue_length"] }
+variables = [
+  { symbol = "r", name = "utilization", unit = "1", aliases = ["rho", "utilization"] },
+]
+tags = ["queueing"]
+source = { title = "M/M/1 queue (Wikipedia)", url = "https://en.wikipedia.org/wiki/M/M/1_queue" }
+checks = [{ inputs = [0.8], output = 4.000000000000001 }]
+
+[[formula]]
+id = "erlang_traffic"
+name = "Offered traffic in erlangs"
+expr = "l * h"
+output = { symbol = "A", name = "traffic in erlangs", unit = "1", aliases = ["erlangs", "traffic"] }
+variables = [
+  { symbol = "l", name = "calls per second", unit = "1/s", aliases = ["calls", "arrival_rate"] },
+  { symbol = "h", name = "average holding time", unit = "s", aliases = ["holding_time", "duration"] },
+]
+tags = ["queueing", "telecom"]
+source = { title = "Erlang (unit) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Erlang_(unit)" }
+checks = [{ inputs = [0.05, 180], output = 9 }]
+
+[[formula]]
+id = "hash_collision_probability"
+name = "Probability of a hash collision"
+expr = "1 - exp(-n^2 / (2 * d))"
+output = { symbol = "p", name = "collision probability", unit = "1", aliases = ["probability"] }
+variables = [
+  { symbol = "n", name = "items", unit = "1", aliases = ["items", "n"] },
+  { symbol = "d", name = "number of possible hashes", unit = "1", aliases = ["space", "buckets"] },
+]
+tags = ["algorithms", "security"]
+source = { title = "Birthday problem (Wikipedia)", url = "https://en.wikipedia.org/wiki/Birthday_problem" }
+checks = [{ inputs = [10000, 4294967296], output = 0.011574031737030754 }]
+
+[[formula]]
+id = "bloom_filter_false_positive"
+name = "Bloom filter false positive rate"
+expr = "(1 - exp(-k * n / m))^k"
+output = { symbol = "p", name = "false positive rate", unit = "1", aliases = ["fpr", "probability"] }
+variables = [
+  { symbol = "k", name = "hash functions", unit = "1", aliases = ["hashes", "k"] },
+  { symbol = "n", name = "items", unit = "1", aliases = ["items", "n"] },
+  { symbol = "m", name = "bits", unit = "1", aliases = ["bits", "m"] },
+]
+tags = ["algorithms"]
+source = { title = "Bloom filter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bloom_filter" }
+checks = [{ inputs = [7, 1000, 10000], output = 0.008193722065862417 }]
+
+[[formula]]
+id = "bloom_filter_optimal_hashes"
+name = "Optimal number of Bloom filter hashes"
+expr = "m / n * ln(2)"
+output = { symbol = "k", name = "hash functions", unit = "1", aliases = ["hashes", "k"] }
+variables = [
+  { symbol = "m", name = "bits", unit = "1", aliases = ["bits", "m"] },
+  { symbol = "n", name = "items", unit = "1", aliases = ["items", "n"] },
+]
+tags = ["algorithms"]
+source = { title = "Bloom filter (Wikipedia)", url = "https://en.wikipedia.org/wiki/Bloom_filter" }
+checks = [{ inputs = [10000, 1000], output = 6.931471805599453 }]
+
+[[formula]]
+id = "binary_search_steps"
+name = "Steps of a binary search"
+expr = "ceil(log2(n + 1))"
+output = { symbol = "k", name = "comparisons", unit = "1", aliases = ["steps", "comparisons"] }
+variables = [
+  { symbol = "n", name = "items", unit = "1", aliases = ["items", "n"] },
+]
+tags = ["algorithms"]
+source = { title = "Binary search (Wikipedia)", url = "https://en.wikipedia.org/wiki/Binary_search" }
+checks = [{ inputs = [1000000], output = 20 }]
+
+[[formula]]
+id = "tree_height_balanced"
+name = "Height of a complete binary tree"
+expr = "floor(log2(n))"
+output = { symbol = "h", name = "height", unit = "1", aliases = ["height"] }
+variables = [
+  { symbol = "n", name = "nodes", unit = "1", aliases = ["nodes", "n"] },
+]
+tags = ["algorithms", "data_structures"]
+source = { title = "Binary tree (Wikipedia)", url = "https://en.wikipedia.org/wiki/Binary_tree" }
+checks = [{ inputs = [1000], output = 9 }]
+
+[[formula]]
+id = "nodes_full_binary_tree"
+name = "Nodes of a perfect binary tree"
+expr = "2^(h + 1) - 1"
+output = { symbol = "n", name = "nodes", unit = "1", aliases = ["nodes"] }
+variables = [
+  { symbol = "h", name = "height", unit = "1", aliases = ["height", "h"] },
+]
+tags = ["algorithms", "data_structures"]
+source = { title = "Binary tree (Wikipedia)", url = "https://en.wikipedia.org/wiki/Binary_tree" }
+checks = [{ inputs = [4], output = 31 }]
+
+[[formula]]
+id = "hamming_bound_parity"
+name = "Parity bits for Hamming code (check)"
+expr = "2^r - r - 1"
+output = { symbol = "k", name = "data bits", unit = "1", aliases = ["data_bits"] }
+variables = [
+  { symbol = "r", name = "parity bits", unit = "1", aliases = ["parity_bits", "r"] },
+]
+tags = ["coding_theory"]
+source = { title = "Hamming code (Wikipedia)", url = "https://en.wikipedia.org/wiki/Hamming_code" }
+checks = [{ inputs = [4], output = 11 }]
+
+[[formula]]
+id = "key_space"
+name = "Key space size"
+expr = "n^l"
+output = { symbol = "K", name = "possible keys", unit = "1", aliases = ["keyspace", "combinations"] }
+variables = [
+  { symbol = "n", name = "alphabet size", unit = "1", aliases = ["alphabet", "charset"] },
+  { symbol = "l", name = "length", unit = "1", aliases = ["length"] },
+]
+tags = ["security"]
+source = { title = "Key space (cryptography) (Wikipedia)", url = "https://en.wikipedia.org/wiki/Key_space_(cryptography)" }
+checks = [{ inputs = [62, 12], output = 3.2262667623979e+21 }]
+
+[[formula]]
+id = "brute_force_time"
+name = "Time to brute-force a key space"
+expr = "n / (2 * r)"
+output = { symbol = "t", name = "average time", unit = "s", aliases = ["time"] }
+variables = [
+  { symbol = "n", name = "possible keys", unit = "1", aliases = ["keyspace"] },
+  { symbol = "r", name = "guesses per second", unit = "1/s", aliases = ["rate", "guesses"] },
+]
+tags = ["security"]
+source = { title = "Brute-force attack (Wikipedia)", url = "https://en.wikipedia.org/wiki/Brute-force_attack" }
+checks = [{ inputs = [1000000000000, 1000000000], output = 500 }]
+
+[[formula]]
+id = "nines_downtime"
+name = "Downtime per year from availability"
+expr = "(1 - a) * 365.25 * 24 * 60"
+output = { symbol = "d", name = "downtime in minutes per year", unit = "1", aliases = ["downtime"] }
+variables = [
+  { symbol = "a", name = "availability", unit = "1", aliases = ["availability", "uptime"] },
+]
+tags = ["reliability"]
+source = { title = "High availability (Wikipedia)", url = "https://en.wikipedia.org/wiki/High_availability" }
+checks = [{ inputs = [0.999], output = 525.9600000000004 }]
+
+[[formula]]
+id = "series_availability"
+name = "Availability of two systems in series"
+expr = "a * b"
+output = { symbol = "A", name = "availability", unit = "1", aliases = ["availability"] }
+variables = [
+  { symbol = "a", name = "availability of the first", unit = "1", aliases = ["a1"] },
+  { symbol = "b", name = "availability of the second", unit = "1", aliases = ["a2"] },
+]
+tags = ["reliability"]
+source = { title = "Availability (Wikipedia)", url = "https://en.wikipedia.org/wiki/Availability" }
+checks = [{ inputs = [0.99, 0.995], output = 0.98505 }]
+
+[[formula]]
+id = "parallel_availability"
+name = "Availability of two redundant systems"
+expr = "1 - (1 - a) * (1 - b)"
+output = { symbol = "A", name = "availability", unit = "1", aliases = ["availability"] }
+variables = [
+  { symbol = "a", name = "availability of the first", unit = "1", aliases = ["a1"] },
+  { symbol = "b", name = "availability of the second", unit = "1", aliases = ["a2"] },
+]
+tags = ["reliability"]
+source = { title = "Availability (Wikipedia)", url = "https://en.wikipedia.org/wiki/Availability" }
+checks = [{ inputs = [0.99, 0.99], output = 0.9999 }]
+
+[[formula]]
+id = "error_budget"
+name = "Error budget"
+expr = "(1 - s) * n"
+output = { symbol = "b", name = "allowed failures", unit = "1", aliases = ["error_budget", "budget"] }
+variables = [
+  { symbol = "s", name = "SLO target", unit = "1", aliases = ["slo", "target"] },
+  { symbol = "n", name = "requests", unit = "1", aliases = ["requests"] },
+]
+tags = ["reliability", "sre"]
+source = { title = "Service-level objective (Wikipedia)", url = "https://en.wikipedia.org/wiki/Service-level_objective" }
+checks = [{ inputs = [0.999, 1000000], output = 1000.0000000000009 }]
+
+[[formula]]
+id = "token_bucket_burst"
+name = "Requests allowed in a window (token bucket)"
+expr = "b + r * t"
+output = { symbol = "n", name = "requests allowed", unit = "1", aliases = ["requests", "allowed"] }
+variables = [
+  { symbol = "b", name = "bucket size", unit = "1", aliases = ["burst", "bucket"] },
+  { symbol = "r", name = "refill rate per second", unit = "1", aliases = ["rate"] },
+  { symbol = "t", name = "window in seconds", unit = "1", aliases = ["window", "seconds"] },
+]
+tags = ["networking"]
+source = { title = "Token bucket (Wikipedia)", url = "https://en.wikipedia.org/wiki/Token_bucket" }
+checks = [{ inputs = [100, 10, 60], output = 700 }]
+
+[[formula]]
+id = "tcp_throughput_mathis"
+name = "TCP throughput (Mathis)"
+expr = "m / (r * sqrt(p))"
+output = { symbol = "B", name = "throughput in bytes per second", unit = "1", aliases = ["throughput"] }
+variables = [
+  { symbol = "m", name = "maximum segment size in bytes", unit = "1", aliases = ["mss"] },
+  { symbol = "r", name = "round-trip time in seconds", unit = "1", aliases = ["rtt"] },
+  { symbol = "p", name = "packet loss rate", unit = "1", aliases = ["loss"] },
+]
+tags = ["networking"]
+source = { title = "TCP tuning (Wikipedia)", url = "https://en.wikipedia.org/wiki/TCP_tuning" }
+checks = [{ inputs = [1460, 0.05, 0.0001], output = 2920000 }]
