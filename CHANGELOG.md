@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - with units, formulas that mix incompatible dimensions (`t + v`, `exp(t)`) are never tried, and outer constants that must carry units (`g` in `4.905 * t^2`) cost a little extra complexity.
 - `regrex_core::parse::parse_expr` reads formulas written as text (`0.5 * m * v^2`, `2 * pi * sqrt(L / g)`).
 
+- Python bindings (phase 5): the `regrex` package (`crates/regrex-py`, built with maturin) with `search`, `scan` and `scan_file`, accepting dicts of columns and pandas DataFrames, tested with pytest on Linux, macOS and Windows.
+- MCP server (phase 5): `regrex mcp` exposes `scan_dataset`, `fit_formula`, `fit_values`, `check_formula` and `check_units` to AI assistants over stdio.
+- `regrex_core::check_formula` checks a given formula against a column and reports the rows that break it.
+- Documentation of the JSON output (`docs/json-output.md`), MCP setup (`docs/mcp.md`) and an `llms.txt` file.
+
 ### Changed
 
 - Minimum supported Rust version is now 1.88 (needed by the spreadsheet reader).

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "regrex"
+description = "Find the formulas behind your data: symbolic regression for tables, in Rust"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [{ name = "David Busoms" }]
+keywords = ["symbolic-regression", "formula", "data-analysis", "csv", "excel"]
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+  "Intended Audience :: Science/Research",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://dabupr.github.io/regrex/"
+Repository = "https://github.com/dabupr/regrex"
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "regrex._native"
+features = ["pyo3/extension-module"]

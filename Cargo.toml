@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/regrex-core", "crates/regrex-io", "crates/regrex-cli", "crates/regrex-wasm", "crates/regrex-formulas"]
+members = ["crates/regrex-core", "crates/regrex-io", "crates/regrex-cli", "crates/regrex-wasm", "crates/regrex-formulas", "crates/regrex-py"]
 
 [workspace.package]
 edition = "2021"

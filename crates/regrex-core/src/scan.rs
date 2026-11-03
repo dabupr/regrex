@@ -144,16 +144,7 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     if rows.len() < 3 {
         return None;
     }
-    let tolerance = |r: usize| -> f64 {
-        let y = y_all[r];
-        let rounding = table
-            .decimals
-            .get(target)
-            .copied()
-            .flatten()
-            .map_or(0.0, |d| 0.5 * 10f64.powi(-(d as i32)) * 1.000_001);
-        rounding.max(config.rel_tolerance * y.abs()).max(1e-12)
-    };
+    let tolerance = row_tolerance(table, target, config);
 
     // Search on a few disjoint-ish subsets, so a handful of bad rows cannot
     // spoil every attempt; then once more on the rows the best formula fits.
@@ -192,6 +183,75 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     if ratio < config.min_match || !formula.has_vars() || matched.len() <= formula.complexity() {
         return None;
     }
+    Some(derived(table, target, formula, &rows, &matched))
+}
+
+/// Checks how well a given formula computes column `target`.
+///
+/// `formula` refers to table columns with `Expr::Var(i)`, for example as
+/// returned by [`crate::parse::parse_expr`] with the table's column names.
+/// Rows with a missing value in the target or in a column the formula uses
+/// are not checked. Unlike [`explain_column`], the result is returned even
+/// when few rows match, so callers can show where a hypothesis fails.
+///
+/// ```
+/// use regrex_core::{check_formula, parse::parse_expr, ScanConfig, Table};
+///
+/// let table = Table {
+///     names: vec!["net".into(), "vat".into()],
+///     columns: vec![vec![10.0, 20.0, 30.0], vec![2.1, 4.2, 3.0]],
+///     decimals: vec![Some(2), Some(2)],
+///     units: vec![None, None],
+/// };
+/// let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
+/// let formula = parse_expr("0.21 * net", &names).unwrap();
+/// let check = check_formula(&table, 1, &formula, &ScanConfig::default());
+/// assert_eq!((check.matched, check.checked), (2, 3));
+/// assert_eq!(check.exceptions, vec![2]);
+/// ```
+pub fn check_formula(
+    table: &Table,
+    target: usize,
+    formula: &Expr,
+    config: &ScanConfig,
+) -> DerivedColumn {
+    let mut used = Vec::new();
+    collect_vars(formula, &mut used);
+    let y_all = &table.columns[target];
+    let rows: Vec<usize> = (0..table.n_rows())
+        .filter(|&r| y_all[r].is_finite() && used.iter().all(|&c| table.columns[c][r].is_finite()))
+        .collect();
+    let tolerance = row_tolerance(table, target, config);
+    let matched = matching_rows(formula, table, &rows, y_all, &tolerance);
+    derived(table, target, formula.clone(), &rows, &matched)
+}
+
+/// How far a row of column `target` may be from a formula's value and still
+/// match: half a unit in the last written decimal, or a small relative error.
+fn row_tolerance<'a>(
+    table: &'a Table,
+    target: usize,
+    config: &'a ScanConfig,
+) -> impl Fn(usize) -> f64 + 'a {
+    let rounding = table
+        .decimals
+        .get(target)
+        .copied()
+        .flatten()
+        .map_or(0.0, |d| 0.5 * 10f64.powi(-(d as i32)) * 1.000_001);
+    move |r: usize| {
+        let y = table.columns[target][r];
+        rounding.max(config.rel_tolerance * y.abs()).max(1e-12)
+    }
+}
+
+fn derived(
+    table: &Table,
+    target: usize,
+    formula: Expr,
+    rows: &[usize],
+    matched: &[usize],
+) -> DerivedColumn {
     let matched_set: std::collections::HashSet<usize> = matched.iter().copied().collect();
     let exceptions = rows
         .iter()
@@ -202,7 +262,7 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     collect_vars(&formula, &mut inputs);
     inputs.sort_unstable();
     inputs.dedup();
-    Some(DerivedColumn {
+    DerivedColumn {
         target,
         formula_text: formula.display_with(&table.names).to_string(),
         complexity: formula.complexity(),
@@ -211,7 +271,7 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
         matched: matched.len(),
         checked: rows.len(),
         exceptions,
-    })
+    }
 }
 
 /// Runs a search for `target` on the given rows. The returned formulas use
