@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-03
+
+First release.
+
 ### Added
 
 - Two views of the results in the web app: a diagram of how the columns depend on each other (columns computed from each other share a two-headed arrow; selecting a column goes to its formula), and under each formula a chart of what the file holds against what the formula gives, with the rows that break it highlighted. The WebAssembly `Dataset` gains `values`.
