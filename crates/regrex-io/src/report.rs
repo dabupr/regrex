@@ -338,6 +338,11 @@ impl DerivedJson {
 
 /// Looks up the formula of a derived column in the library.
 fn known_column(table: &Table, d: &DerivedColumn) -> Option<KnownJson> {
+    // The library is matched on random real inputs, where `x div 100` looks
+    // like `0.01 * x`; none of its formulas uses whole-number arithmetic.
+    if d.formula.has_integer_ops() {
+        return None;
+    }
     let n = table.columns.len();
     let candidate = |values: &[f64]| {
         let mut row = vec![0.0; n];

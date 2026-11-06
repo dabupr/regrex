@@ -395,8 +395,12 @@ impl Checker<'_> {
         let solved = solve_param(mutated, self.row, self.actual)?;
         let mut options: Vec<f64> = crate::fit::nice_values(solved);
         options.sort_by_key(|&v| constant_complexity(v));
+        // Whole-number arithmetic takes whole constants: `x div 9.4` is no
+        // one's mistake.
+        let whole_only = mutated.has_integer_ops();
         let value = options.into_iter().find(|&v| {
             v != old
+                && (!whole_only || v.fract() == 0.0)
                 && constant_complexity(v) <= constant_complexity(old)
                 && self.reproduces(mutated, &[v])
         })?;
@@ -649,6 +653,23 @@ mod tests {
             found
                 .iter()
                 .any(|d| d.description == "used 10 instead of 9.81"),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn integer_formulas_get_whole_constants() {
+        // Line 91 for station 905, where the hundreds digit gives 9.
+        let found = check("station div 100", &[("station", 905.0)], 91.0, Some(0));
+        assert!(
+            found.iter().all(|d| d.kind != MistakeKind::WrongConstant),
+            "{found:?}"
+        );
+        let found = check("station div 100", &[("station", 905.0)], 90.0, Some(0));
+        assert!(
+            found
+                .iter()
+                .any(|d| d.description == "used 10 instead of 100"),
             "{found:?}"
         );
     }
