@@ -49,8 +49,8 @@ pub struct Loaded {
     /// Sheet names, for spreadsheets.
     pub sheets: Vec<String>,
     /// Columns that were not plain numbers but were read as numbers, with
-    /// how: `(column, "times as minutes (since midnight)")`. Covers
-    /// `true`/`false`, times, dates and numbers followed by a unit.
+    /// how: `(column, "times as minutes")`. Covers `true`/`false`, times,
+    /// dates and numbers followed by a unit.
     pub converted: Vec<(String, String)>,
 }
 

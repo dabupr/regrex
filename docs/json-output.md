@@ -66,7 +66,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `rows` | Number of data rows. |
 | `columns` | Numeric columns that were analysed. |
 | `skipped_columns` | Columns left out because they are not numeric. |
-| `converted_columns` | Columns whose cells are not plain numbers but were read as numbers: `column` (as written in the file) and `read_as`, one of `true/false as 1/0`, `times as minutes (since midnight)`, `dates as days since 1970-01-01`, `dates and times as minutes since 1970-01-01` or `numbers in <unit>`. |
+| `converted_columns` | Columns whose cells are not plain numbers but were read as numbers: `column` (as written in the file) and `read_as`, one of `true/false as 1/0`, `times as minutes`, `dates as days since 1970-01-01`, `dates and times as minutes since 1970-01-01` or `numbers in <unit>`. |
 | `derived[].column` | A column that is computed from others. |
 | `derived[].formula` | Its formula, written with column names. |
 | `derived[].inputs` | Columns the formula uses. |

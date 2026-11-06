@@ -37,7 +37,7 @@ pub struct ScanReport {
 pub struct ConvertedJson {
     /// The column, as written in the file.
     pub column: String,
-    /// How its cells were read, such as `times as minutes (since midnight)`.
+    /// How its cells were read, such as `times as minutes`.
     pub read_as: String,
 }
 

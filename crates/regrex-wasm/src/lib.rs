@@ -45,7 +45,7 @@ struct ColumnInfo<'a> {
     decimals: Option<u32>,
     missing: usize,
     /// How the cells were read when they are not plain numbers, such as
-    /// `times as minutes (since midnight)`.
+    /// `times as minutes`.
     read_as: Option<&'a str>,
 }
 

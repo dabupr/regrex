@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Cells that are numbers in disguise are read as numbers: `true`/`false` (as 1/0), times such as `08:15` or `1:24:00` (as minutes), dates such as `2026-10-15` or `15/10/2026` (as days), dates with times, including Kibana's `Oct 15, 2026 @ 14:24:47.000` and ISO 8601 with a time zone (as minutes), and numbers followed by a unit such as `24.1 km` (which also gives the column its unit). Missing-value markers (`-`, `NA`, `N/A`, `null`, `NaN`, `#N/A`) count as empty cells, so they no longer turn a column into text. The JSON report lists these columns in `converted_columns`, the text report under "Read as numbers", and the web app shows how each was read.
+- A new diagnosis, `midnight`: a value a whole day off (1440 minutes, 24 hours or 86400 seconds), such as a train arriving at 00:10 after leaving at 23:50.
+
+### Changed
+
+- `scan` checks columns in parallel (with the default `parallel` feature).
+- Fewer made-up formulas on exports with hundreds of sensor columns: columns with one or two values (flags) are not explained, a formula must also explain the rows that differ from a column's most common value (columns that are zero almost everywhere matched nearly any formula), constants like `2.7e-81` and exponents like `x^4.9e-16` or `x^86` are rejected, a column missing in many rows is no longer tried as an input, rules that split two formulas may get wrong at most a tenth of the rows they pick out, and only columns with few values are used as categories.
+- When the rows of a column that do not follow its formula are all one value (a sensor reading 0 on the trains that lack it), that value is shown as the main formula: `temperature2 = 0`, other rows `temperature1 (where train >= 9013)`.
+- A whole-number column no longer matches a formula that is exactly 0.5 away (`x + 0.5` "matching" both `x` and `x + 1`).
+- A plain sum, difference, product or quotient is only named as a known formula with hints from column names, even when it matches a formula that reduces to it (relativistic momentum is `m * v` at everyday speeds).
+
 ## [0.1.0] - 2026-11-03
 
 First release.

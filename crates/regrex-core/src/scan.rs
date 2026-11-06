@@ -991,9 +991,19 @@ fn matching_rows(
 /// powers are also caught.
 fn select_inputs(table: &Table, target: usize, max_inputs: usize) -> Vec<usize> {
     let y = &table.columns[target];
+    let present = y.iter().filter(|v| v.is_finite()).count();
     let mut scored: Vec<(f64, usize)> = (0..table.columns.len())
         .filter(|&c| c != target)
         .filter(|&c| !is_constant(&table.columns[c]))
+        // Only rows where every input is present are searched, so a column
+        // missing in many of the target's rows would leave too few of them.
+        .filter(|&c| {
+            let x = &table.columns[c];
+            let both = (0..y.len())
+                .filter(|&r| y[r].is_finite() && x[r].is_finite())
+                .count();
+            both * 10 >= present * 8
+        })
         .map(|c| {
             let x = &table.columns[c];
             let s = [
@@ -1076,10 +1086,7 @@ fn samples(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
 }
 
 fn subsets(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
-    // A table up to twice the subset size is searched whole: small samples
-    // (see `samples`) already cope with a few wrong rows there, and three
-    // searches on a handful of rows each would mostly repeat each other.
-    if rows.len() <= 2 * size {
+    if rows.len() <= size {
         return vec![rows.to_vec()];
     }
     (0..k)

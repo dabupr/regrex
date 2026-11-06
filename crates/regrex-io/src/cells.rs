@@ -28,8 +28,7 @@ pub struct Reading {
     pub decimals: Option<u32>,
     /// The unit written after the numbers, if any.
     pub unit_text: Option<String>,
-    /// How the cells were read, for people (`times as minutes since
-    /// midnight`).
+    /// How the cells were read, for people (`times as minutes`).
     pub note: String,
 }
 
@@ -177,7 +176,7 @@ fn stamp_column(stamps: &[Option<Stamp>]) -> Option<Reading> {
         (values, "dates as days since 1970-01-01")
     } else if with_date == 0 {
         let values = stamps.iter().map(|s| s.and_then(|s| s.minutes)).collect();
-        (values, "times as minutes (since midnight)")
+        (values, "times as minutes")
     } else {
         let values = stamps
             .iter()
