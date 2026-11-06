@@ -111,7 +111,7 @@ test("search settings are applied and remembered", async ({ page }) => {
   await page.locator("#only").selectOption("vat");
   await expect(page.locator("#settings-summary")).toHaveText("(Fast)");
   await page.getByLabel("÷ divide").uncheck();
-  await expect(page.locator("#settings-summary")).toHaveText("(Fast, 9 of 10 operations)");
+  await expect(page.locator("#settings-summary")).toHaveText("(Fast, 11 of 12 operations)");
 
   await page.getByRole("button", { name: "Find derived columns" }).click();
   await expect(page.locator('article[data-column="vat"]')).toContainText("vat = 0.21 * net", { timeout: 45_000 });

@@ -127,6 +127,7 @@ fn canon_binary(op: BinaryOp, a: Expr, b: Expr) -> Expr {
             Expr::Const(0.5) => Expr::unary(UnaryOp::Sqrt, a),
             b => Expr::binary(op, a, b),
         },
+        BinaryOp::IntDiv | BinaryOp::Mod => Expr::binary(op, a, b),
     }
 }
 

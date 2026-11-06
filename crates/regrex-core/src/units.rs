@@ -311,7 +311,15 @@ pub fn dimension_of(e: &Expr, vars: &[Dim]) -> Dimension {
                 (BinaryOp::Add | BinaryOp::Sub, Known(x), Any)
                 | (BinaryOp::Add | BinaryOp::Sub, Any, Known(x)) => Known(x),
                 (BinaryOp::Mul, Known(x), Known(y)) => Known(x * y),
-                (BinaryOp::Div, Known(x), Known(y)) => Known(x / y),
+                (BinaryOp::Div | BinaryOp::IntDiv, Known(x), Known(y)) => Known(x / y),
+                (BinaryOp::Mod, Known(x), Known(y)) => {
+                    if x == y {
+                        Known(x)
+                    } else {
+                        Invalid
+                    }
+                }
+                (BinaryOp::Mod, Known(x), Any) | (BinaryOp::Mod, Any, Known(x)) => Known(x),
                 (BinaryOp::Pow, Known(x), _) => match b.as_ref() {
                     Expr::Const(k) if k.fract() == 0.0 && k.abs() <= 8.0 => {
                         Known(x.powi(*k as i16))

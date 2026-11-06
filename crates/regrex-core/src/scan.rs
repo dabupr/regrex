@@ -70,6 +70,9 @@ pub struct ScanConfig {
     /// small random samples of rows, which are likely to miss a few wrong
     /// rows that spoil the larger subsets. 0 turns it off (faster).
     pub small_samples: usize,
+    /// Integer operators tried for columns of whole numbers, as in
+    /// `a + b * ((x + c) div d)`. Empty turns them off.
+    pub integer_ops: Vec<BinaryOp>,
 }
 
 impl Default for ScanConfig {
@@ -85,6 +88,7 @@ impl Default for ScanConfig {
             max_inputs: 5,
             subset_rows: 40,
             small_samples: 4,
+            integer_ops: BinaryOp::INTEGER.to_vec(),
         }
     }
 }
@@ -451,6 +455,39 @@ fn best_formula(
         for subset in samples(&rows, SMALL_SUBSET, config.small_samples) {
             for formula in search_rows(table, candidates_cols, target, &subset, config) {
                 consider(formula, &mut best);
+            }
+        }
+    }
+    // Codes and numbers built with whole-number arithmetic (`line = circuit
+    // div 100`, `coach = 7250 + (train + 3) div 4`) are out of reach of the
+    // search, whose fitted constants need smooth functions.
+    // A formula like `0.25 * train + 7250.33` can stay within rounding of
+    // such a column on every row; an integer formula that gives the exact
+    // values of as many rows is the real rule.
+    let exact = |formula: &Expr, matched: &[usize]| {
+        let zero = |_: usize| 0.0;
+        matching_rows(formula, table, matched, y_all, &zero).len()
+    };
+    if best
+        .as_ref()
+        .is_none_or(|(f, m)| m.len() < rows.len() || exact(f, m) < m.len())
+    {
+        let ops = &config.integer_ops;
+        for formula in integer_formulas(table, candidates_cols, target, &rows, ops) {
+            let matched = matching_rows(&formula, table, &rows, y_all, &tolerance);
+            let better = match &best {
+                None => true,
+                Some((f, m)) => {
+                    let exact_best = exact(f, m);
+                    matched.len() > m.len()
+                        || matched.len() == m.len()
+                            && (exact_best < matched.len()
+                                || exact_best == matched.len()
+                                    && formula.complexity() < f.complexity())
+                }
+            };
+            if better {
+                best = Some((formula, matched));
             }
         }
     }
@@ -1102,6 +1139,128 @@ fn subsets(rows: &[usize], size: usize, k: usize) -> Vec<Vec<usize>> {
         .collect()
 }
 
+/// Divisors tried for integer division and remainder: small numbers, and
+/// the bases of clocks, angles, codes and computer sizes.
+const DIVISORS: [f64; 27] = [
+    2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 12.0, 16.0, 20.0, 24.0, 25.0, 32.0, 50.0, 60.0,
+    64.0, 100.0, 128.0, 256.0, 360.0, 1000.0, 1024.0, 3600.0, 10000.0, 86400.0,
+];
+
+/// Divisors up to this also get every offset, as in `(x + 3) div 4`.
+const MAX_OFFSET_DIVISOR: f64 = 12.0;
+
+/// Rows used to choose the integer formulas, which are then checked on
+/// every row by the caller.
+const INTEGER_FIT_ROWS: usize = 200;
+
+/// Formulas of the form `a + b * ((x + c) div d)` and `a + b * ((x + c) mod
+/// d)` for whole-number columns: the best one for each input, with whole
+/// `a` and `b` fitted robustly (least squares for `b`, the median for `a`)
+/// so that a few wrong rows do not shift them. Empty unless the target and
+/// the input hold whole numbers in `rows`.
+fn integer_formulas(
+    table: &Table,
+    inputs: &[usize],
+    target: usize,
+    rows: &[usize],
+    ops: &[BinaryOp],
+) -> Vec<Expr> {
+    let whole = |c: usize| {
+        rows.iter().all(|&r| {
+            let v = table.columns[c][r];
+            v.fract() == 0.0 && v.abs() < 1e15
+        })
+    };
+    if ops.is_empty() || rows.len() < 3 || !whole(target) {
+        return Vec::new();
+    }
+    let sample = spread(rows, INTEGER_FIT_ROWS);
+    let y: Vec<f64> = sample.iter().map(|&r| table.columns[target][r]).collect();
+    let mut out = Vec::new();
+    for &input in inputs.iter().filter(|&&c| whole(c)) {
+        let x: Vec<f64> = sample.iter().map(|&r| table.columns[input][r]).collect();
+        // (matched rows of the sample, complexity, formula)
+        let mut best: Option<(usize, usize, Expr)> = None;
+        for d in DIVISORS {
+            let offsets = if d <= MAX_OFFSET_DIVISOR {
+                d as usize
+            } else {
+                1
+            };
+            for c in (0..offsets).map(|c| c as f64) {
+                for &op in ops {
+                    let f: Vec<f64> = x.iter().map(|&v| op.apply(v + c, d)).collect();
+                    let Some((a, b)) = whole_line(&f, &y) else {
+                        continue;
+                    };
+                    let matched = f
+                        .iter()
+                        .zip(&y)
+                        .filter(|(fv, yv)| a + b * **fv == **yv)
+                        .count();
+                    let formula = integer_formula(input, op, c, d, a, b);
+                    let complexity = formula.complexity();
+                    let better = best
+                        .as_ref()
+                        .is_none_or(|(m, k, _)| matched > *m || matched == *m && complexity < *k);
+                    if better {
+                        best = Some((matched, complexity, formula));
+                    }
+                }
+            }
+        }
+        // Worth checking on every row only if it fits most of the sample.
+        if let Some((matched, _, formula)) = best {
+            if matched * 2 > sample.len() {
+                out.push(formula);
+            }
+        }
+    }
+    out
+}
+
+/// Whole numbers `a` and `b` with `y ≈ a + b * f`, if `f` takes at least two
+/// values: `b` from least squares, `a` the median of `y - b * f`.
+fn whole_line(f: &[f64], y: &[f64]) -> Option<(f64, f64)> {
+    let n = f.len() as f64;
+    let mf = f.iter().sum::<f64>() / n;
+    let my = y.iter().sum::<f64>() / n;
+    let (mut sfy, mut sff) = (0.0, 0.0);
+    for (fv, yv) in f.iter().zip(y) {
+        sfy += (fv - mf) * (yv - my);
+        sff += (fv - mf) * (fv - mf);
+    }
+    if sff.is_nan() || sff <= 0.0 {
+        return None;
+    }
+    let b = (sfy / sff).round();
+    if b == 0.0 || !b.is_finite() {
+        return None;
+    }
+    let mut rest: Vec<f64> = f.iter().zip(y).map(|(fv, yv)| yv - b * fv).collect();
+    rest.sort_by(f64::total_cmp);
+    let a = rest[rest.len() / 2];
+    Some((a, b))
+}
+
+/// `a + b * ((x + c) op d)`, leaving out what is 0 or 1.
+fn integer_formula(input: usize, op: BinaryOp, c: f64, d: f64, a: f64, b: f64) -> Expr {
+    let mut inner = Expr::Var(input);
+    if c != 0.0 {
+        inner = Expr::binary(BinaryOp::Add, inner, Expr::Const(c));
+    }
+    let mut e = Expr::binary(op, inner, Expr::Const(d));
+    if b == -1.0 {
+        e = Expr::unary(crate::expr::UnaryOp::Neg, e);
+    } else if b != 1.0 {
+        e = Expr::binary(BinaryOp::Mul, Expr::Const(b), e);
+    }
+    if a != 0.0 {
+        e = Expr::binary(BinaryOp::Add, Expr::Const(a), e);
+    }
+    e
+}
+
 /// At most `size` evenly spread rows.
 fn spread(rows: &[usize], size: usize) -> Vec<usize> {
     if rows.len() <= size {
@@ -1157,6 +1316,58 @@ mod tests {
             decimals: vec![Some(2), Some(0), Some(2), Some(2)],
             ..Table::default()
         }
+    }
+
+    /// Trains numbered 9001 to 9120, with a service number, the line it
+    /// runs on (the hundreds digit) and the number of one of its coaches.
+    fn trains() -> Table {
+        let train: Vec<f64> = (0..120).map(|i| 9001.0 + i as f64).collect();
+        let service: Vec<f64> = (0..120)
+            .map(|i| 100.0 * (1 + (i * i * 7919 + 3) % 13 % 5) as f64 + ((i * 37) % 100) as f64)
+            .collect();
+        let line: Vec<f64> = service.iter().map(|s| (s / 100.0).floor()).collect();
+        let coach: Vec<f64> = train
+            .iter()
+            .map(|t| 9500.0 + ((t - 9000.0 + 3.0) / 4.0).floor())
+            .collect();
+        let car: Vec<f64> = train.iter().map(|t| t % 4.0 + 1.0).collect();
+        Table {
+            names: ["train", "service", "line", "coach", "car"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            columns: vec![train, service, line, coach, car],
+            decimals: vec![Some(0); 5],
+            ..Table::default()
+        }
+    }
+
+    #[test]
+    fn finds_integer_division_and_remainder() {
+        let table = trains();
+        let config = ScanConfig::default();
+        let formula = |t: usize| {
+            let d = explain_column(&table, t, &config).expect("derived");
+            assert!(
+                d.exceptions.is_empty(),
+                "{}: {:?}",
+                d.formula_text,
+                d.exceptions
+            );
+            d.formula_text
+        };
+        assert_eq!(formula(2), "service div 100");
+        assert_eq!(formula(3), "7250 + (train + 3) div 4");
+        assert_eq!(formula(4), "1 + train mod 4");
+    }
+
+    #[test]
+    fn integer_formulas_tolerate_a_wrong_row() {
+        let mut table = trains();
+        table.columns[2][17] = 0.0;
+        let d = explain_column(&table, 2, &ScanConfig::default()).expect("derived");
+        assert_eq!(d.formula_text, "service div 100");
+        assert_eq!(d.exceptions, vec![17]);
     }
 
     #[test]

@@ -74,10 +74,21 @@ pub enum BinaryOp {
     Div,
     /// `a ^ b`
     Pow,
+    /// Integer division, `a div b`: `floor(a / b)`. Only searched for
+    /// columns of whole numbers (see [`BinaryOp::INTEGER`]).
+    IntDiv,
+    /// Remainder, `a mod b`: `a - b * floor(a / b)`, which has the sign of
+    /// `b`. Only searched for columns of whole numbers.
+    Mod,
 }
 
 impl BinaryOp {
-    /// Every binary operator.
+    /// The operators on whole numbers, not in [`BinaryOp::ALL`]: searching
+    /// them on measurements would only add flukes. The scan tries them when
+    /// a column and its inputs hold whole numbers.
+    pub const INTEGER: [BinaryOp; 2] = [BinaryOp::IntDiv, BinaryOp::Mod];
+
+    /// Every binary operator on real numbers.
     pub const ALL: [BinaryOp; 5] = [
         BinaryOp::Add,
         BinaryOp::Sub,
@@ -95,6 +106,8 @@ impl BinaryOp {
             BinaryOp::Mul => a * b,
             BinaryOp::Div => a / b,
             BinaryOp::Pow => a.powf(b),
+            BinaryOp::IntDiv => (a / b).floor(),
+            BinaryOp::Mod => a - b * (a / b).floor(),
         }
     }
 
@@ -106,6 +119,8 @@ impl BinaryOp {
             BinaryOp::Mul => "*",
             BinaryOp::Div => "/",
             BinaryOp::Pow => "^",
+            BinaryOp::IntDiv => "div",
+            BinaryOp::Mod => "mod",
         }
     }
 
@@ -117,7 +132,7 @@ impl BinaryOp {
     fn precedence(self) -> u8 {
         match self {
             BinaryOp::Add | BinaryOp::Sub => 1,
-            BinaryOp::Mul | BinaryOp::Div => 2,
+            BinaryOp::Mul | BinaryOp::Div | BinaryOp::IntDiv | BinaryOp::Mod => 2,
             BinaryOp::Pow => 3,
         }
     }
@@ -180,7 +195,7 @@ impl Expr {
             Expr::Binary(op, a, b) => {
                 let w = match op {
                     BinaryOp::Add | BinaryOp::Sub | BinaryOp::Mul => 1,
-                    BinaryOp::Div | BinaryOp::Pow => 2,
+                    BinaryOp::Div | BinaryOp::Pow | BinaryOp::IntDiv | BinaryOp::Mod => 2,
                 };
                 w + a.complexity() + b.complexity()
             }
@@ -404,9 +419,18 @@ fn write_expr(f: &mut fmt::Formatter<'_>, e: &Expr, names: Option<&[String]>) ->
             let p = op.precedence();
             let (left_min, right_min) = match op {
                 BinaryOp::Add | BinaryOp::Mul => (p, p),
-                BinaryOp::Sub | BinaryOp::Div => (p, p + 1),
+                BinaryOp::Sub | BinaryOp::Div | BinaryOp::IntDiv | BinaryOp::Mod => (p, p + 1),
                 BinaryOp::Pow => (p + 1, p),
             };
+            // `*` next to `div` or `mod` reads ambiguously: `2 * (x mod 10)`
+            // and `(2 * x) div 3` keep their parentheses.
+            let integer = |o: &BinaryOp| matches!(o, BinaryOp::IntDiv | BinaryOp::Mod);
+            let mixed = |child: &Expr| match child {
+                Expr::Binary(c, _, _) => c.precedence() == 2 && p == 2 && integer(c) != integer(op),
+                _ => false,
+            };
+            let left_min = if mixed(a) { p + 1 } else { left_min };
+            let right_min = if mixed(b) { p + 1 } else { right_min };
             write_operand(f, a, names, left_min)?;
             if *op == BinaryOp::Pow {
                 write!(f, "^")?;
@@ -524,6 +548,34 @@ mod tests {
 
         let e = Expr::unary(UnaryOp::Square, Expr::unary(UnaryOp::Neg, v(0)));
         assert_eq!(e.to_string(), "(-x0)^2");
+
+        // 500 + (x0 + 3) div 4
+        let e = Expr::binary(
+            BinaryOp::Add,
+            Expr::Const(500.0),
+            Expr::binary(
+                BinaryOp::IntDiv,
+                Expr::binary(BinaryOp::Add, v(0), Expr::Const(3.0)),
+                Expr::Const(4.0),
+            ),
+        );
+        assert_eq!(e.to_string(), "500 + (x0 + 3) div 4");
+        let e = Expr::binary(
+            BinaryOp::Mul,
+            Expr::Const(2.0),
+            Expr::binary(BinaryOp::Mod, v(0), Expr::Const(10.0)),
+        );
+        assert_eq!(e.to_string(), "2 * (x0 mod 10)");
+    }
+
+    #[test]
+    fn integer_division_and_remainder() {
+        assert_eq!(BinaryOp::IntDiv.apply(9205.0, 100.0), 92.0);
+        assert_eq!(BinaryOp::Mod.apply(9205.0, 1000.0), 205.0);
+        // Like Python: the remainder has the sign of the divisor.
+        assert_eq!(BinaryOp::IntDiv.apply(-7.0, 2.0), -4.0);
+        assert_eq!(BinaryOp::Mod.apply(-7.0, 2.0), 1.0);
+        assert!(BinaryOp::Mod.apply(1.0, 0.0).is_nan());
     }
 
     #[test]

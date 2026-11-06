@@ -61,8 +61,9 @@ struct ExplainOptions {
     max_params: Option<usize>,
     /// Small random samples searched when a few rows spoil the fit.
     small_samples: Option<usize>,
-    /// Allowed operators: `+ - * / ^ sqrt exp log sin cos`. `-` also
-    /// allows negation and `^` squares. Missing means all.
+    /// Allowed operators: `+ - * / ^ sqrt exp log sin cos div mod`. `-`
+    /// also allows negation and `^` squares; `div` and `mod` are only tried
+    /// on whole numbers. Missing means all.
     operators: Option<Vec<String>>,
     /// Relative tolerance for a row to match when the column's decimals are
     /// unknown.
@@ -117,6 +118,7 @@ impl ExplainOptions {
                 UnaryOp::Square => has("^"),
                 other => has(other.name()),
             });
+            config.integer_ops.retain(|op| has(op.symbol()));
         }
         Ok(config)
     }
@@ -129,7 +131,9 @@ fn explained_well(found: Option<&DerivedColumn>) -> bool {
 }
 
 /// Operator names accepted in [`ExplainOptions::operators`].
-const OPERATORS: [&str; 10] = ["+", "-", "*", "/", "^", "sqrt", "exp", "log", "sin", "cos"];
+const OPERATORS: [&str; 12] = [
+    "+", "-", "*", "/", "^", "sqrt", "exp", "log", "sin", "cos", "div", "mod",
+];
 
 /// Options for [`Dataset::fit`], as JSON.
 #[derive(Deserialize, Default)]

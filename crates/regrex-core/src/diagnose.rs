@@ -472,7 +472,13 @@ impl Checker<'_> {
                         format!("left out the term {}", self.text(dropped))
                     }
                     BinaryOp::Mul => format!("left out the factor {}", self.text(dropped)),
-                    BinaryOp::Div => format!("did not divide by {}", self.text(dropped)),
+                    BinaryOp::Div | BinaryOp::IntDiv => {
+                        format!("did not divide by {}", self.text(dropped))
+                    }
+                    BinaryOp::Mod => format!(
+                        "did not take the remainder of the division by {}",
+                        self.text(dropped)
+                    ),
                     BinaryOp::Pow => match dropped {
                         Expr::Const(c) if *c == 2.0 => {
                             format!("left out the square of {}", self.text(kept))
@@ -496,7 +502,10 @@ impl Checker<'_> {
                     },
                     missing(&left, &right),
                 ));
-                if *op != BinaryOp::Div && *op != BinaryOp::Pow {
+                if !matches!(
+                    op,
+                    BinaryOp::Div | BinaryOp::Pow | BinaryOp::IntDiv | BinaryOp::Mod
+                ) {
                     out.push((
                         right.clone(),
                         MistakeKind::MissingTerm,
@@ -508,7 +517,8 @@ impl Checker<'_> {
                     BinaryOp::Sub => Some(BinaryOp::Add),
                     BinaryOp::Mul => Some(BinaryOp::Div),
                     BinaryOp::Div => Some(BinaryOp::Mul),
-                    BinaryOp::Pow => None,
+                    BinaryOp::IntDiv => Some(BinaryOp::Div),
+                    BinaryOp::Pow | BinaryOp::Mod => None,
                 };
                 if let Some(other) = other {
                     out.push((
@@ -695,10 +705,16 @@ mod tests {
                 "the cell is 0: a missing value, or a reading that was off"
             )
         );
-        assert!(found.iter().all(|d| d.kind != MistakeKind::Factor), "{found:?}");
+        assert!(
+            found.iter().all(|d| d.kind != MistakeKind::Factor),
+            "{found:?}"
+        );
         // Small values near zero are not scaled versions of each other either.
         let found = check("x / 100", &[("x", 30.0)], 0.0, Some(0));
-        assert!(found.iter().all(|d| d.kind != MistakeKind::Factor), "{found:?}");
+        assert!(
+            found.iter().all(|d| d.kind != MistakeKind::Factor),
+            "{found:?}"
+        );
     }
 
     #[test]
