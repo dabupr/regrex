@@ -4,13 +4,16 @@
 //!
 //! ```text
 //! expr  = term (("+" | "-") term)*
-//! term  = unary (("*" | "/") unary)*
+//! term  = unary (("*" | "/" | "div" | "//" | "mod" | "%") unary)*
 //! unary = "-" unary | power
 //! power = atom ("^" unary)?
 //! atom  = number | name | name "(" expr ")" | "(" expr ")"
 //! ```
 //!
-//! Functions: `sqrt`, `exp`, `log` (or `ln`), `sin`, `cos`. Constants: `pi`
+//! Functions: `sqrt`, `exp`, `log` (or `ln`), `sin`, `cos`, and `floor`
+//! (`floor(a / b)` is the integer division `a div b`). `div` (or `//`) and
+//! `mod` (or `%`) are the integer division and the remainder, unless a
+//! variable has that name. Constants: `pi`
 //! (or `π`) and `e`, unless a variable has that name. `·` and `×` also
 //! multiply and `²`/`³` are powers.
 
@@ -100,6 +103,7 @@ impl fmt::Display for Token {
         match self {
             Token::Number(n) => write!(f, "number {n}"),
             Token::Name(n) => write!(f, "name {n:?}"),
+            Token::Op('d') => write!(f, "\"//\""),
             Token::Op(c) => write!(f, "{c:?}"),
             Token::Open => write!(f, "\"(\""),
             Token::Close => write!(f, "\")\""),
@@ -150,8 +154,13 @@ fn tokenize(text: &str) -> Result<Vec<(Token, usize)>, ParseError> {
             out.push((Token::Name(chars[start..i].iter().collect()), start));
             continue;
         }
+        if c == '/' && chars.get(i + 1) == Some(&'/') {
+            out.push((Token::Op('d'), start));
+            i += 2;
+            continue;
+        }
         let token = match c {
-            '+' | '-' | '*' | '/' | '^' => Token::Op(c),
+            '+' | '-' | '*' | '/' | '^' | '%' => Token::Op(c),
             '·' | '×' => Token::Op('*'),
             '−' => Token::Op('-'),
             '(' => Token::Open,
@@ -212,16 +221,31 @@ impl Parser<'_> {
 
     fn term(&mut self) -> Result<Expr, ParseError> {
         let mut e = self.unary()?;
-        while let Some(op) = self.eat_op(&['*', '/']) {
+        while let Some(op) = self.eat_term_op() {
             let rhs = self.unary()?;
-            let op = if op == '*' {
-                BinaryOp::Mul
-            } else {
-                BinaryOp::Div
-            };
             e = Expr::binary(op, e, rhs);
         }
         Ok(e)
+    }
+
+    /// `*`, `/`, `div` (`//`) or `mod` (`%`), if that comes next. `div` and
+    /// `mod` are names, so they are operators only when no variable has
+    /// that name.
+    fn eat_term_op(&mut self) -> Option<BinaryOp> {
+        let op = match self.tokens.get(self.pos)? {
+            (Token::Op('*'), _) => BinaryOp::Mul,
+            (Token::Op('/'), _) => BinaryOp::Div,
+            (Token::Op('d'), _) => BinaryOp::IntDiv,
+            (Token::Op('%'), _) => BinaryOp::Mod,
+            (Token::Name(n), _) if !self.variables.contains(&n.as_str()) => match n.as_str() {
+                "div" => BinaryOp::IntDiv,
+                "mod" => BinaryOp::Mod,
+                _ => return None,
+            },
+            _ => return None,
+        };
+        self.pos += 1;
+        Some(op)
     }
 
     fn unary(&mut self) -> Result<Expr, ParseError> {
@@ -270,6 +294,17 @@ impl Parser<'_> {
                         "log" | "ln" => UnaryOp::Log,
                         "sin" => UnaryOp::Sin,
                         "cos" => UnaryOp::Cos,
+                        "floor" => {
+                            self.pos += 1;
+                            let arg = self.expr()?;
+                            self.close(at)?;
+                            return Ok(match arg {
+                                Expr::Binary(BinaryOp::Div, a, b) => {
+                                    Expr::Binary(BinaryOp::IntDiv, a, b)
+                                }
+                                other => Expr::binary(BinaryOp::IntDiv, other, Expr::Const(1.0)),
+                            });
+                        }
                         _ if self.variables.contains(&name.as_str()) => {
                             return Err(ParseError {
                                 message: format!(
@@ -338,6 +373,28 @@ mod tests {
 
     fn parse(text: &str) -> Expr {
         parse_expr(text, &["m", "v", "t", "e_k"]).unwrap()
+    }
+
+    #[test]
+    fn integer_division_and_remainder() {
+        let vars = ["train", "mod_count"];
+        let e = |t: &str| parse_expr(t, &vars).unwrap();
+        for text in [
+            "500 + (train + 3) div 4",
+            "500 + (train + 3) // 4",
+            "500 + floor((train + 3) / 4)",
+        ] {
+            assert_eq!(e(text).to_string(), "500 + (x0 + 3) div 4", "{text}");
+            assert_eq!(e(text).eval_row(&[205.0, 0.0], &[]), 552.0, "{text}");
+        }
+        assert_eq!(e("train mod 1000").eval_row(&[9205.0, 0.0], &[]), 205.0);
+        assert_eq!(e("train % 1000").eval_row(&[9205.0, 0.0], &[]), 205.0);
+        assert_eq!(e("floor(train)").eval_row(&[2.7, 0.0], &[]), 2.0);
+        // Same precedence as * and /, left to right.
+        assert_eq!(e("train div 10 * 2").eval_row(&[95.0, 0.0], &[]), 18.0);
+        // A variable may be called like an operator, without the operator.
+        let e = parse_expr("div + 1", &["div"]).unwrap();
+        assert_eq!(e.eval_row(&[2.0], &[]), 3.0);
     }
 
     #[test]

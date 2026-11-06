@@ -100,7 +100,12 @@ export const OPERATORS: { id: string; label: string }[] = [
   { id: "log", label: "log" },
   { id: "sin", label: "sin" },
   { id: "cos", label: "cos" },
+  { id: "div", label: "div whole division" },
+  { id: "mod", label: "mod remainder" },
 ];
+
+/** Operations added after settings were first saved: on unless turned off since. */
+const ADDED_LATER = ["div", "mod"];
 
 /**
  * What each profile changes in the search. Thorough first searches like
@@ -131,7 +136,12 @@ export function loadSettings(): Settings {
     if (!saved) return structuredClone(DEFAULTS);
     const profile = saved.profile && saved.profile in PROFILES ? saved.profile : DEFAULTS.profile;
     const known = new Set(OPERATORS.map((o) => o.id));
-    const operators = Array.isArray(saved.operators) ? saved.operators.filter((o) => known.has(o)) : DEFAULTS.operators;
+    let operators = Array.isArray(saved.operators) ? saved.operators.filter((o) => known.has(o)) : DEFAULTS.operators;
+    // Settings saved with every operation of the time keep every operation.
+    const before = OPERATORS.map((o) => o.id).filter((id) => !ADDED_LATER.includes(id));
+    if (!ADDED_LATER.some((id) => operators.includes(id)) && before.every((id) => operators.includes(id))) {
+      operators = [...operators, ...ADDED_LATER];
+    }
     const advanced = { ...ADVANCED_DEFAULTS };
     for (const { key, choices } of ADVANCED) {
       const v = (saved.advanced as Partial<Advanced> | undefined)?.[key];

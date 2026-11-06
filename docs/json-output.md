@@ -77,7 +77,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `derived[].exception_rows` | Every row that breaks the formula. |
 | `derived[].exceptions` | Value in the file and value the formula gives, for the first 100 exceptions. |
 | `derived[].exceptions[].diagnosis` | The most likely mistake, or `null` when no simple mistake reproduces the value. |
-| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`, `midnight`, `other_formula`. New kinds may be added. |
+| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`, `midnight`, `zero`, `other_formula`. New kinds may be added. |
 | `….diagnosis.description` | What went wrong, in English. |
 | `….diagnosis.formula` | The formula the row follows instead, when the mistake is in the formula. |
 
@@ -128,4 +128,4 @@ Returned by `regrex fit --json` and the `fit_formula` and `fit_values` tools; `r
 
 ## Formula syntax
 
-Formulas use `+ - * / ^`, parentheses, `sqrt`, `exp`, `log` (natural logarithm, also `ln`), `sin`, `cos`, and the constants `pi` (`π`) and `e`. `x^2` is also written `x²`. `-x^2` means `-(x^2)`. The same syntax is accepted by `check_formula` and `check_units`.
+Formulas use `+ - * / ^`, parentheses, `sqrt`, `exp`, `log` (natural logarithm, also `ln`), `sin`, `cos`, the integer division `div` (also `//`, and `floor(a / b)`) and the remainder `mod` (also `%`), and the constants `pi` (`π`) and `e`. `x^2` is also written `x²`. `-x^2` means `-(x^2)`. The same syntax is accepted by `check_formula` and `check_units`.
