@@ -103,6 +103,10 @@ impl Library {
         if wanted.iter().filter(|w| w.is_finite()).count() < POINTS / 2 {
             return Vec::new();
         }
+        // `a * b` matches "relativistic momentum" too, because `v^2 / c^2`
+        // vanishes at the test points: a candidate this plain is only named
+        // with hints from column names, whatever formula it matches.
+        let plain = is_plain(&points, &wanted);
         let mut out = Vec::new();
         for formula in &self.formulas {
             let nv = formula.variables.len();
@@ -113,7 +117,7 @@ impl Library {
                 if let Some(m) = match_with(formula, &assignment, &points, &wanted) {
                     let name_score = name_score(formula, &assignment, input_names, output_name);
                     let m = Match { name_score, ..m };
-                    if plausible(&m) {
+                    if plausible(&m) && (!plain || m.name_score >= 2) {
                         out.push(m);
                     }
                 }
@@ -127,6 +131,28 @@ impl Library {
         });
         out
     }
+}
+
+/// Whether the candidate's values are those of one input, or of a sum,
+/// difference, product or quotient of two.
+fn is_plain(points: &[Vec<f64>], wanted: &[f64]) -> bool {
+    let n = points.first().map_or(0, Vec::len);
+    let fits = |f: &dyn Fn(&[f64]) -> f64| {
+        points
+            .iter()
+            .zip(wanted)
+            .filter(|(_, w)| w.is_finite())
+            .all(|(p, &w)| close(f(p), w))
+    };
+    (0..n).any(|i| fits(&|p| p[i]))
+        || (0..n).any(|i| {
+            (0..n).filter(|&j| j != i).any(|j| {
+                fits(&|p| p[i] + p[j])
+                    || fits(&|p| p[i] - p[j])
+                    || fits(&|p| p[i] * p[j])
+                    || fits(&|p| p[i] / p[j])
+            })
+        })
 }
 
 /// Pseudo-random points in `[0.5, 2)`, the same every time.
@@ -494,6 +520,23 @@ mod tests {
         assert_eq!(
             found[0].variables,
             vec![Binding::Input(1), Binding::Input(0)]
+        );
+    }
+
+    #[test]
+    fn a_plain_product_is_not_a_limit_of_a_physics_formula() {
+        // m * v / sqrt(1 - v^2 / c^2) is m * v at everyday speeds.
+        let found = lib().identify(
+            &|x: &[f64]| x[0] * x[1],
+            &["capacity", "occupancy_pct"],
+            Some("passengers"),
+        );
+        assert!(
+            found
+                .iter()
+                .all(|m| m.formula.id != "relativistic_momentum"),
+            "{:?}",
+            found.iter().map(|m| &m.formula.id).collect::<Vec<_>>()
         );
     }
 

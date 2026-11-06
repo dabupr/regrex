@@ -21,6 +21,7 @@
 
 #![warn(missing_docs)]
 
+mod cells;
 #[cfg(any(feature = "parquet", feature = "arrow"))]
 mod columnar;
 mod json;
@@ -47,6 +48,10 @@ pub struct Loaded {
     pub rows: Vec<Vec<String>>,
     /// Sheet names, for spreadsheets.
     pub sheets: Vec<String>,
+    /// Columns that were not plain numbers but were read as numbers, with
+    /// how: `(column, "times as minutes")`. Covers `true`/`false`, times,
+    /// dates and numbers followed by a unit.
+    pub converted: Vec<(String, String)>,
 }
 
 /// Why a file could not be loaded.
@@ -303,45 +308,62 @@ fn clearly_decimal_comma(s: &str) -> bool {
         })
 }
 
-/// Keeps columns where most non-empty cells are numbers.
+/// Keeps columns where most non-empty cells are numbers, or can be read as
+/// numbers (see [`cells`]).
 fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>) -> Loaded {
     let mut table = Table::default();
     let mut skipped = Vec::new();
+    let mut converted = Vec::new();
     // If any cell in the file clearly uses a decimal comma, they all do.
     let comma_decimal = rows.iter().flatten().any(|s| clearly_decimal_comma(s));
-    for (c, name) in header.iter().enumerate() {
+    for (c, header_name) in header.iter().enumerate() {
         let cells: Vec<&str> = rows
             .iter()
             .map(|r| r.get(c).map_or("", String::as_str))
             .collect();
         let parsed: Vec<Option<(f64, u32)>> = cells
             .iter()
-            .map(|s| parse_number_with(s, comma_decimal))
+            .map(|s| {
+                if cells::is_missing(s) {
+                    None
+                } else {
+                    parse_number_with(s, comma_decimal)
+                }
+            })
             .collect();
-        let non_empty = cells.iter().filter(|s| !s.trim().is_empty()).count();
+        let non_empty = cells.iter().filter(|s| !cells::is_missing(s)).count();
         let numeric = parsed.iter().filter(|p| p.is_some()).count();
-        if non_empty == 0 || numeric * 10 < non_empty * 9 {
-            skipped.push(name.clone());
-            continue;
-        }
         // `speed (m/s)` is the column `speed`, in metres per second.
-        let (name, unit) = regrex_core::units::split_header(name);
+        let (name, mut unit) = regrex_core::units::split_header(header_name);
         let name = if name.is_empty() {
             format!("column{}", c + 1)
         } else {
             name
         };
+        let (values, decimals) = if non_empty > 0 && numeric * 10 >= non_empty * 9 {
+            (
+                parsed.iter().map(|p| p.map(|(v, _)| v)).collect::<Vec<_>>(),
+                parsed.iter().flatten().map(|(_, d)| *d).max(),
+            )
+        } else if let Some(reading) = cells::read_column(&cells, comma_decimal) {
+            if unit.is_none() {
+                unit = reading
+                    .unit_text
+                    .as_deref()
+                    .and_then(|u| regrex_core::units::parse_unit(u).ok());
+            }
+            converted.push((header_name.clone(), reading.note));
+            (reading.values, reading.decimals)
+        } else {
+            skipped.push(header_name.clone());
+            continue;
+        };
         table.names.push(name);
         table.units.push(unit);
-        table.columns.push(
-            parsed
-                .iter()
-                .map(|p| p.map_or(f64::NAN, |(v, _)| v))
-                .collect(),
-        );
         table
-            .decimals
-            .push(parsed.iter().flatten().map(|(_, d)| *d).max());
+            .columns
+            .push(values.iter().map(|v| v.unwrap_or(f64::NAN)).collect());
+        table.decimals.push(decimals);
     }
     Loaded {
         table,
@@ -349,6 +371,7 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
         rows,
         header,
         sheets,
+        converted,
     }
 }
 
@@ -404,6 +427,31 @@ mod tests {
         let s = regrex_core::units::parse_unit("s").unwrap();
         assert_eq!(loaded.table.units[0], Some(s));
         assert_eq!(loaded.header[0], "time (s)");
+    }
+
+    #[test]
+    fn cells_that_are_numbers_in_disguise() {
+        let text = "dep,arr,late,dist,ok,line\n08:15,08:40,true,24.1 km,NA,R1\n\
+                    23:50,00:10,false,3 km,-,R2\n";
+        let (header, rows) = parse_csv(text).unwrap();
+        let loaded = build_table(header, rows, Vec::new());
+        assert_eq!(loaded.skipped, vec!["ok".to_string(), "line".to_string()]);
+        assert_eq!(loaded.table.names, vec!["dep", "arr", "late", "dist"]);
+        assert_eq!(loaded.table.columns[0], vec![495.0, 1430.0]);
+        assert_eq!(loaded.table.columns[2], vec![1.0, 0.0]);
+        assert_eq!(loaded.table.columns[3], vec![24.1, 3.0]);
+        let km = regrex_core::units::parse_unit("km").unwrap();
+        assert_eq!(loaded.table.units[3], Some(km));
+        assert_eq!(loaded.converted[0].0, "dep");
+        assert_eq!(loaded.converted[3].1, "numbers in km");
+    }
+
+    #[test]
+    fn missing_markers_do_not_make_a_column_text() {
+        let (header, rows) = parse_csv("a,b\n1,2\nNA,4\n-,6\nnull,8\n").unwrap();
+        let loaded = build_table(header, rows, Vec::new());
+        assert_eq!(loaded.table.names, vec!["a", "b"]);
+        assert!(loaded.table.columns[0][1].is_nan());
     }
 
     #[test]

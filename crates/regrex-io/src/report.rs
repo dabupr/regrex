@@ -25,8 +25,20 @@ pub struct ScanReport {
     pub columns: Vec<String>,
     /// Columns that were not numeric.
     pub skipped_columns: Vec<String>,
+    /// Columns that were not plain numbers but were read as numbers
+    /// (`true`/`false`, times, dates, numbers with a unit), and how.
+    pub converted_columns: Vec<ConvertedJson>,
     /// Columns computed from others.
     pub derived: Vec<DerivedJson>,
+}
+
+/// A column read as numbers although its cells are not plain numbers.
+#[derive(Debug, Clone, Serialize)]
+pub struct ConvertedJson {
+    /// The column, as written in the file.
+    pub column: String,
+    /// How its cells were read, such as `times as minutes`.
+    pub read_as: String,
 }
 
 /// One derived column in a [`ScanReport`].
@@ -244,8 +256,9 @@ pub struct DiagnosisJson {
     /// Kind of mistake: `rounding`, `typo`, `sign`, `factor`,
     /// `wrong_constant`, `wrong_variable`, `swapped_variables`,
     /// `missing_operation`, `missing_term`, `wrong_operation`,
-    /// `swapped_operands`, `other_cell` or `other_formula` (the row follows
-    /// the second formula of a column that mixes two kinds of rows).
+    /// `swapped_operands`, `other_cell`, `midnight` or `other_formula` (the
+    /// row follows the second formula of a column that mixes two kinds of
+    /// rows).
     pub kind: String,
     /// What went wrong, such as `used 0.1 instead of 0.21`.
     pub description: String,
@@ -347,6 +360,14 @@ impl ScanReport {
             rows: loaded.table.n_rows(),
             columns: names.clone(),
             skipped_columns: loaded.skipped.clone(),
+            converted_columns: loaded
+                .converted
+                .iter()
+                .map(|(column, read_as)| ConvertedJson {
+                    column: column.clone(),
+                    read_as: read_as.clone(),
+                })
+                .collect(),
             derived: derived
                 .iter()
                 .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
@@ -396,6 +417,14 @@ impl ScanReport {
                 "Skipped (not numeric): {}",
                 self.skipped_columns.join(", ")
             );
+        }
+        if !self.converted_columns.is_empty() {
+            let list: Vec<String> = self
+                .converted_columns
+                .iter()
+                .map(|c| format!("{} ({})", c.column, c.read_as))
+                .collect();
+            let _ = writeln!(s, "Read as numbers: {}", list.join(", "));
         }
         let _ = writeln!(s);
         if self.derived.is_empty() {

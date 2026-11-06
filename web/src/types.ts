@@ -4,6 +4,8 @@ export interface ColumnInfo {
   name: string;
   decimals: number | null;
   missing: number;
+  /** How the cells were read when they are not plain numbers. */
+  read_as: string | null;
 }
 
 export interface DatasetInfo {

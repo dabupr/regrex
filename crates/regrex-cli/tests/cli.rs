@@ -193,3 +193,25 @@ fn scan_finds_two_formulas_and_the_rule() {
         "{text}"
     );
 }
+
+#[test]
+fn scan_reads_times_units_flags_and_missing_markers() {
+    let (ok, stdout, stderr) = regrex(&["scan", "tests/trains.csv", "--json"]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(report["skipped_columns"], serde_json::json!(["train"]));
+    let converted = report["converted_columns"].as_array().unwrap();
+    let read_as = |column: &str| {
+        converted
+            .iter()
+            .find(|c| c["column"] == column)
+            .map(|c| c["read_as"].as_str().unwrap().to_string())
+    };
+    assert_eq!(read_as("departure").as_deref(), Some("times as minutes"));
+    assert_eq!(read_as("distance").as_deref(), Some("numbers in km"));
+    assert_eq!(read_as("late").as_deref(), Some("true/false as 1/0"));
+    let delay = derived(&report, "delay_min");
+    assert_eq!(delay["formula"], "actual_arrival - arrival");
+    // Two cancelled trains have `-` and `NA` instead of times and delays.
+    assert_eq!(delay["checked_rows"], 58);
+}

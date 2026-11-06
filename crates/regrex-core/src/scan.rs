@@ -183,16 +183,33 @@ impl DerivedColumn {
 
 /// Scans every column and returns those that can be computed from others.
 ///
-/// Columns are scanned one by one; the result is ordered by column index.
+/// Columns are scanned in parallel when the `parallel` feature is enabled;
+/// the result is ordered by column index.
 pub fn scan(table: &Table, config: &ScanConfig) -> Vec<DerivedColumn> {
-    (0..table.columns.len())
-        .filter_map(|t| explain_column(table, t, config))
-        .collect()
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        (0..table.columns.len())
+            .into_par_iter()
+            .filter_map(|t| explain_column(table, t, config))
+            .collect()
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        (0..table.columns.len())
+            .filter_map(|t| explain_column(table, t, config))
+            .collect()
+    }
 }
 
 /// Looks for a formula that computes column `target` from the others.
 pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Option<DerivedColumn> {
     let y_all = table.columns.get(target)?;
+    // Constant columns and flags (two values) are not computed from others,
+    // or not in a way a formula can show; any formula would be a fluke.
+    if distinct_values(y_all, 3) < 3 {
+        return None;
+    }
     let candidates_cols = select_inputs(table, target, config.max_inputs);
     if candidates_cols.is_empty() {
         return None;
@@ -239,6 +256,24 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
             }
         }
     }
+    // A sensor missing on some trains reads 0 there and the real value
+    // elsewhere: the main formula then only "explains" the zeros, so say
+    // so plainly instead of showing a formula that happens to give 0.
+    if found.other.as_ref().is_some_and(|o| o.split.is_some()) {
+        if let Some(value) = usual_value(y_all, &matched) {
+            let constant = Expr::Const(value);
+            let tolerance = row_tolerance(table, target, config);
+            let main_rows: Vec<usize> = rows
+                .iter()
+                .copied()
+                .filter(|r| !found.other.as_ref().is_some_and(|o| o.rows.contains(r)))
+                .collect();
+            let same = matching_rows(&constant, table, &main_rows, y_all, &tolerance);
+            let other = found.other.take();
+            found = derived(table, target, constant, &rows, &same);
+            found.other = other;
+        }
+    }
     let covered = found.matched + found.other.as_ref().map_or(0, |o| o.rows.len());
     // With few rows, a complicated formula can fit anything: require more
     // matching rows than the formula has parts. Two formulas together must
@@ -246,12 +281,109 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
     // and a rule on another column must tell their rows apart.
     let segmented =
         found.other.as_ref().is_some_and(|o| o.split.is_some()) && ratio >= MIN_SEGMENT_SHARE;
-    if ratio >= config.min_match
-        || segmented && covered as f64 >= config.min_match * rows.len() as f64
-    {
+    let accepted = ratio >= config.min_match
+        || segmented && covered as f64 >= config.min_match * rows.len() as f64;
+    if accepted && explains_more_than_the_usual_value(table, target, config, &rows, &found) {
         Some(found)
     } else {
         None
+    }
+}
+
+/// Whether the formula is right on the rows that differ from the column's
+/// most common value. Sensor exports are full of columns that are zero
+/// almost everywhere: nearly any formula that gives about zero (with a tiny
+/// constant, an exponent near zero) matches most of their rows, so they
+/// only count when the other rows match too, and there are enough of them.
+fn explains_more_than_the_usual_value(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    rows: &[usize],
+    found: &DerivedColumn,
+) -> bool {
+    let y = &table.columns[target];
+    let tolerance = row_tolerance(table, target, config);
+    let mut counts: Vec<(f64, usize)> = Vec::new();
+    for &r in rows {
+        match counts
+            .iter_mut()
+            .find(|(v, _)| (*v - y[r]).abs() <= tolerance(r))
+        {
+            Some((_, n)) => *n += 1,
+            None => counts.push((y[r], 1)),
+        }
+        if counts.len() > rows.len() / 2 {
+            // No value is that common.
+            return true;
+        }
+    }
+    let Some(&(usual, _)) = counts.iter().max_by_key(|(_, n)| *n) else {
+        return true;
+    };
+    let unusual: Vec<usize> = rows
+        .iter()
+        .copied()
+        .filter(|&r| (y[r] - usual).abs() > tolerance(r))
+        .collect();
+    let exceptions: std::collections::HashSet<usize> = found
+        .exceptions
+        .iter()
+        .copied()
+        .filter(|r| !found.other.as_ref().is_some_and(|o| o.rows.contains(r)))
+        .collect();
+    let explained = unusual.iter().filter(|r| !exceptions.contains(r)).count();
+    explained > found.complexity.max(MIN_UNUSUAL_ROWS)
+        && explained as f64 >= config.min_match * unusual.len() as f64
+}
+
+/// Rows that differ from a column's most common value needed to trust a
+/// formula for it.
+const MIN_UNUSUAL_ROWS: usize = 5;
+
+/// The value `y` takes on nearly all of `rows` (nine in ten), if any.
+fn usual_value(y: &[f64], rows: &[usize]) -> Option<f64> {
+    let first = y[*rows.first()?];
+    let value = rows
+        .iter()
+        .map(|&r| y[r])
+        .find(|&v| rows.iter().filter(|&&r| y[r] == v).count() * 10 >= rows.len() * 9)
+        .unwrap_or(first);
+    let count = rows.iter().filter(|&&r| y[r] == value).count();
+    (count * 10 >= rows.len() * 9).then_some(value)
+}
+
+/// Number of different finite values in `x`, counting up to `limit`.
+fn distinct_values(x: &[f64], limit: usize) -> usize {
+    let mut seen: Vec<f64> = Vec::with_capacity(limit);
+    for &v in x.iter().filter(|v| v.is_finite()) {
+        if !seen.contains(&v) {
+            seen.push(v);
+            if seen.len() >= limit {
+                break;
+            }
+        }
+    }
+    seen.len()
+}
+
+/// Whether the constants of a formula look like real ones. Fits on noisy or
+/// unrelated columns end in constants like `2.7e-81` or exponents like
+/// `x^4.9e-16` (that is, `x^0`) or `x^86`, which no spreadsheet uses.
+fn plausible_constants(e: &Expr) -> bool {
+    let ok = |c: f64| c == 0.0 || (1e-12..=1e12).contains(&c.abs());
+    match e {
+        Expr::Var(_) | Expr::Param(_) => true,
+        Expr::Const(c) => ok(*c),
+        Expr::Unary(_, a) => plausible_constants(a),
+        Expr::Binary(BinaryOp::Pow, a, b) => {
+            let exponent_ok = match b.as_ref() {
+                Expr::Const(p) => (1e-3..=12.0).contains(&p.abs()),
+                other => plausible_constants(other),
+            };
+            exponent_ok && plausible_constants(a)
+        }
+        Expr::Binary(_, a, b) => plausible_constants(a) && plausible_constants(b),
     }
 }
 
@@ -281,6 +413,9 @@ fn best_formula(
     let mut best: Option<(Expr, Vec<usize>)> = None;
     let shapes = std::cell::RefCell::new(Vec::<Expr>::new());
     let consider = |formula: Expr, best: &mut Option<(Expr, Vec<usize>)>| {
+        if !plausible_constants(&formula) {
+            return;
+        }
         let shape = parametrize(&formula);
         if (1..=MAX_SHAPE_PARAMS).contains(&shape.num_params()) {
             let mut shapes = shapes.borrow_mut();
@@ -647,7 +782,14 @@ fn row_tolerance<'a>(
         .get(target)
         .copied()
         .flatten()
-        .map_or(0.0, |d| 0.5 * 10f64.powi(-(d as i32)) * 1.000_001);
+        .map_or(0.0, |d| {
+            // Half a unit of the last digit, a hair more to absorb floating
+            // point error. Except for whole numbers, where a formula off by
+            // exactly 0.5 (`x + 0.5` "matching" both `x` and `x + 1`) is a
+            // fluke, not rounding.
+            let slack = if d == 0 { 0.999_999 } else { 1.000_001 };
+            0.5 * 10f64.powi(-(d as i32)) * slack
+        });
     move |r: usize| {
         let y = table.columns[target][r];
         rounding.max(config.rel_tolerance * y.abs()).max(1e-12)
@@ -684,6 +826,10 @@ fn derived(
     }
 }
 
+/// Columns with more different values than this are not treated as
+/// categories by split rules.
+const MAX_CATEGORIES: usize = 12;
+
 /// Minimum share of rows a split rule must classify correctly.
 const MIN_SPLIT_ACCURACY: f64 = 0.95;
 
@@ -691,9 +837,15 @@ const MIN_SPLIT_ACCURACY: f64 = 0.95;
 /// `other` apart from the rows of `main`.
 fn split_rule(table: &Table, target: usize, main: &[usize], other: &[usize]) -> Option<Split> {
     let total = (main.len() + other.len()) as f64;
+    // With hundreds of columns, some column tells a dozen rows apart from
+    // the rest by chance with a mistake or two, so mistakes are also limited
+    // to a tenth of the rows the rule picks out.
+    let max_errors = (other.len() / 10) as f64;
     let mut best: Option<Split> = None;
     let mut consider = |split: Split| {
+        let errors = ((1.0 - split.accuracy) * total).round();
         if split.accuracy >= MIN_SPLIT_ACCURACY
+            && errors <= max_errors
             && best.as_ref().is_none_or(|b| split.accuracy > b.accuracy)
         {
             best = Some(split);
@@ -751,11 +903,16 @@ fn split_rule(table: &Table, target: usize, main: &[usize], other: &[usize]) -> 
                 });
             }
         }
-        // Categories: the values of `other`, when there are few of them.
+        // Categories: the values of `other`, when there are few of them, in
+        // a column of categories (few different values overall), not
+        // measurements that happen to repeat.
         let mut cats: Vec<f64> = b.clone();
         cats.sort_by(f64::total_cmp);
         cats.dedup();
-        if cats.len() <= 3 && cats.len() < b.len() {
+        if cats.len() <= 3
+            && cats.len() < b.len()
+            && distinct_values(values, MAX_CATEGORIES + 1) <= MAX_CATEGORIES
+        {
             let accuracy = correct(&|v| cats.contains(&v));
             consider(Split {
                 column: c,
@@ -834,9 +991,19 @@ fn matching_rows(
 /// powers are also caught.
 fn select_inputs(table: &Table, target: usize, max_inputs: usize) -> Vec<usize> {
     let y = &table.columns[target];
+    let present = y.iter().filter(|v| v.is_finite()).count();
     let mut scored: Vec<(f64, usize)> = (0..table.columns.len())
         .filter(|&c| c != target)
         .filter(|&c| !is_constant(&table.columns[c]))
+        // Only rows where every input is present are searched, so a column
+        // missing in many of the target's rows would leave too few of them.
+        .filter(|&c| {
+            let x = &table.columns[c];
+            let both = (0..y.len())
+                .filter(|&r| y[r].is_finite() && x[r].is_finite())
+                .count();
+            both * 10 >= present * 8
+        })
         .map(|c| {
             let x = &table.columns[c];
             let s = [

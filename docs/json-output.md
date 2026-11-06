@@ -15,6 +15,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
   "rows": 60,
   "columns": ["price", "quantity", "discount_pct", "subtotal", "net", "vat", "total"],
   "skipped_columns": ["product"],
+  "converted_columns": [],
   "derived": [
     {
       "column": "vat",
@@ -65,6 +66,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `rows` | Number of data rows. |
 | `columns` | Numeric columns that were analysed. |
 | `skipped_columns` | Columns left out because they are not numeric. |
+| `converted_columns` | Columns whose cells are not plain numbers but were read as numbers: `column` (as written in the file) and `read_as`, one of `true/false as 1/0`, `times as minutes`, `dates as days since 1970-01-01`, `dates and times as minutes since 1970-01-01` or `numbers in <unit>`. |
 | `derived[].column` | A column that is computed from others. |
 | `derived[].formula` | Its formula, written with column names. |
 | `derived[].inputs` | Columns the formula uses. |
@@ -75,7 +77,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `derived[].exception_rows` | Every row that breaks the formula. |
 | `derived[].exceptions` | Value in the file and value the formula gives, for the first 100 exceptions. |
 | `derived[].exceptions[].diagnosis` | The most likely mistake, or `null` when no simple mistake reproduces the value. |
-| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`, `other_formula`. New kinds may be added. |
+| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`, `midnight`, `other_formula`. New kinds may be added. |
 | `….diagnosis.description` | What went wrong, in English. |
 | `….diagnosis.formula` | The formula the row follows instead, when the mistake is in the formula. |
 
