@@ -47,6 +47,9 @@ pub enum MistakeKind {
     /// seconds): a time that went past midnight, as in a train arriving at
     /// 00:10 after leaving at 23:50.
     Midnight,
+    /// The cell holds 0 where the formula gives another value: usually a
+    /// missing value written as 0, or a sensor or switch that was off.
+    Zero,
 }
 
 impl MistakeKind {
@@ -66,6 +69,7 @@ impl MistakeKind {
             MistakeKind::SwappedOperands => "swapped_operands",
             MistakeKind::OtherCell => "other_cell",
             MistakeKind::Midnight => "midnight",
+            MistakeKind::Zero => "zero",
         }
     }
 }
@@ -151,6 +155,16 @@ fn value_mistakes(
             formula: None,
         })
     };
+    // A 0 is not a rounded, mistyped or scaled value: with an absolute
+    // tolerance, `0` would "match" a hundredth or a thousandth of any small
+    // expected value. Say what it most likely is instead.
+    if actual == 0.0 {
+        push(
+            MistakeKind::Zero,
+            "the cell is 0: a missing value, or a reading that was off".to_string(),
+        );
+        return out;
+    }
     let decimals = decimals.unwrap_or_else(|| written_decimals(actual));
 
     // Rounded or truncated to fewer decimals.
@@ -199,8 +213,14 @@ fn value_mistakes(
         }
     }
 
-    // Sign and factors (units, percentages, minutes).
-    let close = |k: f64| (actual - k * expected).abs() <= tolerance.max(1e-9 * actual.abs());
+    // Sign and factors (units, percentages, minutes). Only between values
+    // that are clearly not zero: a value within rounding of 0 is close to
+    // any fraction of a small number.
+    let close = |k: f64| {
+        actual.abs() > tolerance
+            && expected.abs() > tolerance
+            && (actual - k * expected).abs() <= tolerance.max(1e-9 * actual.abs())
+    };
     if close(-1.0) {
         push(MistakeKind::Sign, "wrong sign".to_string());
     }
@@ -661,6 +681,24 @@ mod tests {
         assert!(found.iter().any(|d| d.kind == MistakeKind::SwappedOperands));
         let found = check("0.21 * net", &[("net", 50.0)], 1050.0, Some(2));
         assert_eq!(first(&found).0, MistakeKind::Factor);
+    }
+
+    #[test]
+    fn zero_is_not_a_factor() {
+        // A whole-number column holding 0 where the formula gives 2: within
+        // half a unit of 2/100, but not a percentage mistake.
+        let found = check("x + 1", &[("x", 1.0)], 0.0, Some(0));
+        assert_eq!(
+            first(&found),
+            (
+                MistakeKind::Zero,
+                "the cell is 0: a missing value, or a reading that was off"
+            )
+        );
+        assert!(found.iter().all(|d| d.kind != MistakeKind::Factor), "{found:?}");
+        // Small values near zero are not scaled versions of each other either.
+        let found = check("x / 100", &[("x", 30.0)], 0.0, Some(0));
+        assert!(found.iter().all(|d| d.kind != MistakeKind::Factor), "{found:?}");
     }
 
     #[test]

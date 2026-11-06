@@ -77,7 +77,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `derived[].exception_rows` | Every row that breaks the formula. |
 | `derived[].exceptions` | Value in the file and value the formula gives, for the first 100 exceptions. |
 | `derived[].exceptions[].diagnosis` | The most likely mistake, or `null` when no simple mistake reproduces the value. |
-| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`, `midnight`, `other_formula`. New kinds may be added. |
+| `….diagnosis.kind` | One of `rounding`, `typo`, `sign`, `factor`, `wrong_constant`, `wrong_variable`, `swapped_variables`, `missing_operation`, `missing_term`, `wrong_operation`, `swapped_operands`, `other_cell`, `midnight`, `zero`, `other_formula`. New kinds may be added. |
 | `….diagnosis.description` | What went wrong, in English. |
 | `….diagnosis.formula` | The formula the row follows instead, when the mistake is in the formula. |
 

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cells that are numbers in disguise are read as numbers: `true`/`false` (as 1/0), times such as `08:15` or `1:24:00` (as minutes), dates such as `2026-10-15` or `15/10/2026` (as days), dates with times, including Kibana's `Oct 15, 2026 @ 14:24:47.000` and ISO 8601 with a time zone (as minutes), and numbers followed by a unit such as `24.1 km` (which also gives the column its unit). Missing-value markers (`-`, `NA`, `N/A`, `null`, `NaN`, `#N/A`) count as empty cells, so they no longer turn a column into text. The JSON report lists these columns in `converted_columns`, the text report under "Read as numbers", and the web app shows how each was read.
 - A new diagnosis, `midnight`: a value a whole day off (1440 minutes, 24 hours or 86400 seconds), such as a train arriving at 00:10 after leaving at 23:50.
 
+### Fixed
+
+- A 0 in a row that breaks a formula is no longer explained as a factor ("1/100 of the expected value"): such a cell gets the new diagnosis `zero` (a missing value, or a reading that was off), and sign and factor mistakes are only looked for between values that are clearly not zero ([#27](https://github.com/dabupr/regrex/issues/27)).
+
 ### Changed
 
 - `scan` checks columns in parallel (with the default `parallel` feature).
