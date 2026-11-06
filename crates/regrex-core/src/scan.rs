@@ -416,6 +416,14 @@ fn best_formula(
     // spoil every attempt; then once more on the rows the best formula fits.
     let mut best: Option<(Expr, Vec<usize>)> = None;
     let shapes = std::cell::RefCell::new(Vec::<Expr>::new());
+    // Whether a formula gives exactly the values of the rows it matches.
+    // Between formulas that match the same rows, an exact one is the rule
+    // and one that only stays within rounding (`0.0097 * service` for
+    // `service div 100`) an approximation of it, however short.
+    let exact = |formula: &Expr, matched: &[usize]| {
+        let zero = |_: usize| 0.0;
+        matching_rows(formula, table, matched, y_all, &zero).len() == matched.len()
+    };
     let consider = |formula: Expr, best: &mut Option<(Expr, Vec<usize>)>| {
         if !plausible_constants(&formula) {
             return;
@@ -432,7 +440,11 @@ fn best_formula(
             None => true,
             Some((f, m)) => {
                 matched.len() > m.len()
-                    || matched.len() == m.len() && formula.complexity() < f.complexity()
+                    || matched.len() == m.len() && {
+                        let (new_exact, old_exact) = (exact(&formula, &matched), exact(f, m));
+                        new_exact && !old_exact
+                            || new_exact == old_exact && formula.complexity() < f.complexity()
+                    }
             }
         };
         if better {
@@ -463,32 +475,14 @@ fn best_formula(
     // search, whose fitted constants need smooth functions.
     // A formula like `0.25 * train + 7250.33` can stay within rounding of
     // such a column on every row; an integer formula that gives the exact
-    // values of as many rows is the real rule.
-    let exact = |formula: &Expr, matched: &[usize]| {
-        let zero = |_: usize| 0.0;
-        matching_rows(formula, table, matched, y_all, &zero).len()
-    };
+    // values of as many rows is the real rule, and wins over it.
     if best
         .as_ref()
-        .is_none_or(|(f, m)| m.len() < rows.len() || exact(f, m) < m.len())
+        .is_none_or(|(f, m)| m.len() < rows.len() || !exact(f, m))
     {
         let ops = &config.integer_ops;
         for formula in integer_formulas(table, candidates_cols, target, &rows, ops) {
-            let matched = matching_rows(&formula, table, &rows, y_all, &tolerance);
-            let better = match &best {
-                None => true,
-                Some((f, m)) => {
-                    let exact_best = exact(f, m);
-                    matched.len() > m.len()
-                        || matched.len() == m.len()
-                            && (exact_best < matched.len()
-                                || exact_best == matched.len()
-                                    && formula.complexity() < f.complexity())
-                }
-            };
-            if better {
-                best = Some((formula, matched));
-            }
+            consider(formula, &mut best);
         }
     }
     // Rows of two kinds (two tax rates) spoil every sample of a few rows, but
@@ -1149,6 +1143,11 @@ const DIVISORS: [f64; 27] = [
 /// Divisors up to this also get every offset, as in `(x + 3) div 4`.
 const MAX_OFFSET_DIVISOR: f64 = 12.0;
 
+/// Rows needed to look for an integer formula: with a few rows, some
+/// offset and divisor always fit (when looking for a second formula among
+/// the handful of rows that break the first one).
+const MIN_INTEGER_ROWS: usize = 12;
+
 /// Rows used to choose the integer formulas, which are then checked on
 /// every row by the caller.
 const INTEGER_FIT_ROWS: usize = 200;
@@ -1171,7 +1170,7 @@ fn integer_formulas(
             v.fract() == 0.0 && v.abs() < 1e15
         })
     };
-    if ops.is_empty() || rows.len() < 3 || !whole(target) {
+    if ops.is_empty() || rows.len() < MIN_INTEGER_ROWS || !whole(target) {
         return Vec::new();
     }
     let sample = spread(rows, INTEGER_FIT_ROWS);
@@ -1190,21 +1189,20 @@ fn integer_formulas(
             for c in (0..offsets).map(|c| c as f64) {
                 for &op in ops {
                     let f: Vec<f64> = x.iter().map(|&v| op.apply(v + c, d)).collect();
-                    let Some((a, b)) = whole_line(&f, &y) else {
-                        continue;
-                    };
-                    let matched = f
-                        .iter()
-                        .zip(&y)
-                        .filter(|(fv, yv)| a + b * **fv == **yv)
-                        .count();
-                    let formula = integer_formula(input, op, c, d, a, b);
-                    let complexity = formula.complexity();
-                    let better = best
-                        .as_ref()
-                        .is_none_or(|(m, k, _)| matched > *m || matched == *m && complexity < *k);
-                    if better {
-                        best = Some((matched, complexity, formula));
+                    for (a, b) in whole_lines(&f, &y) {
+                        let matched = f
+                            .iter()
+                            .zip(&y)
+                            .filter(|(fv, yv)| a + b * **fv == **yv)
+                            .count();
+                        let formula = integer_formula(input, op, c, d, a, b);
+                        let complexity = formula.complexity();
+                        let better = best.as_ref().is_none_or(|(m, k, _)| {
+                            matched > *m || matched == *m && complexity < *k
+                        });
+                        if better {
+                            best = Some((matched, complexity, formula));
+                        }
                     }
                 }
             }
@@ -1219,9 +1217,11 @@ fn integer_formulas(
     out
 }
 
-/// Whole numbers `a` and `b` with `y ≈ a + b * f`, if `f` takes at least two
-/// values: `b` from least squares, `a` the median of `y - b * f`.
-fn whole_line(f: &[f64], y: &[f64]) -> Option<(f64, f64)> {
+/// Whole numbers `a` and `b` worth trying for `y ≈ a + b * f`, if `f` takes
+/// at least two values: `b` from least squares, and `1` and `-1`, which
+/// least squares misses when a few rows are far off (line `91` for station
+/// `905`); `a` is the median of `y - b * f`.
+fn whole_lines(f: &[f64], y: &[f64]) -> Vec<(f64, f64)> {
     let n = f.len() as f64;
     let mf = f.iter().sum::<f64>() / n;
     let my = y.iter().sum::<f64>() / n;
@@ -1231,16 +1231,21 @@ fn whole_line(f: &[f64], y: &[f64]) -> Option<(f64, f64)> {
         sff += (fv - mf) * (fv - mf);
     }
     if sff.is_nan() || sff <= 0.0 {
-        return None;
+        return Vec::new();
     }
-    let b = (sfy / sff).round();
-    if b == 0.0 || !b.is_finite() {
-        return None;
+    let mut slopes = vec![1.0, -1.0];
+    let fitted = (sfy / sff).round();
+    if fitted != 0.0 && fitted.is_finite() && !slopes.contains(&fitted) {
+        slopes.insert(0, fitted);
     }
-    let mut rest: Vec<f64> = f.iter().zip(y).map(|(fv, yv)| yv - b * fv).collect();
-    rest.sort_by(f64::total_cmp);
-    let a = rest[rest.len() / 2];
-    Some((a, b))
+    slopes
+        .into_iter()
+        .map(|b| {
+            let mut rest: Vec<f64> = f.iter().zip(y).map(|(fv, yv)| yv - b * fv).collect();
+            rest.sort_by(f64::total_cmp);
+            (rest[rest.len() / 2], b)
+        })
+        .collect()
 }
 
 /// `a + b * ((x + c) op d)`, leaving out what is 0 or 1.
@@ -1359,6 +1364,35 @@ mod tests {
         assert_eq!(formula(2), "service div 100");
         assert_eq!(formula(3), "7250 + (train + 3) div 4");
         assert_eq!(formula(4), "1 + train mod 4");
+    }
+
+    #[test]
+    fn integer_formulas_beat_approximations_and_far_off_rows() {
+        // Line = hundreds digit of the station, except a few stations of
+        // another numbering (905 is on line 91), which spoil least squares;
+        // `0.0097 * station` stays within rounding of most rows too.
+        let station: Vec<f64> = (0..60)
+            .map(|i| (100 * (1 + i % 5) + (i * 7) % 40) as f64)
+            .collect();
+        let mut line: Vec<f64> = station.iter().map(|s| (s / 100.0).floor()).collect();
+        let mut station = station;
+        for r in [7, 23, 41] {
+            station[r] = 905.0 + r as f64;
+            line[r] = 91.0;
+        }
+        let table = Table {
+            names: vec!["station".into(), "line".into()],
+            columns: vec![station, line],
+            decimals: vec![Some(0); 2],
+            ..Table::default()
+        };
+        let config = ScanConfig {
+            min_match: 0.8,
+            ..ScanConfig::default()
+        };
+        let d = explain_column(&table, 1, &config).expect("derived");
+        assert_eq!(d.formula_text, "station div 100");
+        assert_eq!(d.exceptions, vec![7, 23, 41]);
     }
 
     #[test]

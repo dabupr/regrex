@@ -222,6 +222,17 @@ impl Expr {
         }
     }
 
+    /// Whether the expression uses integer division or the remainder.
+    pub fn has_integer_ops(&self) -> bool {
+        match self {
+            Expr::Var(_) | Expr::Const(_) | Expr::Param(_) => false,
+            Expr::Unary(_, a) => a.has_integer_ops(),
+            Expr::Binary(op, a, b) => {
+                BinaryOp::INTEGER.contains(op) || a.has_integer_ops() || b.has_integer_ops()
+            }
+        }
+    }
+
     /// The input columns the expression uses, sorted and without repeats.
     pub fn vars(&self) -> Vec<usize> {
         fn go(e: &Expr, out: &mut Vec<usize>) {
