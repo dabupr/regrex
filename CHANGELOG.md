@@ -19,11 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fewer made-up formulas on exports with hundreds of sensor columns: columns with one or two values (flags) are not explained, a formula must also explain the rows that differ from a column's most common value (columns that are zero almost everywhere matched nearly any formula), constants like `2.7e-81` and exponents like `x^4.9e-16` or `x^86` are rejected, a column missing in many rows is no longer tried as an input, rules that split two formulas may get wrong at most a tenth of the rows they pick out, and only columns with few values are used as categories.
 - When the rows of a column that do not follow its formula are all one value (a sensor reading 0 on the trains that lack it), that value is shown as the main formula: `temperature2 = 0`, other rows `temperature1 (where train >= 9013)`.
 - A whole-number column no longer matches a formula that is exactly 0.5 away (`x + 0.5` "matching" both `x` and `x + 1`).
+- SQLite files are read with rusqlite 0.41, which bundles SQLite 3.54 (RUSTSEC-2026-0459); the minimum supported Rust version is now 1.89.
 - A plain sum, difference, product or quotient is only named as a known formula with hints from column names, even when it matches a formula that reduces to it (relativistic momentum is `m * v` at everyday speeds).
 
 ### Fixed
 
 - A 0 in a row that breaks a formula is no longer explained as a factor ("1/100 of the expected value"): such a cell gets the new diagnosis `zero` (a missing value, or a reading that was off), and sign and factor mistakes are only looked for between values that are clearly not zero ([#27](https://github.com/dabupr/regrex/issues/27)).
+- Dates and times no longer match formulas that are off by minutes: a relative tolerance of 1e-6 on 26 million minutes since 1970 let `pickup = dropoff - fare` "match" taxi rides. Columns read as dates or times now only tolerate their own rounding (`Table::timestamps`) ([#45](https://github.com/dabupr/regrex/issues/45)).
+- Python: `regrex.scan(data)` tolerates rounded values as `scan_file` does. The decimals of each column are inferred from its values (`Table::infer_decimals`), or given by hand with `decimals={"vat": 2}` ([#31](https://github.com/dabupr/regrex/issues/31)).
 
 ## [0.1.0] - 2026-11-03
 

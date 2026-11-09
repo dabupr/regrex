@@ -65,9 +65,13 @@ fn search_json(
     Ok(FitReport::new(&target_name, &names, target.len(), &found).to_json())
 }
 
-/// scan(names, columns, units, ignore, min_match, max_size) -> JSON
+/// scan(names, columns, units, min_match, max_size, source, decimals) -> JSON
+///
+/// `decimals` gives the number of decimals each column was rounded to;
+/// where it is `None`, it is inferred from the values.
 #[pyfunction]
-#[pyo3(signature = (names, columns, units=None, min_match=0.9, max_size=5, source="<data>".to_string()))]
+#[pyo3(signature = (names, columns, units=None, min_match=0.9, max_size=5, source="<data>".to_string(), decimals=None))]
+#[allow(clippy::too_many_arguments)]
 fn scan_json(
     py: Python<'_>,
     names: Vec<String>,
@@ -76,16 +80,24 @@ fn scan_json(
     min_match: f64,
     max_size: usize,
     source: String,
+    decimals: Option<Vec<Option<u32>>>,
 ) -> PyResult<String> {
     if names.len() != columns.len() {
         return Err(value_error("names and columns must have the same length"));
     }
-    let table = Table {
+    let decimals = decimals.unwrap_or_else(|| vec![None; names.len()]);
+    if decimals.len() != names.len() {
+        return Err(value_error("names and decimals must have the same length"));
+    }
+    let mut table = Table {
         units: self::units(units, names.len())?,
-        decimals: vec![None; names.len()],
+        decimals,
         names,
         columns,
+        timestamps: Vec::new(),
     };
+    // Like a CSV file, where the decimals are read from the text.
+    table.infer_decimals();
     let loaded = regrex_io::Loaded {
         header: table.names.clone(),
         table,

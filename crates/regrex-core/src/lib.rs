@@ -48,7 +48,7 @@ pub mod units;
 pub use error::Error;
 pub use expr::{BinaryOp, Expr, UnaryOp};
 pub use scan::{
-    check_formula, diagnose_exception, explain_column, fit_shape, scan, DerivedColumn, ScanConfig,
-    Table,
+    check_formula, diagnose_exception, explain_column, fit_shape, infer_decimals, scan,
+    DerivedColumn, ScanConfig, Table,
 };
 pub use search::{search, Candidate, SearchConfig};

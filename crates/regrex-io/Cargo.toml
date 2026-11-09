@@ -25,7 +25,7 @@ arrow-array = { version = "60", optional = true }
 arrow-cast = { version = "60", default-features = false, optional = true }
 arrow-ipc = { version = "60", features = ["lz4", "zstd"], optional = true }
 parquet = { version = "60", optional = true }
-rusqlite = { version = "0.40", features = ["bundled", "serialize"], optional = true }
+rusqlite = { version = "0.41", features = ["bundled", "serialize"], optional = true }
 bytes = { version = "1", optional = true }
 
 [features]
@@ -43,4 +43,4 @@ all-formats = ["parquet", "arrow", "sqlite"]
 arrow-array = "60"
 arrow-ipc = "60"
 parquet = "60"
-rusqlite = { version = "0.40", features = ["bundled", "serialize"] }
+rusqlite = { version = "0.41", features = ["bundled", "serialize"] }

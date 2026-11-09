@@ -208,6 +208,7 @@ mod tests {
             decimals: vec![Some(2); columns.len()],
             units: vec![None; columns.len()],
             columns,
+            timestamps: Vec::new(),
         }
     }
 

@@ -6,7 +6,7 @@ members = ["crates/regrex-core", "crates/regrex-io", "crates/regrex-cli", "crate
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-rust-version = "1.88"
+rust-version = "1.89"
 authors = ["David Busoms"]
 repository = "https://github.com/dabupr/regrex"
 
