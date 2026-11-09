@@ -21,7 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fewer made-up formulas on exports with hundreds of sensor columns: columns with one or two values (flags) are not explained, a formula must also explain the rows that differ from a column's most common value (columns that are zero almost everywhere matched nearly any formula), constants like `2.7e-81` and exponents like `x^4.9e-16` or `x^86` are rejected, a column missing in many rows is no longer tried as an input, rules that split two formulas may get wrong at most a tenth of the rows they pick out, and only columns with few values are used as categories.
 - When the rows of a column that do not follow its formula are all one value (a sensor reading 0 on the trains that lack it), that value is shown as the main formula: `temperature2 = 0`, other rows `temperature1 (where train >= 9013)`.
 - A whole-number column no longer matches a formula that is exactly 0.5 away (`x + 0.5` "matching" both `x` and `x + 1`).
-- SQLite files are read with rusqlite 0.41, which bundles SQLite 3.54 (RUSTSEC-2026-0459); the minimum supported Rust version is now 1.89.
 - A plain sum, difference, product or quotient is only named as a known formula with hints from column names, even when it matches a formula that reduces to it (relativistic momentum is `m * v` at everyday speeds).
 
 ### Fixed

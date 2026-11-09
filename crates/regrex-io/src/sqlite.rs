@@ -45,7 +45,7 @@ pub(crate) fn read(bytes: &[u8], table: Option<&str>) -> Result<Parsed, LoadErro
     let mut stmt = conn
         .prepare(&format!("SELECT * FROM {quoted}"))
         .map_err(fail)?;
-    let header: Vec<String> = stmt.column_names().map(|s| s.to_string()).collect();
+    let header: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
     let n = header.len();
     let rows = stmt
         .query_map([], |row| {
