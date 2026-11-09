@@ -80,7 +80,7 @@ fn reads_arrow_files_and_streams() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn reads_sqlite_tables_like_sheets() {
-    let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
     conn.execute_batch(
         "CREATE TABLE customers (id INTEGER, name TEXT);
          INSERT INTO customers VALUES (1, 'Anna');
