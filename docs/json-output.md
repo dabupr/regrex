@@ -54,7 +54,8 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
         "source_title": "Value-added tax (Wikipedia)",
         "source_url": "https://en.wikipedia.org/wiki/Value-added_tax"
       },
-      "other": null
+      "other": null,
+      "copy_of": null
     }
   ]
 }
@@ -82,6 +83,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `….diagnosis.formula` | The formula the row follows instead, when the mistake is in the formula. |
 
 | `derived[].other` | A second formula followed by many of the exceptions, when the column mixes two kinds of rows, or `null`: its `formula`, the `rows` that follow it and the `split` rule that tells them apart (`column`, `rule` such as `year >= 2023`, `accuracy`), or `null` when no column does. |
+| `derived[].copy_of` | When the column is a copy of another one (the same values, maybe shifted, negated or scaled by a power of ten, 60 or 3600, such as `serial + 1` or `1000 * km`), that column; otherwise `null`. Copies are found before the search, are not used as inputs, and the text report lists them apart under "Copies of other columns". |
 | `derived[].known` | The formula from the [library of known formulas](https://dabupr.github.io/regrex/library.html) that the column follows, or `null`. |
 | `known.id`, `known.name`, `known.domain` | Which library formula it is; see `crates/regrex-formulas/library/`. |
 | `known.expression` | The library formula, in its own symbols. |

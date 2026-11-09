@@ -205,3 +205,5 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .chart.graph .arrow-head { fill: var(--muted); }
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 3px transparent; } }
 .card.flash { animation: flash 1.2s ease-out; }
+.copies { margin: 10px 0 0; padding-left: 20px; }
+.copies li { margin: 4px 0; overflow-wrap: anywhere; }

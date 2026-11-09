@@ -67,6 +67,9 @@ pub struct DerivedJson {
     /// A second formula that many of the exceptions follow, when the column
     /// mixes two kinds of rows.
     pub other: Option<OtherJson>,
+    /// When the column is a copy of another one (the same values, maybe
+    /// shifted or scaled, such as `serial + 1` or `1000 * km`), that column.
+    pub copy_of: Option<String>,
 }
 
 /// A second formula for some rows of a derived column.
@@ -330,8 +333,12 @@ impl DerivedJson {
             match_ratio: d.match_ratio(),
             exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
             exceptions,
-            known: known_column(table, d),
+            known: if d.copy { None } else { known_column(table, d) },
             other,
+            copy_of: d
+                .copy
+                .then(|| d.inputs.first().map(|&i| names[i].clone()))
+                .flatten(),
         }
     }
 }
@@ -436,19 +443,19 @@ impl ScanReport {
             let _ = writeln!(s, "No derived columns found.");
             return s;
         }
-        let width = self
-            .derived
+        let (copies, main): (Vec<&DerivedJson>, Vec<&DerivedJson>) =
+            self.derived.iter().partition(|d| d.copy_of.is_some());
+        let width = main
             .iter()
             .map(|d| d.column.chars().count())
             .max()
             .unwrap_or(0);
-        let fwidth = self
-            .derived
+        let fwidth = main
             .iter()
             .map(|d| d.formula.chars().count())
             .max()
             .unwrap_or(0);
-        for d in &self.derived {
+        for d in main {
             let _ = write!(
                 s,
                 "  {:<width$} = {:<fwidth$}   {}/{} rows",
@@ -520,8 +527,54 @@ impl ScanReport {
             }
             let _ = writeln!(s, "{known}");
         }
+        if !copies.is_empty() {
+            let _ = writeln!(s, "\nCopies of other columns:");
+            s += &copies_text(&copies);
+        }
         s
     }
+}
+
+/// One line per copied column: `a = b = c`, then the shifted or scaled
+/// copies, `d = a + 1, e = a + 2`.
+fn copies_text(copies: &[&DerivedJson]) -> String {
+    let mut originals: Vec<&str> = Vec::new();
+    for d in copies {
+        let original = d.copy_of.as_deref().unwrap_or_default();
+        if !originals.contains(&original) {
+            originals.push(original);
+        }
+    }
+    let differ = |d: &DerivedJson| {
+        if d.exception_rows.is_empty() {
+            String::new()
+        } else {
+            format!(" ({}/{} rows)", d.matched_rows, d.checked_rows)
+        }
+    };
+    let mut s = String::new();
+    for original in originals {
+        let group = copies
+            .iter()
+            .filter(|d| d.copy_of.as_deref() == Some(original));
+        let (same, changed): (Vec<&&DerivedJson>, Vec<&&DerivedJson>) =
+            group.partition(|d| d.formula == original);
+        let mut parts: Vec<String> = Vec::new();
+        if !same.is_empty() {
+            let mut line = original.to_string();
+            for d in same {
+                let _ = write!(line, " = {}{}", d.column, differ(d));
+            }
+            parts.push(line);
+        }
+        parts.extend(
+            changed
+                .iter()
+                .map(|d| format!("{} = {}{}", d.column, d.formula, differ(d))),
+        );
+        let _ = writeln!(s, "  {}", parts.join(", "));
+    }
+    s
 }
 
 /// Candidate formulas for one column, see [`regrex_core::search()`].

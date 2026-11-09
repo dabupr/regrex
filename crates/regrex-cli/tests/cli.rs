@@ -215,3 +215,46 @@ fn scan_reads_times_units_flags_and_missing_markers() {
     // Two cancelled trains have `-` and `NA` instead of times and delays.
     assert_eq!(delay["checked_rows"], 58);
 }
+
+#[test]
+fn scan_lists_copies_of_other_columns_apart() {
+    let mut csv = String::from("train,serial0,serial1,km,m,price,qty,total\n");
+    for i in 1..=30 {
+        let serial = 7000 + 4 * ((i * 7) % 23);
+        let km = 1.5 + 0.25 * ((i * 11) % 31) as f64;
+        let (price, qty) = (2 + (i * 5) % 9, 1 + (i * 3) % 7);
+        csv += &format!(
+            "{serial},{serial},{},{km},{},{price},{qty},{}\n",
+            serial + 1,
+            1000.0 * km,
+            price * qty
+        );
+    }
+    let path = std::env::temp_dir().join("regrex-copies-test.csv");
+    std::fs::write(&path, csv).unwrap();
+    let file = path.to_str().unwrap();
+
+    let (ok, stdout, stderr) = regrex(&["scan", file, "--json"]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(derived(&report, "serial0")["copy_of"], "train");
+    assert_eq!(derived(&report, "serial1")["formula"], "train + 1");
+    assert_eq!(derived(&report, "m")["copy_of"], "km");
+    assert_eq!(derived(&report, "total")["formula"], "price * qty");
+    assert_eq!(
+        derived(&report, "total")["copy_of"],
+        serde_json::Value::Null
+    );
+
+    let (ok, stdout, stderr) = regrex(&["scan", file]);
+    assert!(ok, "{stderr}");
+    let copies = stdout
+        .split("Copies of other columns:")
+        .nth(1)
+        .expect(&stdout);
+    assert!(
+        copies.contains("train = serial0, serial1 = train + 1"),
+        "{stdout}"
+    );
+    assert!(copies.contains("m = 1000 * km"), "{stdout}");
+}
