@@ -23,6 +23,12 @@ pub struct Table {
     /// Unit of each column, when known (for example from a header like
     /// `speed (m/s)`). May be empty or shorter than `columns`.
     pub units: Vec<Option<Unit>>,
+    /// Whether each column holds dates or times of day, which are positions
+    /// on a scale with an arbitrary zero (26 million minutes since 1970).
+    /// Such a column only tolerates its own rounding, never a relative
+    /// error, which would let `dropoff = pickup + fare` match within half an
+    /// hour. May be empty or shorter than `columns`.
+    pub timestamps: Vec<bool>,
 }
 
 impl Table {
@@ -36,6 +42,24 @@ impl Table {
         self.units.get(i).copied().flatten()
     }
 
+    /// Whether column `i` holds dates or times (see [`Table::timestamps`]).
+    pub fn is_timestamp(&self, i: usize) -> bool {
+        self.timestamps.get(i).copied().unwrap_or(false)
+    }
+
+    /// Fills in [`Table::decimals`] for columns where it is unknown, from
+    /// their values: the fewest decimals (up to 10) that write every value
+    /// exactly, as for a column read from a CSV file. Columns that need more
+    /// (results of a computation, like `0.1 * pi`) stay unknown.
+    pub fn infer_decimals(&mut self) {
+        self.decimals.resize(self.columns.len(), None);
+        for (d, column) in self.decimals.iter_mut().zip(&self.columns) {
+            if d.is_none() {
+                *d = infer_decimals(column);
+            }
+        }
+    }
+
     /// Removes column `i`.
     pub fn remove_column(&mut self, i: usize) {
         self.names.remove(i);
@@ -46,7 +70,28 @@ impl Table {
         if i < self.units.len() {
             self.units.remove(i);
         }
+        if i < self.timestamps.len() {
+            self.timestamps.remove(i);
+        }
     }
+}
+
+/// The fewest decimals (up to 10) that write every finite value of
+/// `values` exactly, or `None` when there are no such values or they need
+/// more (or are too large for the decimals to be told apart).
+pub fn infer_decimals(values: &[f64]) -> Option<u32> {
+    let present: Vec<f64> = values.iter().copied().filter(|v| v.is_finite()).collect();
+    if present.is_empty() {
+        return None;
+    }
+    (0..=10u32).find(|&d| {
+        let scale = 10f64.powi(d as i32);
+        present.iter().all(|&v| {
+            let scaled = v * scale;
+            // Beyond 2^50 every float is a whole number: no evidence.
+            scaled.abs() < 1e15 && (scaled - scaled.round()).abs() <= 1e-6
+        })
+    })
 }
 
 /// Settings for [`scan`] and [`explain_column`].
@@ -553,6 +598,7 @@ fn parametrize(e: &Expr) -> Expr {
 ///     columns: vec![vec![10.0, 20.0, 30.0], vec![2.1, 4.2, 3.0]],
 ///     decimals: vec![Some(2), Some(2)],
 ///     units: vec![None, None],
+///     timestamps: Vec::new(),
 /// };
 /// let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
 /// let formula = parse_expr("0.21 * net", &names).unwrap();
@@ -595,6 +641,7 @@ pub fn check_formula(
 ///     columns: vec![vec![10.0, 20.0, 30.0, 40.0], vec![2.1, 4.2, 6.3, 8.4]],
 ///     decimals: vec![Some(2), Some(2)],
 ///     units: vec![None, None],
+///     timestamps: Vec::new(),
 /// };
 /// let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
 /// let (shape, _) = parse_template("rate * net", &names).unwrap();
@@ -802,7 +849,8 @@ fn culprit(
 }
 
 /// How far a row of column `target` may be from a formula's value and still
-/// match: half a unit in the last written decimal, or a small relative error.
+/// match: half a unit in the last written decimal, or a small relative error
+/// (except for dates and times).
 fn row_tolerance<'a>(
     table: &'a Table,
     target: usize,
@@ -821,9 +869,14 @@ fn row_tolerance<'a>(
             let slack = if d == 0 { 0.999_999 } else { 1.000_001 };
             0.5 * 10f64.powi(-(d as i32)) * slack
         });
+    let relative = if table.is_timestamp(target) {
+        0.0
+    } else {
+        config.rel_tolerance
+    };
     move |r: usize| {
         let y = table.columns[target][r];
-        rounding.max(config.rel_tolerance * y.abs()).max(1e-12)
+        rounding.max(relative * y.abs()).max(1e-12)
     }
 }
 
@@ -1442,6 +1495,7 @@ mod tests {
             columns: vec![net, year, vat],
             decimals: vec![Some(0), Some(0), Some(2)],
             units: vec![None; 3],
+            timestamps: Vec::new(),
         }
     }
 
@@ -1484,6 +1538,7 @@ mod tests {
             columns: vec![x, y],
             decimals: vec![Some(0), Some(0)],
             units: vec![None, None],
+            timestamps: Vec::new(),
         };
         let (shape, params) = parse_template("a * x^b", &["x", "y"]).unwrap();
         assert_eq!(params, ["a", "b"]);
@@ -1513,6 +1568,7 @@ mod tests {
             columns: vec![net, vat],
             decimals: vec![Some(0), Some(2)],
             units: vec![None, None],
+            timestamps: Vec::new(),
         };
         let found = explain_column(&table, 1, &ScanConfig::default()).expect("vat is derived");
         assert_eq!(
@@ -1520,6 +1576,59 @@ mod tests {
             "0.21 * net"
         );
         assert_eq!(found.exceptions, vec![12, 25, 38]);
+    }
+
+    #[test]
+    fn timestamps_only_tolerate_their_own_rounding() {
+        // Taxi rides: dropoff and pickup as minutes since 1970 (about 26
+        // million), rides of ~10 minutes, fares of ~10 dollars. A relative
+        // tolerance of 1e-6 would be 26 minutes, so `dropoff - fare` would
+        // "explain" pickup.
+        let n = 60;
+        let pickup: Vec<f64> = (0..n)
+            .map(|i| 25_862_000.0 + 97.0 * i as f64 + ((i * 7) % 60) as f64 / 60.0)
+            .collect();
+        let ride: Vec<f64> = (0..n).map(|i| 4.0 + ((i * 13) % 17) as f64).collect();
+        let fare: Vec<f64> = (0..n).map(|i| 5.0 + ((i * 11) % 19) as f64 * 0.5).collect();
+        let dropoff: Vec<f64> = pickup.iter().zip(&ride).map(|(p, r)| p + r).collect();
+        let mut table = Table {
+            names: vec![
+                "pickup".into(),
+                "dropoff".into(),
+                "fare".into(),
+                "ride".into(),
+            ],
+            columns: vec![pickup, dropoff, fare, ride],
+            decimals: vec![Some(2), Some(2), Some(1), Some(0)],
+            units: Vec::new(),
+            timestamps: vec![true, true, false, false],
+        };
+        // The real relation is still found.
+        let found = explain_column(&table, 1, &ScanConfig::default()).expect("dropoff is derived");
+        assert_eq!(found.exceptions, Vec::<usize>::new());
+        assert!(found.inputs.contains(&3), "{}", found.formula_text);
+        // Without the ride length, the fare must not stand in for it.
+        table.remove_column(3);
+        assert_eq!(table.timestamps, vec![true, true, false]);
+        assert!(explain_column(&table, 0, &ScanConfig::default()).is_none());
+        assert!(explain_column(&table, 1, &ScanConfig::default()).is_none());
+    }
+
+    #[test]
+    fn decimals_are_inferred_from_values() {
+        assert_eq!(infer_decimals(&[1.0, 20.0, f64::NAN]), Some(0));
+        assert_eq!(infer_decimals(&[0.53, 3.46, 2.1]), Some(2));
+        assert_eq!(infer_decimals(&[0.21 * 10.37, 1.5]), Some(4));
+        assert_eq!(infer_decimals(&[std::f64::consts::PI]), None);
+        assert_eq!(infer_decimals(&[f64::NAN]), None);
+        let mut table = Table {
+            names: vec!["a".into(), "b".into()],
+            columns: vec![vec![1.25, 2.5], vec![1.0, 2.0]],
+            decimals: vec![None, Some(3)],
+            ..Table::default()
+        };
+        table.infer_decimals();
+        assert_eq!(table.decimals, vec![Some(2), Some(3)]);
     }
 
     #[test]

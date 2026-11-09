@@ -340,10 +340,11 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
         } else {
             name
         };
-        let (values, decimals) = if non_empty > 0 && numeric * 10 >= non_empty * 9 {
+        let (values, decimals, timestamp) = if non_empty > 0 && numeric * 10 >= non_empty * 9 {
             (
                 parsed.iter().map(|p| p.map(|(v, _)| v)).collect::<Vec<_>>(),
                 parsed.iter().flatten().map(|(_, d)| *d).max(),
+                false,
             )
         } else if let Some(reading) = cells::read_column(&cells, comma_decimal) {
             if unit.is_none() {
@@ -353,7 +354,7 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
                     .and_then(|u| regrex_core::units::parse_unit(u).ok());
             }
             converted.push((header_name.clone(), reading.note));
-            (reading.values, reading.decimals)
+            (reading.values, reading.decimals, reading.timestamp)
         } else {
             skipped.push(header_name.clone());
             continue;
@@ -364,6 +365,7 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
             .columns
             .push(values.iter().map(|v| v.unwrap_or(f64::NAN)).collect());
         table.decimals.push(decimals);
+        table.timestamps.push(timestamp);
     }
     Loaded {
         table,
@@ -399,6 +401,15 @@ mod tests {
         assert_eq!(parse_number(""), None);
         assert_eq!(parse_number("inf"), None);
         assert_eq!(parse_number_with("1,234", true), Some((1.234, 3)));
+    }
+
+    #[test]
+    fn date_columns_are_marked_as_timestamps() {
+        let text = "pickup,fare\n2019-03-23 20:21:09,7\n2019-03-04 16:11:55,5\n";
+        let (header, rows) = parse_csv(text).unwrap();
+        let loaded = build_table(header, rows, Vec::new());
+        assert!(loaded.table.is_timestamp(0));
+        assert!(!loaded.table.is_timestamp(1));
     }
 
     #[test]

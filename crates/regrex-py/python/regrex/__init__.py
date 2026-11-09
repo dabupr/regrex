@@ -96,6 +96,7 @@ def scan(
     units: Optional[Mapping[str, str]] = None,
     min_match: float = 0.9,
     max_size: int = 5,
+    decimals: Optional[Mapping[str, int]] = None,
 ) -> "dict[str, Any]":
     """Finds the columns of ``data`` that are computed from other columns.
 
@@ -103,11 +104,25 @@ def scan(
     report whose ``derived`` list holds, for each derived column, its
     ``formula``, ``matched_rows``, ``checked_rows`` and the ``exception_rows``
     that break it (counted from 1).
+
+    Values rounded to a few decimals (``vat = round(0.21 * net, 2)``) match
+    within half a unit of the last decimal. The decimals of each column are
+    inferred from its values; ``decimals`` (for example ``{"vat": 2}``) sets
+    them by hand.
     """
     cols = _columns(data)
     names = [n for n in cols if n not in set(ignore)]
     unit_list = [units.get(n) for n in names] if units else None
-    report = _native.scan_json(names, [cols[n] for n in names], unit_list, min_match, max_size)
+    decimal_list = [decimals.get(n) for n in names] if decimals else None
+    report = _native.scan_json(
+        names,
+        [cols[n] for n in names],
+        unit_list,
+        min_match,
+        max_size,
+        "<data>",
+        decimal_list,
+    )
     return json.loads(report)
 
 
