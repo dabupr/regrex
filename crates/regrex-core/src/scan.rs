@@ -160,6 +160,10 @@ pub struct DerivedColumn {
     /// A second formula followed by many of the exceptions, when the column
     /// mixes two kinds of rows (two tax rates, two price lists).
     pub other: Option<OtherFormula>,
+    /// Whether the column is a copy of another one (see [`find_copies`]):
+    /// the formula is that column, maybe shifted or scaled, as in `id`,
+    /// `serial + 1` or `1000 * km`.
+    pub copy: bool,
 }
 
 /// A second formula for some rows of a derived column.
@@ -235,31 +239,163 @@ impl DerivedColumn {
 /// Columns are scanned in parallel when the `parallel` feature is enabled;
 /// the result is ordered by column index.
 pub fn scan(table: &Table, config: &ScanConfig) -> Vec<DerivedColumn> {
+    // Copies of other columns are found first, cheaply: they need no search
+    // and are left out as inputs, so they do not take the place of others.
+    let copies = find_copies(table, config);
+    let explain = |t: usize| explain_column_with_copies(table, t, config, &copies);
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
         (0..table.columns.len())
             .into_par_iter()
-            .filter_map(|t| explain_column(table, t, config))
+            .filter_map(explain)
             .collect()
     }
     #[cfg(not(feature = "parallel"))]
     {
-        (0..table.columns.len())
-            .filter_map(|t| explain_column(table, t, config))
-            .collect()
+        (0..table.columns.len()).filter_map(explain).collect()
     }
+}
+
+/// Like [`explain_column`], with the copies found by [`find_copies`] on the
+/// same table: a copy is returned as is, and copies are not used as inputs
+/// (the column they copy is).
+pub fn explain_column_with_copies(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    copies: &[Option<DerivedColumn>],
+) -> Option<DerivedColumn> {
+    if let Some(copy) = copies.get(target).and_then(Option::as_ref) {
+        return Some(copy.clone());
+    }
+    let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
+    explain_column_skipping(table, target, config, &skip)
+}
+
+/// Scales tried between a column and its copy, besides 1: signs, powers of
+/// ten (units such as km and m, euros and cents) and minutes and hours.
+const COPY_SCALES: [f64; 18] = [
+    1.0,
+    -1.0,
+    10.0,
+    100.0,
+    1e3,
+    1e4,
+    1e5,
+    1e6,
+    0.1,
+    0.01,
+    1e-3,
+    1e-4,
+    1e-5,
+    1e-6,
+    60.0,
+    3600.0,
+    1.0 / 60.0,
+    1.0 / 3600.0,
+];
+
+/// Rows of the evenly spread sample compared before checking every row.
+const COPY_SAMPLE_ROWS: usize = 16;
+
+/// Finds the columns that are copies of an earlier column: the same values
+/// (`idTren = coche0_numeroSerie`), shifted (`serial2 = serial1 + 1`),
+/// negated or scaled by a power of ten, 60 or 3600 (`m = 1000 * km`),
+/// in at least `config.min_match` of the rows. Returns, for each column,
+/// the copy relation to the first column it copies, or `None`.
+///
+/// Wide exports are full of such columns. Finding them takes one quick
+/// comparison per pair of columns, much less than a search, and reporting
+/// them apart keeps them from burying the formulas that matter.
+pub fn find_copies(table: &Table, config: &ScanConfig) -> Vec<Option<DerivedColumn>> {
+    let n = table.columns.len();
+    let mut out: Vec<Option<DerivedColumn>> = vec![None; n];
+    // Columns that are not copies, in order: the ones copies are made of.
+    let mut originals: Vec<usize> = Vec::new();
+    for (j, slot) in out.iter_mut().enumerate() {
+        // Flags and constants are neither copies nor worth copying.
+        if distinct_values(&table.columns[j], 3) < 3 {
+            continue;
+        }
+        *slot = originals
+            .iter()
+            .find_map(|&i| copy_relation(table, i, j, config));
+        if slot.is_none() {
+            originals.push(j);
+        }
+    }
+    out
+}
+
+/// `y = a * x + b` with `a` in [`COPY_SCALES`], when it holds in enough rows.
+fn copy_relation(table: &Table, x: usize, y: usize, config: &ScanConfig) -> Option<DerivedColumn> {
+    let xs = &table.columns[x];
+    let ys = &table.columns[y];
+    let rows: Vec<usize> = (0..table.n_rows())
+        .filter(|&r| xs[r].is_finite() && ys[r].is_finite())
+        .collect();
+    let present = ys.iter().filter(|v| v.is_finite()).count();
+    if rows.len() < MIN_UNUSUAL_ROWS || rows.len() * 10 < present * 8 {
+        return None;
+    }
+    // A copy gives exactly the same values, up to floating point error: a
+    // value within rounding (`0.01 * station` for `station div 100`) is an
+    // approximation, left to the search.
+    let tolerance = |r: usize| 1e-9 * ys[r].abs().max(1.0);
+    let sample = spread(&rows, COPY_SAMPLE_ROWS);
+    let needed = (sample.len() * 3).div_ceil(4);
+    let (a, b) = COPY_SCALES.iter().find_map(|&a| {
+        let mut offsets: Vec<f64> = sample.iter().map(|&r| ys[r] - a * xs[r]).collect();
+        offsets.sort_by(f64::total_cmp);
+        let mut b = offsets[offsets.len() / 2];
+        if b.abs() <= 1e-9 {
+            b = 0.0;
+        }
+        let fits = sample
+            .iter()
+            .filter(|&&r| (a * xs[r] + b - ys[r]).abs() <= tolerance(r))
+            .count()
+            >= needed;
+        fits.then_some((a, b))
+    })?;
+    let mut formula = Expr::Var(x);
+    if a == -1.0 {
+        formula = Expr::unary(crate::expr::UnaryOp::Neg, formula);
+    } else if a != 1.0 {
+        formula = Expr::binary(BinaryOp::Mul, Expr::Const(a), formula);
+    }
+    if b != 0.0 {
+        formula = Expr::binary(BinaryOp::Add, formula, Expr::Const(b));
+    }
+    let matched = matching_rows(&formula, table, &rows, ys, &tolerance);
+    if (matched.len() as f64) < config.min_match * rows.len() as f64 {
+        return None;
+    }
+    let mut found = derived(table, y, formula, &rows, &matched);
+    found.copy = true;
+    explains_more_than_the_usual_value(table, y, config, &rows, &found).then_some(found)
 }
 
 /// Looks for a formula that computes column `target` from the others.
 pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Option<DerivedColumn> {
+    explain_column_skipping(table, target, config, &[])
+}
+
+/// [`explain_column`] without the columns marked in `skip` as inputs.
+fn explain_column_skipping(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    skip: &[bool],
+) -> Option<DerivedColumn> {
     let y_all = table.columns.get(target)?;
     // Constant columns and flags (two values) are not computed from others,
     // or not in a way a formula can show; any formula would be a fluke.
     if distinct_values(y_all, 3) < 3 {
         return None;
     }
-    let candidates_cols = select_inputs(table, target, config.max_inputs);
+    let candidates_cols = select_inputs(table, target, config.max_inputs, skip);
     if candidates_cols.is_empty() {
         return None;
     }
@@ -907,6 +1043,7 @@ fn derived(
         checked: rows.len(),
         exceptions,
         other: None,
+        copy: false,
     }
 }
 
@@ -1073,11 +1210,11 @@ fn matching_rows(
 /// Picks the columns most related to the target: by absolute correlation
 /// with the target, its logarithm or its square root, so products and
 /// powers are also caught.
-fn select_inputs(table: &Table, target: usize, max_inputs: usize) -> Vec<usize> {
+fn select_inputs(table: &Table, target: usize, max_inputs: usize, skip: &[bool]) -> Vec<usize> {
     let y = &table.columns[target];
     let present = y.iter().filter(|v| v.is_finite()).count();
     let mut scored: Vec<(f64, usize)> = (0..table.columns.len())
-        .filter(|&c| c != target)
+        .filter(|&c| c != target && !skip.get(c).copied().unwrap_or(false))
         .filter(|&c| !is_constant(&table.columns[c]))
         // Only rows where every input is present are searched, so a column
         // missing in many of the target's rows would leave too few of them.
@@ -1612,6 +1749,58 @@ mod tests {
         assert_eq!(table.timestamps, vec![true, true, false]);
         assert!(explain_column(&table, 0, &ScanConfig::default()).is_none());
         assert!(explain_column(&table, 1, &ScanConfig::default()).is_none());
+    }
+
+    #[test]
+    fn copies_are_found_before_the_search_and_not_used_as_inputs() {
+        let n = 40;
+        let serial: Vec<f64> = (0..n)
+            .map(|i| 7000.0 + 40.0 * ((i * 7) % 23) as f64)
+            .collect();
+        let next: Vec<f64> = serial.iter().map(|s| s + 1.0).collect();
+        let same: Vec<f64> = serial.clone();
+        let km: Vec<f64> = (0..n)
+            .map(|i| 1.5 + 0.25 * ((i * 11) % 31) as f64)
+            .collect();
+        let m: Vec<f64> = km.iter().map(|k| 1000.0 * k).collect();
+        // Rounded, not a copy: left to the search.
+        let line: Vec<f64> = serial.iter().map(|s| (s / 100.0).floor()).collect();
+        let mut doubled: Vec<f64> = m.iter().map(|v| 2.0 * v).collect();
+        doubled[5] += 3.0;
+        let table = Table {
+            names: ["serial", "next", "same", "km", "m", "line", "doubled"]
+                .map(String::from)
+                .to_vec(),
+            columns: vec![serial, next, same, km, m, line, doubled],
+            decimals: vec![
+                Some(0),
+                Some(0),
+                Some(0),
+                Some(2),
+                Some(0),
+                Some(0),
+                Some(0),
+            ],
+            ..Table::default()
+        };
+        let config = ScanConfig::default();
+        let copies = find_copies(&table, &config);
+        let text = |c: usize| copies[c].as_ref().map(|d| d.formula_text.clone());
+        assert_eq!(text(0), None);
+        assert_eq!(text(1).as_deref(), Some("serial + 1"));
+        assert_eq!(text(2).as_deref(), Some("serial"));
+        assert_eq!(text(3), None);
+        assert_eq!(text(4).as_deref(), Some("1000 * km"));
+        assert_eq!(text(5), None);
+        // 2 * m is no copy (2 is not a unit scale); the search finds it from
+        // km, as m is a copy and not an input.
+        assert_eq!(text(6), None);
+        let found = scan(&table, &config);
+        let doubled = found.iter().find(|d| d.target == 6).expect("doubled");
+        assert!(!doubled.copy);
+        assert_eq!(doubled.inputs, vec![3], "{}", doubled.formula_text);
+        assert_eq!(doubled.exceptions, vec![5]);
+        assert!(found.iter().filter(|d| d.copy).count() == 3);
     }
 
     #[test]

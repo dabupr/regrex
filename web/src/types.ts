@@ -94,6 +94,8 @@ export interface Derived {
   exceptions: ExceptionDetail[];
   known: Known | null;
   other: OtherFormula | null;
+  /** The column this one is a copy of (same values, maybe shifted or scaled). */
+  copy_of?: string | null;
 }
 
 export interface Candidate {

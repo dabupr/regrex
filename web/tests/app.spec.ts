@@ -87,6 +87,31 @@ test("a group of rows with another rule is not called a mistake", async ({ page 
   await expect(page.locator("#suspicious")).toBeHidden();
 });
 
+test("copies of other columns are listed apart", async ({ page }) => {
+  const lines = ["train,serial0,serial1,serial2,km,m,price,qty,total"];
+  for (let i = 1; i <= 30; i++) {
+    const serial = 7000 + 4 * ((i * 7) % 23);
+    const km = 1.5 + 0.25 * ((i * 11) % 31);
+    const price = 2 + ((i * 5) % 9);
+    const qty = 1 + ((i * 3) % 7);
+    lines.push([serial, serial, serial + 1, serial + 2, km, 1000 * km, price, qty, price * qty].join(","));
+  }
+  await page.goto("./");
+  await page.locator("#file").setInputFiles({ name: "train.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n")) });
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await expect(page.locator('article[data-column="total"]')).toContainText("total = price * qty", { timeout: 45_000 });
+  await expect(page.locator('article[data-column="serial1"]')).toHaveCount(0);
+  const copies = page.locator("#copies");
+  await expect(copies).toBeVisible();
+  await expect(copies.locator("summary")).toContainText("(4)");
+  await copies.locator("summary").click();
+  await expect(copies.locator("li")).toHaveText([
+    "train = serial0, serial1 = train + 1, serial2 = train + 2",
+    "m = 1000 * km",
+  ]);
+  await expect(page.locator("#summary")).toContainText("4 copies of other columns");
+});
+
 test("tests a formula written by the user, fitting its constants", async ({ page }) => {
   await page.goto("./");
   await page.getByRole("button", { name: /Try an example/ }).click();

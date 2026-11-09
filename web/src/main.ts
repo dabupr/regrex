@@ -41,6 +41,9 @@ const ui = {
   graphWrap: $("graph-wrap"),
   cards: $("cards"),
   independent: $("independent"),
+  copies: $<HTMLDetailsElement>("copies"),
+  copiesCount: $("copies-count"),
+  copiesList: $("copies-list"),
   download: $<HTMLButtonElement>("download"),
   summary: $("summary"),
   suspicious: $("suspicious"),
@@ -363,10 +366,12 @@ function renderSuspects() {
   const { suspects, info } = state;
   const n = suspects.length;
   const segments = state.derived.filter((d) => !d.other && wrongRows(d).length > 0 && !fewExceptions(d));
-  const found = state.derived.length;
+  const found = state.derived.filter((d) => !d.copy_of).length;
+  const copies = state.derived.length - found;
   const parts: (Node | string)[] = [
     el("span", {}, found === 1 ? "1 formula found" : `${found} formulas found`),
   ];
+  if (copies) parts.push(el("span", { class: "muted" }, copies === 1 ? "1 copy of another column" : `${copies} copies of other columns`));
   if (n === 0) {
     parts.push(el("span", { class: "ok" }, "✓ No suspicious rows"));
   } else {
@@ -595,12 +600,15 @@ function renderGraph(derived: Derived[]) {
 function renderResults(columns: string[], stopped?: { why: "user" | "time"; skipped: string[] }) {
   if (!state) return;
   ui.results.hidden = false;
-  const cards = state.derived.map(derivedCard);
+  const main = state.derived.filter((d) => !d.copy_of);
+  const copies = state.derived.filter((d) => d.copy_of);
+  const cards = main.map(derivedCard);
   for (const d of state.derived) highlight(d.exception_rows);
   ui.cards.replaceChildren(
-    ...(cards.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
+    ...(cards.length || copies.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
   );
-  renderGraph(state.derived);
+  renderCopies(copies);
+  renderGraph(main);
   const found = new Set(state.derived.map((d) => d.column));
   const rest = columns.filter((c) => !found.has(c));
   const notes = rest.length ? [`No formula found for: ${rest.join(", ")}.`] : [];
@@ -609,6 +617,23 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
     notes.push(`${why} before checking: ${stopped.skipped.join(", ")}.`);
   }
   ui.independent.textContent = notes.join(" ");
+}
+
+/** One line per copied column: `a = b = c`, then `d = a + 1, e = a + 2`. */
+function renderCopies(copies: Derived[]) {
+  ui.copies.hidden = copies.length === 0;
+  ui.copiesCount.textContent = `(${copies.length})`;
+  const originals = [...new Set(copies.map((d) => d.copy_of as string))];
+  const differ = (d: Derived) => (d.exception_rows.length ? ` (${d.matched_rows}/${d.checked_rows} rows)` : "");
+  ui.copiesList.replaceChildren(
+    ...originals.map((original) => {
+      const group = copies.filter((d) => d.copy_of === original);
+      const same = group.filter((d) => d.formula === original);
+      const parts = same.length ? [[original, ...same.map((d) => d.column + differ(d))].join(" = ")] : [];
+      for (const d of group.filter((d) => d.formula !== original)) parts.push(`${d.column} = ${d.formula}${differ(d)}`);
+      return el("li", {}, el("code", {}, parts.join(", ")));
+    }),
+  );
 }
 
 function highlight(rows: number[]) {

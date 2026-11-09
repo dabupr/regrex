@@ -8,7 +8,8 @@ mod library_search;
 
 use regrex_core::parse::{parse_expr, parse_template};
 use regrex_core::{
-    explain_column, fit_shape, search, DerivedColumn, ScanConfig, SearchConfig, UnaryOp,
+    explain_column, explain_column_with_copies, find_copies, fit_shape, search, DerivedColumn,
+    ScanConfig, SearchConfig, UnaryOp,
 };
 use regrex_io::report::{DerivedJson, FitReport};
 use regrex_io::Loaded;
@@ -26,6 +27,16 @@ pub struct Dataset {
     /// Formulas found by [`Dataset::explain`] with the `ignore` list they
     /// were found with, for [`Dataset::review`].
     found: RefCell<(Vec<String>, Vec<DerivedColumn>)>,
+    /// Copies of other columns ([`find_copies`]) with the `ignore` list and
+    /// `min_match` they were found with: found once, used for every column.
+    copies: RefCell<Option<CopiesCache>>,
+}
+
+/// See [`Dataset::copies`].
+struct CopiesCache {
+    ignore: Vec<String>,
+    min_match: f64,
+    copies: Vec<Option<DerivedColumn>>,
 }
 
 /// Summary of a loaded file, returned by [`Dataset::info`].
@@ -157,6 +168,7 @@ impl Dataset {
         Ok(Dataset {
             loaded,
             found: RefCell::default(),
+            copies: RefCell::default(),
         })
     }
 
@@ -220,11 +232,26 @@ impl Dataset {
             let found = library_search::best_library_formula(&table, target, domain, &config);
             return self.remember(&options.ignore, column, &table, target, found);
         }
-        let mut found = explain_column(&table, target, &config);
+        // Copies of other columns are found once for the whole table. An
+        // ignored column explained on its own is searched as before (its
+        // table has one more column, so the copies do not line up).
+        let copies = if options.ignore.iter().any(|n| n == column) {
+            None
+        } else {
+            Some(self.copies(&options.ignore, &table, &config))
+        };
+        let explain = |config: &ScanConfig| match &copies {
+            Some(copies) => explain_column_with_copies(&table, target, config, copies),
+            None => explain_column(&table, target, config),
+        };
+        let mut found = explain(&config);
+        if found.as_ref().is_some_and(|d| d.copy) {
+            return self.remember(&options.ignore, column, &table, target, found);
+        }
         if let Some(size) = options.deepen_to.map(|s| s.clamp(1, 9)) {
             if size > config.search.max_size && !explained_well(found.as_ref()) {
                 config.search.max_size = size;
-                let deeper = explain_column(&table, target, &config);
+                let deeper = explain(&config);
                 let matched = |d: &Option<DerivedColumn>| d.as_ref().map_or(0, |d| d.matched);
                 if matched(&deeper) > matched(&found) {
                     found = deeper;
@@ -337,6 +364,28 @@ impl Dataset {
 }
 
 impl Dataset {
+    /// The copies of other columns in `table` (the loaded table without the
+    /// `ignore`d columns), found on the first call with these options.
+    fn copies(
+        &self,
+        ignore: &[String],
+        table: &regrex_core::Table,
+        config: &ScanConfig,
+    ) -> Vec<Option<DerivedColumn>> {
+        let mut cache = self.copies.borrow_mut();
+        let fresh = cache
+            .as_ref()
+            .is_some_and(|c| c.ignore == ignore && c.min_match == config.min_match);
+        if !fresh {
+            *cache = Some(CopiesCache {
+                ignore: ignore.to_vec(),
+                min_match: config.min_match,
+                copies: find_copies(table, config),
+            });
+        }
+        cache.as_ref().map(|c| c.copies.clone()).unwrap_or_default()
+    }
+
     /// Keeps a formula found by [`Dataset::explain`] for [`Dataset::review`]
     /// and returns it as JSON.
     fn remember(
