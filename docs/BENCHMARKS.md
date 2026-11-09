@@ -1,5 +1,13 @@
 # Benchmarks
 
+## Dataset scan
+
+[`benchmarks/`](../benchmarks/README.md) holds real and planted files with the relations `regrex scan` must find in each one and the datasets where it must find nothing. CI runs it on every push and fails when a found formula is lost or a false positive appears:
+
+```sh
+cargo run --release -p regrex-cli --example bench
+```
+
 ## Feynman equations
 
 [`crates/regrex-core/examples/feynman.rs`](../crates/regrex-core/examples/feynman.rs) runs Regrex on 24 equations from the Feynman Lectures on Physics, the same family of problems as the [AI Feynman](https://space.mit.edu/home/tegmark/aifeynman.html) database used by [SRBench](https://github.com/cavalab/srbench). Each equation gets 100 rows sampled from fixed ranges with a fixed seed, so the results are reproducible:
