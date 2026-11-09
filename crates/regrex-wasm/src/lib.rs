@@ -15,6 +15,7 @@ use regrex_io::report::{DerivedJson, FitReport};
 use regrex_io::Loaded;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 /// Number of rows shown in the preview of a file.
@@ -30,6 +31,9 @@ pub struct Dataset {
     /// Copies of other columns ([`find_copies`]) with the `ignore` list and
     /// `min_match` they were found with: found once, used for every column.
     copies: RefCell<Option<CopiesCache>>,
+    /// The table without the last `ignore` list's columns, kept so that
+    /// explaining each column of a wide file does not copy the whole table.
+    table: RefCell<Option<(Vec<String>, Rc<regrex_core::Table>)>>,
 }
 
 /// See [`Dataset::copies`].
@@ -146,6 +150,77 @@ const OPERATORS: [&str; 12] = [
     "+", "-", "*", "/", "^", "sqrt", "exp", "log", "sin", "cos", "div", "mod",
 ];
 
+/// Options for [`Dataset::review`], as JSON.
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct ReviewOptions {
+    /// Columns left out of the table, as for [`Dataset::explain`].
+    ignore: Vec<String>,
+    /// Derived columns to diagnose together, instead of those this worker
+    /// found.
+    derived: Option<Vec<ReviewItem>>,
+}
+
+/// The parts of a derived column (as [`Dataset::explain`] returns it)
+/// needed to diagnose its exceptions again.
+#[derive(Deserialize)]
+struct ReviewItem {
+    column: String,
+    formula: String,
+    matched_rows: usize,
+    checked_rows: usize,
+    /// Numbered from 1.
+    exception_rows: Vec<usize>,
+    #[serde(default)]
+    other: Option<ReviewOther>,
+    #[serde(default)]
+    copy_of: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ReviewOther {
+    formula: String,
+    /// Numbered from 1.
+    rows: Vec<usize>,
+}
+
+impl ReviewItem {
+    fn rebuild(&self, table: &regrex_core::Table) -> Option<DerivedColumn> {
+        let target = table.names.iter().position(|n| *n == self.column)?;
+        let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
+        let formula = parse_expr(&self.formula, &names).ok()?;
+        let rows = |r: &[usize]| {
+            r.iter()
+                .filter_map(|r| r.checked_sub(1))
+                .collect::<Vec<_>>()
+        };
+        let other = match &self.other {
+            Some(o) => Some(regrex_core::scan::OtherFormula {
+                formula_text: o.formula.clone(),
+                formula: parse_expr(&o.formula, &names).ok()?,
+                rows: rows(&o.rows),
+                split: None,
+            }),
+            None => None,
+        };
+        let mut inputs = formula.vars();
+        inputs.sort_unstable();
+        inputs.dedup();
+        Some(DerivedColumn {
+            target,
+            formula_text: self.formula.clone(),
+            complexity: formula.complexity(),
+            formula,
+            inputs,
+            matched: self.matched_rows,
+            checked: self.checked_rows,
+            exceptions: rows(&self.exception_rows),
+            other,
+            copy: self.copy_of.is_some(),
+        })
+    }
+}
+
 /// Options for [`Dataset::fit`], as JSON.
 #[derive(Deserialize, Default)]
 #[serde(default)]
@@ -169,6 +244,7 @@ impl Dataset {
             loaded,
             found: RefCell::default(),
             copies: RefCell::default(),
+            table: RefCell::default(),
         })
     }
 
@@ -219,8 +295,9 @@ impl Dataset {
     /// Returns the derived-column JSON, or `null` when none is found.
     pub fn explain(&self, column: &str, options_json: &str) -> Result<String, JsError> {
         let options: ExplainOptions = parse_options(options_json)?;
-        let table = self.table_without(&options.ignore, Some(column));
-        let target = index_of(&table, column)?;
+        let table = self.table_keeping(&options.ignore, column);
+        let table = table.as_ref();
+        let target = index_of(table, column)?;
         let mut config = options.scan_config()?;
         if options.library_only {
             let domain = options.domain.as_deref().filter(|d| !d.is_empty());
@@ -229,8 +306,8 @@ impl Dataset {
                     return Err(js_error(format!("unknown domain {d:?}")));
                 }
             }
-            let found = library_search::best_library_formula(&table, target, domain, &config);
-            return self.remember(&options.ignore, column, &table, target, found);
+            let found = library_search::best_library_formula(table, target, domain, &config);
+            return self.remember(&options.ignore, column, table, target, found);
         }
         // Copies of other columns are found once for the whole table. An
         // ignored column explained on its own is searched as before (its
@@ -238,15 +315,15 @@ impl Dataset {
         let copies = if options.ignore.iter().any(|n| n == column) {
             None
         } else {
-            Some(self.copies(&options.ignore, &table, &config))
+            Some(self.copies(&options.ignore, table, &config))
         };
         let explain = |config: &ScanConfig| match &copies {
-            Some(copies) => explain_column_with_copies(&table, target, config, copies),
-            None => explain_column(&table, target, config),
+            Some(copies) => explain_column_with_copies(table, target, config, copies),
+            None => explain_column(table, target, config),
         };
         let mut found = explain(&config);
         if found.as_ref().is_some_and(|d| d.copy) {
-            return self.remember(&options.ignore, column, &table, target, found);
+            return self.remember(&options.ignore, column, table, target, found);
         }
         if let Some(size) = options.deepen_to.map(|s| s.clamp(1, 9)) {
             if size > config.search.max_size && !explained_well(found.as_ref()) {
@@ -258,7 +335,7 @@ impl Dataset {
                 }
             }
         }
-        self.remember(&options.ignore, column, &table, target, found)
+        self.remember(&options.ignore, column, table, target, found)
     }
 
     /// The values of `column` and those of `formula` (written with column
@@ -312,13 +389,31 @@ impl Dataset {
     /// Every formula found so far with the same `ignore` option, as a JSON
     /// array of derived columns, diagnosed together: a wrong cell that breaks
     /// several formulas is blamed once, as in the command-line scan.
+    ///
+    /// With `derived` in the options (derived columns as [`Dataset::explain`]
+    /// returns them, found by any worker), those are diagnosed together
+    /// instead, and the result has one entry per given column, in the same
+    /// order (`null` for one whose formula no longer reads).
     pub fn review(&self, options_json: &str) -> Result<String, JsError> {
-        let options: ExplainOptions = parse_options(options_json)?;
+        let options: ReviewOptions = parse_options(options_json)?;
+        let table = self.table_without(&options.ignore, None);
+        if let Some(items) = &options.derived {
+            let rebuilt: Vec<Option<DerivedColumn>> =
+                items.iter().map(|item| item.rebuild(&table)).collect();
+            let all: Vec<DerivedColumn> = rebuilt.iter().flatten().cloned().collect();
+            let json: Vec<Option<DerivedJson>> = rebuilt
+                .iter()
+                .map(|d| {
+                    d.as_ref()
+                        .map(|d| DerivedJson::with_context(&table, d, &all))
+                })
+                .collect();
+            return serde_json::to_string(&json).map_err(js_error);
+        }
         let cache = self.found.borrow();
         if cache.0 != options.ignore {
             return Ok("[]".to_string());
         }
-        let table = self.table_without(&options.ignore, None);
         let json: Vec<DerivedJson> = cache
             .1
             .iter()
@@ -408,6 +503,23 @@ impl Dataset {
         serde_json::to_string(&json).map_err(js_error)
     }
 
+    /// [`Dataset::table_without`] for explaining `column`: the same table
+    /// for every column that is not ignored, made once.
+    fn table_keeping(&self, ignore: &[String], column: &str) -> Rc<regrex_core::Table> {
+        if ignore.iter().any(|n| n == column) {
+            return Rc::new(self.table_without(ignore, Some(column)));
+        }
+        let mut cache = self.table.borrow_mut();
+        match cache.as_ref() {
+            Some((cached, table)) if cached == ignore => Rc::clone(table),
+            _ => {
+                let table = Rc::new(self.table_without(ignore, None));
+                *cache = Some((ignore.to_vec(), Rc::clone(&table)));
+                table
+            }
+        }
+    }
+
     /// The table without the `ignore`d columns (the `keep` column is never
     /// dropped).
     fn table_without(&self, ignore: &[String], keep: Option<&str>) -> regrex_core::Table {
@@ -460,6 +572,47 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["formula"], "price * qty");
         assert_eq!(d.explain("id", r#"{"ignore":["id"]}"#).unwrap(), "null");
+    }
+
+    #[test]
+    fn review_of_formulas_found_by_other_workers_matches_one_worker() {
+        const INVOICES: &str = include_str!("../../regrex-cli/tests/invoices.csv");
+        let opts = r#"{"ignore":["invoice"]}"#;
+        let columns = ["subtotal", "net", "vat", "total"];
+        // One worker finds everything and reviews it.
+        let one = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
+        for c in columns {
+            one.explain(c, opts).unwrap();
+        }
+        let expected: serde_json::Value = serde_json::from_str(&one.review(opts).unwrap()).unwrap();
+        // Two workers share the columns; a third reviews what they found.
+        let a = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
+        let b = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
+        let found: Vec<serde_json::Value> = columns
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let worker = if i % 2 == 0 { &a } else { &b };
+                serde_json::from_str(&worker.explain(c, opts).unwrap()).unwrap()
+            })
+            .filter(|v: &serde_json::Value| !v.is_null())
+            .collect();
+        let main = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
+        let review = serde_json::json!({ "ignore": ["invoice"], "derived": found }).to_string();
+        let got: serde_json::Value = serde_json::from_str(&main.review(&review).unwrap()).unwrap();
+        let exceptions = |v: &serde_json::Value| -> Vec<serde_json::Value> {
+            v.as_array()
+                .unwrap()
+                .iter()
+                .map(|d| serde_json::json!([d["column"], d["exceptions"]]))
+                .collect()
+        };
+        assert_eq!(exceptions(&got), exceptions(&expected));
+        // Row 17 has a wrong total, which also breaks net = total - vat:
+        // only the total is blamed, which needs both formulas together.
+        assert!(got
+            .to_string()
+            .contains("the total in this row looks wrong"));
     }
 
     #[test]

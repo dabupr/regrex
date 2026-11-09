@@ -151,7 +151,7 @@ export type Request =
   | { kind: "rows"; rows: number[] }
   | { kind: "values"; column: string; formula: string }
   | { kind: "domains" }
-  | { kind: "review"; options: { ignore: string[] } };
+  | { kind: "review"; options: { ignore: string[]; derived?: Derived[] } };
 
 export type Response =
   | { id: number; ok: true; value: unknown }

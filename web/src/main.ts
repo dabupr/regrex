@@ -16,7 +16,9 @@ import {
   type Source,
 } from "./settings";
 
-const engine = new Engine();
+// `?workers=1` runs the scan on one worker, to compare timings.
+const workersParam = Number(new URLSearchParams(location.search).get("workers"));
+const engine = workersParam > 0 ? new Engine(Math.min(16, Math.floor(workersParam))) : new Engine();
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const ui = {
@@ -291,17 +293,40 @@ async function scanAll() {
   scanStop = () => stop("user");
   const limit = settings.advanced.time_limit;
   const timer = limit > 0 ? setTimeout(() => stop("time"), limit * 1000) : undefined;
-  let checked = 0;
-  try {
-    for (const [i, column] of columns.entries()) {
-      ui.progressText.textContent = `Checking ${column} (${i + 1} of ${columns.length})…`;
-      ui.meter.style.width = `${(100 * i) / columns.length}%`;
-      const found = await engine.explain(column, options);
-      if (found) state.derived.push(found);
-      checked++;
+  // Columns are handed out from a queue to one task per worker, so a slow
+  // column does not hold up the others.
+  const found = new Map<string, Derived>();
+  const done = new Set<string>();
+  const running = new Set<string>();
+  let next = 0;
+  const progress = () => {
+    const names = [...running].slice(0, 3).join(", ") + (running.size > 3 ? "…" : "");
+    ui.progressText.textContent = `Checked ${done.size} of ${columns.length} columns${names ? ` · now ${names}` : ""}…`;
+    ui.meter.style.width = `${(100 * done.size) / columns.length}%`;
+  };
+  const work = async () => {
+    while (next < columns.length && !stopped) {
+      const column = columns[next++];
+      running.add(column);
+      progress();
+      const d = await engine.explain(column, options);
+      running.delete(column);
+      if (d) found.set(column, d);
+      done.add(column);
+      progress();
     }
+  };
+  // In column order, whatever order they were found in.
+  const inOrder = () => columns.filter((c) => found.has(c)).map((c) => found.get(c) as Derived);
+  try {
+    progress();
+    await Promise.all(Array.from({ length: Math.min(engine.workers, columns.length) }, work));
     ui.meter.style.width = "100%";
-    if (state.derived.length > 1) state.derived = await engine.review(ignore);
+    state.derived = inOrder();
+    if (state.derived.length > 1) {
+      const reviewed = await engine.review(ignore, state.derived);
+      state.derived = state.derived.map((d, i) => (reviewed[i] ? { ...d, exceptions: reviewed[i].exceptions } : d));
+    }
   } catch (e) {
     if (!stopped) showError(`Something went wrong: ${(e as Error).message}`);
   } finally {
@@ -314,7 +339,10 @@ async function scanAll() {
     if (stopped) await engine.load(name, bytes, sheet);
     if (state.name === name) {
       state.suspects = await findSuspects(state.derived);
-      renderResults(columns.slice(0, checked), stopped && { why: stopped, skipped: columns.slice(checked) });
+      if (stopped) state.derived = inOrder();
+      const checked = columns.filter((c) => done.has(c));
+      const skipped = columns.filter((c) => !done.has(c));
+      renderResults(checked, stopped && { why: stopped, skipped });
       renderSuspects();
     }
   } catch (e) {
