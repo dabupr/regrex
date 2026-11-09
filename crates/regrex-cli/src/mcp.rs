@@ -226,13 +226,18 @@ fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
     match name {
         "scan_dataset" => {
             let (path, loaded) = load(args)?;
+            let columns = strings(args, "columns")?;
             let derived = scan_columns(
                 &loaded,
-                &strings(args, "columns")?,
+                &columns,
                 number(args, "min_match")?.unwrap_or(0.9),
                 size(args, "max_size", 5, 9)?,
             )?;
-            to_value(&ScanReport::new(&path, &loaded, &derived))
+            let mut report = ScanReport::new(&path, &loaded, &derived);
+            if !columns.is_empty() {
+                report = report.only_columns(&columns);
+            }
+            to_value(&report)
         }
         "fit_formula" => {
             let (_, loaded) = load(args)?;

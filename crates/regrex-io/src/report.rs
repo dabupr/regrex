@@ -5,7 +5,9 @@
 
 use crate::Loaded;
 use regrex_core::expr::format_number;
-use regrex_core::{diagnose_exception, Candidate, DerivedColumn, ScanConfig, Table};
+use regrex_core::{
+    diagnose_exception, find_copies, inputs_tried, Candidate, DerivedColumn, ScanConfig, Table,
+};
 use serde::Serialize;
 use std::fmt::Write;
 
@@ -30,6 +32,19 @@ pub struct ScanReport {
     pub converted_columns: Vec<ConvertedJson>,
     /// Columns computed from others.
     pub derived: Vec<DerivedJson>,
+    /// Columns that were searched without finding a formula, with the
+    /// columns tried as their inputs.
+    pub not_found: Vec<NotFoundJson>,
+}
+
+/// A column searched without finding a formula.
+#[derive(Debug, Clone, Serialize)]
+pub struct NotFoundJson {
+    /// The column.
+    pub column: String,
+    /// The columns tried as its inputs (the ones that predict it best).
+    /// A formula over other columns cannot have been found.
+    pub inputs_tried: Vec<String>,
 }
 
 /// A column read as numbers although its cells are not plain numbers.
@@ -362,6 +377,23 @@ fn known_column(table: &Table, d: &DerivedColumn) -> Option<KnownJson> {
     KnownJson::identify(&candidate, &names, &table.names[d.target])
 }
 
+/// The searched columns of `table` missing from `derived`, with the inputs
+/// a scan with the default settings tries for them.
+fn not_found(table: &Table, derived: &[DerivedColumn]) -> Vec<NotFoundJson> {
+    let config = ScanConfig::default();
+    let copies = find_copies(table, &config);
+    (0..table.columns.len())
+        .filter(|&c| !derived.iter().any(|d| d.target == c))
+        .filter_map(|c| {
+            let inputs = inputs_tried(table, c, &config, &copies);
+            (!inputs.is_empty()).then(|| NotFoundJson {
+                column: table.names[c].clone(),
+                inputs_tried: inputs.iter().map(|&i| table.names[i].clone()).collect(),
+            })
+        })
+        .collect()
+}
+
 impl ScanReport {
     /// Builds the report for `derived` columns found in `loaded`.
     pub fn new(file: &str, loaded: &Loaded, derived: &[DerivedColumn]) -> Self {
@@ -384,7 +416,15 @@ impl ScanReport {
                 .iter()
                 .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
                 .collect(),
+            not_found: not_found(&loaded.table, derived),
         }
+    }
+
+    /// Keeps in [`ScanReport::not_found`] only the given columns, when the
+    /// scan was limited to them.
+    pub fn only_columns(mut self, columns: &[String]) -> Self {
+        self.not_found.retain(|m| columns.contains(&m.column));
+        self
     }
 
     /// Pretty-printed JSON.

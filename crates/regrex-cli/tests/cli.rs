@@ -258,3 +258,20 @@ fn scan_lists_copies_of_other_columns_apart() {
     );
     assert!(copies.contains("m = 1000 * km"), "{stdout}");
 }
+
+#[test]
+fn scan_json_lists_the_inputs_tried_for_columns_without_formula() {
+    let (ok, stdout, stderr) = regrex(&["scan", "tests/trains.csv", "--json"]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let missing = report["not_found"].as_array().unwrap();
+    let distance = missing
+        .iter()
+        .find(|m| m["column"] == "distance")
+        .expect("distance has no formula");
+    let tried = distance["inputs_tried"].as_array().unwrap();
+    assert!(!tried.is_empty() && tried.len() <= 6, "{tried:?}");
+    assert!(!tried.iter().any(|c| c == "distance"));
+    // Derived columns are not listed.
+    assert!(missing.iter().all(|m| m["column"] != "delay_min"));
+}

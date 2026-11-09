@@ -106,8 +106,9 @@ pub struct ScanConfig {
     /// Relative tolerance for a row to match when the column's decimals are
     /// unknown.
     pub rel_tolerance: f64,
-    /// At most this many other columns are considered as inputs (the most
-    /// correlated ones).
+    /// About this many other columns are considered as inputs: the ones
+    /// that predict the column best, and sometimes one more (see
+    /// [`inputs_tried`]).
     pub max_inputs: usize,
     /// Rows per subset when searching robustly.
     pub subset_rows: usize,
@@ -271,6 +272,28 @@ pub fn explain_column_with_copies(
     }
     let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
     explain_column_skipping(table, target, config, &skip)
+}
+
+/// The columns [`explain_column_with_copies`] tries as inputs of `target`,
+/// in increasing order: empty when the column is not searched at all (a
+/// constant, a flag or a copy). Lets a report answer "why was no formula
+/// found for X": maybe the right inputs were not among these.
+pub fn inputs_tried(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    copies: &[Option<DerivedColumn>],
+) -> Vec<usize> {
+    let searched = table
+        .columns
+        .get(target)
+        .is_some_and(|y| distinct_values(y, 3) >= 3)
+        && copies.get(target).is_none_or(Option::is_none);
+    if !searched {
+        return Vec::new();
+    }
+    let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
+    select_inputs(table, target, config.max_inputs, &skip)
 }
 
 /// Scales tried between a column and its copy, besides 1: signs, powers of
@@ -1211,6 +1234,39 @@ fn matching_rows(
 /// with the target, its logarithm or its square root, so products and
 /// powers are also caught.
 fn select_inputs(table: &Table, target: usize, max_inputs: usize, skip: &[bool]) -> Vec<usize> {
+    let ranked = ranked_inputs(table, target, skip);
+    let mut cols: Vec<usize> = ranked.iter().copied().take(max_inputs).collect();
+    // One more input at most: the only one left out of a narrow table, or
+    // the second factor of a product.
+    if ranked.len() == max_inputs + 1 {
+        cols.push(ranked[max_inputs]);
+    } else if let Some(extra) = second_factor(table, target, &ranked, max_inputs) {
+        cols.push(extra);
+    }
+    cols.sort_unstable();
+    cols
+}
+
+/// Columns with at most this many different values are treated as
+/// categories (flags, codes, modes) when scoring inputs.
+const MAX_INPUT_CATEGORIES: usize = 16;
+
+/// Weight of the correlation ratio of a category column against the
+/// correlation of a measurement.
+const CATEGORY_DISCOUNT: f64 = 0.9;
+
+/// How closely a column must follow what the best input leaves unexplained
+/// to be added as an extra input.
+const SECOND_FACTOR_SCORE: f64 = 0.98;
+
+/// The columns that may be inputs of `target`, best first.
+///
+/// Each column is scored by how well it predicts the target: the best
+/// Pearson correlation with the target, its log or its square root, and for
+/// columns with few values (flags, codes) the correlation ratio, which also
+/// sees relations that are not straight lines (`speed + 100 * (mode - 1.5)^2`).
+/// Columns equal to a better one are left out: they would only take a slot.
+fn ranked_inputs(table: &Table, target: usize, skip: &[bool]) -> Vec<usize> {
     let y = &table.columns[target];
     let present = y.iter().filter(|v| v.is_finite()).count();
     let mut scored: Vec<(f64, usize)> = (0..table.columns.len())
@@ -1225,28 +1281,160 @@ fn select_inputs(table: &Table, target: usize, max_inputs: usize, skip: &[bool])
                 .count();
             both * 10 >= present * 8
         })
-        .map(|c| {
-            let x = &table.columns[c];
-            let s = [
-                correlation(x, y, |v| v),
-                correlation(x, y, |v| v.abs().ln()),
-                correlation(x, y, |v| v.abs().sqrt()),
-            ]
-            .into_iter()
-            .map(f64::abs)
-            .filter(|v| v.is_finite())
-            .fold(0.0, f64::max);
-            (s, c)
-        })
+        .map(|c| (input_score(&table.columns[c], y), c))
         .collect();
     scored.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    let mut cols: Vec<usize> = scored
-        .into_iter()
-        .take(max_inputs)
-        .map(|(_, c)| c)
+    let mut ranked: Vec<usize> = Vec::with_capacity(scored.len());
+    for (_, c) in scored {
+        if !ranked
+            .iter()
+            .any(|&k| same_values(&table.columns[k], &table.columns[c]))
+        {
+            ranked.push(c);
+        }
+    }
+    ranked
+}
+
+/// A column left out of the first `taken` of `ranked` that explains what
+/// the best input leaves: `target / best` (the second factor of a product,
+/// such as a rate that varies little) or `target - fit(best)` (a small term
+/// added to it). Plain correlation ranks such a column low, below columns
+/// that merely look like the best one.
+fn second_factor(table: &Table, target: usize, ranked: &[usize], taken: usize) -> Option<usize> {
+    let &best = ranked.first()?;
+    let y = &table.columns[target];
+    let x0 = &table.columns[best];
+    let ratio: Vec<f64> = y
+        .iter()
+        .zip(x0)
+        .map(|(a, b)| if *b != 0.0 { a / b } else { f64::NAN })
         .collect();
-    cols.sort_unstable();
-    cols
+    let residual = linear_residual(x0, y);
+    // Only the next few are looked at: wide files have hundreds of columns,
+    // and among so many one would follow the leftover by chance.
+    let shortlist = ranked.len().min(taken * 4);
+    ranked
+        .get(taken..shortlist)?
+        .iter()
+        .map(|&c| {
+            let x = &table.columns[c];
+            let score = [
+                correlation(x, &ratio, |v| v).abs(),
+                residual
+                    .as_ref()
+                    .map_or(0.0, |r| correlation(x, r, |v| v).abs()),
+            ]
+            .into_iter()
+            .filter(|v| v.is_finite())
+            .fold(0.0, f64::max);
+            (score, c)
+        })
+        .filter(|&(score, _)| score >= SECOND_FACTOR_SCORE)
+        .max_by(|a, b| a.0.total_cmp(&b.0).then(b.1.cmp(&a.1)))
+        .map(|(_, c)| c)
+}
+
+/// How well column `x` predicts `y`, from 0 to 1.
+fn input_score(x: &[f64], y: &[f64]) -> f64 {
+    let mut s = [
+        correlation(x, y, |v| v),
+        correlation(x, y, |v| v.abs().ln()),
+        correlation(x, y, |v| v.abs().sqrt()),
+    ]
+    .into_iter()
+    .map(f64::abs)
+    .filter(|v| v.is_finite())
+    .fold(0.0, f64::max);
+    // Discounted: a formula is more likely over a column that follows the
+    // target than over a code that only groups its values.
+    if distinct_values(x, MAX_INPUT_CATEGORIES + 1) <= MAX_INPUT_CATEGORIES {
+        s = s.max(CATEGORY_DISCOUNT * correlation_ratio(x, y));
+    }
+    s
+}
+
+/// The correlation ratio of `y` on the categories of `x`: the square root
+/// of the share of the variance of `y` explained by its mean in each
+/// category, less what that many categories explain by chance. 1 when `x`
+/// alone fixes `y`, whatever the shape of the relation.
+fn correlation_ratio(x: &[f64], y: &[f64]) -> f64 {
+    let mut groups: Vec<(f64, f64, usize)> = Vec::new(); // value, sum of y, count
+    let (mut sum, mut sum2, mut n) = (0.0, 0.0, 0usize);
+    for (&a, &b) in x.iter().zip(y) {
+        if !(a.is_finite() && b.is_finite()) {
+            continue;
+        }
+        match groups.iter_mut().find(|g| g.0 == a) {
+            Some(g) => {
+                g.1 += b;
+                g.2 += 1;
+            }
+            None => groups.push((a, b, 1)),
+        }
+        sum += b;
+        sum2 += b * b;
+        n += 1;
+    }
+    // With few rows per category, the means differ by chance: a category
+    // with one row "explains" it perfectly. Ask for several rows each.
+    let k = groups.len();
+    if k < 2 || k * 4 > n {
+        return 0.0;
+    }
+    let mean = sum / n as f64;
+    let total = sum2 - n as f64 * mean * mean;
+    if total <= 0.0 {
+        return 0.0;
+    }
+    let between: f64 = groups
+        .iter()
+        .map(|g| {
+            let m = g.1 / g.2 as f64;
+            g.2 as f64 * (m - mean) * (m - mean)
+        })
+        .sum();
+    // Adjusted for the number of categories, as the adjusted R² is: k
+    // categories explain about (k - 1) / (n - 1) of anything by chance.
+    let eta2 = (between / total).clamp(0.0, 1.0);
+    let adjusted = 1.0 - (1.0 - eta2) * (n - 1) as f64 / (n - k) as f64;
+    adjusted.clamp(0.0, 1.0).sqrt()
+}
+
+/// Whether two columns hold the same value (or both nothing) in every row.
+fn same_values(a: &[f64], b: &[f64]) -> bool {
+    a.iter()
+        .zip(b)
+        .all(|(x, y)| x == y || (!x.is_finite() && !y.is_finite()))
+}
+
+/// `y - (a + b * x)` for the least-squares line, or `None` when it cannot
+/// be fitted.
+fn linear_residual(x: &[f64], y: &[f64]) -> Option<Vec<f64>> {
+    let pairs = x
+        .iter()
+        .zip(y)
+        .filter(|(a, b)| a.is_finite() && b.is_finite());
+    let (mut n, mut sx, mut sy, mut sxx, mut sxy) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for (a, b) in pairs {
+        n += 1.0;
+        sx += a;
+        sy += b;
+        sxx += a * a;
+        sxy += a * b;
+    }
+    let d = n * sxx - sx * sx;
+    if n < 3.0 || d == 0.0 {
+        return None;
+    }
+    let slope = (n * sxy - sx * sy) / d;
+    let intercept = (sy - slope * sx) / n;
+    Some(
+        x.iter()
+            .zip(y)
+            .map(|(a, b)| b - (intercept + slope * a))
+            .collect(),
+    )
 }
 
 fn is_constant(x: &[f64]) -> bool {
@@ -1749,6 +1937,94 @@ mod tests {
         assert_eq!(table.timestamps, vec![true, true, false]);
         assert!(explain_column(&table, 0, &ScanConfig::default()).is_none());
         assert!(explain_column(&table, 1, &ScanConfig::default()).is_none());
+    }
+
+    /// A table with `noise` columns that follow `main` loosely, so plain
+    /// correlation fills the input slots with them.
+    fn with_lookalikes(
+        mut names: Vec<&str>,
+        mut columns: Vec<Vec<f64>>,
+        main: usize,
+        noise: usize,
+    ) -> Table {
+        let n = columns[0].len();
+        for k in 0..noise {
+            let name: &'static str = Box::leak(format!("look{k}").into_boxed_str());
+            names.push(name);
+            columns.push(
+                (0..n)
+                    .map(|i| {
+                        columns[main][i] * (1.0 + 0.02 * (((i * (k + 3) * 7) % 11) as f64 - 5.0))
+                    })
+                    .collect(),
+            );
+        }
+        Table {
+            names: names.into_iter().map(String::from).collect(),
+            decimals: vec![None; columns.len()],
+            columns,
+            ..Table::default()
+        }
+    }
+
+    #[test]
+    fn the_second_factor_of_a_product_is_an_input_even_if_it_varies_little() {
+        let n = 60;
+        let net: Vec<f64> = (0..n)
+            .map(|i| 100.0 + 37.0 * ((i * 13) % 41) as f64)
+            .collect();
+        let rate: Vec<f64> = (0..n).map(|i| 1.0 + 0.01 * ((i * 7) % 5) as f64).collect();
+        let gross: Vec<f64> = net.iter().zip(&rate).map(|(a, b)| a * b).collect();
+        let table = with_lookalikes(vec!["net", "rate", "gross"], vec![net, rate, gross], 0, 8);
+        let inputs = select_inputs(&table, 2, 3, &[]);
+        assert!(inputs.contains(&1), "rate missing from {inputs:?}");
+        let found = explain_column(&table, 2, &ScanConfig::default()).expect("gross");
+        assert_eq!(found.formula_text, "net * rate");
+    }
+
+    #[test]
+    fn a_category_that_changes_a_column_is_an_input() {
+        // The mode adds 225, 25, 25 or 225: no straight line in the mode.
+        let n = 80;
+        let mode: Vec<f64> = (0..n).map(|i| ((i * 5) % 4) as f64).collect();
+        let speed: Vec<f64> = (0..n).map(|i| 20.0 + ((i * 17) % 53) as f64).collect();
+        let y: Vec<f64> = mode
+            .iter()
+            .zip(&speed)
+            .map(|(m, s)| s + 100.0 * (m - 1.5) * (m - 1.5))
+            .collect();
+        let table = with_lookalikes(vec!["mode", "speed", "y"], vec![mode, speed, y], 1, 8);
+        let inputs = select_inputs(&table, 2, 2, &[]);
+        assert!(inputs.contains(&0), "mode missing from {inputs:?}");
+    }
+
+    #[test]
+    fn equal_columns_take_one_input_slot() {
+        let n = 30;
+        let a: Vec<f64> = (0..n).map(|i| 3.0 + ((i * 7) % 19) as f64).collect();
+        let b: Vec<f64> = (0..n).map(|i| 1.0 + ((i * 5) % 13) as f64).collect();
+        let y: Vec<f64> = a.iter().zip(&b).map(|(x, z)| x + z).collect();
+        let table = Table {
+            names: ["a", "a2", "a3", "b", "y"].map(String::from).to_vec(),
+            columns: vec![a.clone(), a.clone(), a, b, y],
+            decimals: vec![Some(0); 5],
+            ..Table::default()
+        };
+        assert_eq!(select_inputs(&table, 4, 2, &[]), vec![0, 3]);
+    }
+
+    #[test]
+    fn correlation_ratio_sees_relations_that_are_not_lines() {
+        let x: Vec<f64> = (0..40).map(|i| (i % 4) as f64).collect();
+        let y: Vec<f64> = x
+            .iter()
+            .map(|v| [5.0, -3.0, 9.0, 0.0][*v as usize])
+            .collect();
+        assert!((correlation_ratio(&x, &y) - 1.0).abs() < 1e-12);
+        assert!(correlation(&x, &y, |v| v).abs() < 0.5);
+        // One row per category says nothing.
+        let ids: Vec<f64> = (0..40).map(f64::from).collect();
+        assert_eq!(correlation_ratio(&ids, &y), 0.0);
     }
 
     #[test]
