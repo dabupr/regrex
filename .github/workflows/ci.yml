@@ -61,6 +61,19 @@ jobs:
       # gets more false positives; the table goes to the job summary.
       - run: cargo run --release -p regrex-cli --example bench
 
+  wide:
+    name: wide export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # A synthetic 250-column sensor export: every planted formula found,
+      # nothing made up, and the scan within a generous time budget.
+      - run: cargo test --release -p regrex-cli --test wide -- --include-ignored --nocapture
+        env:
+          REGREX_TIME_BUDGET: "300"
+
   formulas:
     name: formula library
     runs-on: ubuntu-latest
