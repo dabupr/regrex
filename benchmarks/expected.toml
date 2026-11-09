@@ -1,0 +1,122 @@
+# What `regrex scan` must find in each benchmark file.
+#
+# A relation is the set of columns that one true formula links. A reported
+# formula counts for a relation when every column it uses (its target and
+# its inputs) belongs to that relation, so `m = target / (g * z)` and
+# `target = m * g * z` both count for ["target", "m", "g", "z"]. Any other
+# reported formula is a false positive.
+#
+# `found = false` marks a relation Regrex does not find yet, and
+# `false_positives` the number of wrong formulas it reports today. The
+# benchmark fails when a relation marked as found is lost or when there are
+# more false positives than that; it asks for this file to be updated when
+# a result gets better.
+
+# AI Feynman equations (PMLB, 1000 random rows each). `target` is the result.
+
+[[file]]
+path = "data/feynman_I_6_2a.csv"
+relations = [{ columns = ["target", "theta"], formula = "exp(-theta^2/2) / sqrt(2*pi)" }]
+
+[[file]]
+path = "data/feynman_I_10_7.csv"
+relations = [{ columns = ["target", "m_0", "v", "c"], formula = "m_0 / sqrt(1 - v^2/c^2)", found = false }]
+
+[[file]]
+path = "data/feynman_I_12_1.csv"
+relations = [{ columns = ["target", "mu", "Nn"], formula = "mu * Nn" }]
+
+[[file]]
+path = "data/feynman_I_12_4.csv"
+relations = [{ columns = ["target", "q1", "epsilon", "r"], formula = "q1 / (4*pi*epsilon*r^2)" }]
+
+[[file]]
+path = "data/feynman_I_13_12.csv"
+relations = [{ columns = ["target", "m1", "m2", "r1", "r2", "G"], formula = "G*m1*m2*(1/r2 - 1/r1)", found = false }]
+
+[[file]]
+path = "data/feynman_I_14_3.csv"
+relations = [{ columns = ["target", "m", "g", "z"], formula = "m * g * z" }]
+
+[[file]]
+path = "data/feynman_I_15_3x.csv"
+relations = [{ columns = ["target", "x", "u", "c", "t"], formula = "(x - u*t) / sqrt(1 - u^2/c^2)", found = false }]
+
+[[file]]
+path = "data/feynman_I_29_4.csv"
+relations = [{ columns = ["target", "omega", "c"], formula = "omega / c" }]
+
+[[file]]
+path = "data/feynman_I_39_1.csv"
+relations = [{ columns = ["target", "pr", "V"], formula = "3/2 * pr * V" }]
+
+[[file]]
+path = "data/feynman_I_43_31.csv"
+relations = [{ columns = ["target", "mob", "kb", "T"], formula = "mob * kb * T" }]
+
+[[file]]
+path = "data/feynman_II_11_27.csv"
+relations = [{ columns = ["target", "n", "alpha", "epsilon", "Ef"], formula = "n*alpha / (1 - n*alpha/3) * epsilon * Ef", found = false }]
+
+[[file]]
+path = "data/feynman_III_12_43.csv"
+relations = [{ columns = ["target", "n", "h"], formula = "n * h / (2*pi)" }]
+
+# Tables with formulas planted by hand (shared with the examples).
+
+[[file]]
+path = "../examples/data/invoices.csv"
+relations = [
+  { columns = ["subtotal", "price", "quantity"], formula = "price * quantity" },
+  { columns = ["discount_pct", "subtotal", "net"], formula = "100 - 100 * net / subtotal" },
+  { columns = ["net", "vat", "total"], formula = "vat = 0.21 * net, total = net + vat" },
+]
+
+[[file]]
+path = "../examples/data/tax_change.csv"
+relations = [
+  { columns = ["year", "invoice"], formula = "2020 + (invoice + 4) mod 5" },
+  { columns = ["vat", "net"], formula = "0.21 * net, 0.1 * net from 2023" },
+]
+
+# Real data with one exact rule.
+
+[[file]]
+path = "data/diamonds_2000.csv"
+# Found with `--ignore price,table`; with every column the inputs chosen
+# by correlation leave out what it needs (see #34).
+relations = [{ columns = ["depth", "x", "y", "z"], formula = "200 * z / (x + y)", found = false }]
+
+# Classic machine-learning datasets: no column is computed from others.
+
+[[file]]
+path = "data/exercise.csv"
+# The first column is the row number and `id` the subject (3 rows each).
+# The two other formulas reported today fit the row order with odd
+# exponents (`time^(-0.25)`); held-out validation (#65) should drop them.
+relations = [{ columns = ["column1", "id"], formula = "id = 1 + column1 div 3" }]
+false_positives = 2
+
+[[file]]
+path = "data/iris.csv"
+
+[[file]]
+path = "data/tips.csv"
+
+[[file]]
+path = "data/penguins.csv"
+
+[[file]]
+path = "data/mtcars.csv"
+
+[[file]]
+path = "data/car_crashes.csv"
+
+[[file]]
+path = "data/healthexp.csv"
+
+[[file]]
+path = "data/mpg.csv"
+
+[[file]]
+path = "data/planets.csv"
