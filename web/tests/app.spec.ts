@@ -7,7 +7,7 @@ test("finds derived columns in the example invoices", async ({ page }) => {
   await page.getByRole("button", { name: /Try an example/ }).click();
   await expect(page.locator("#file-summary")).toHaveText("60 rows, 8 numeric columns, 1 text");
   // The invoice number is recognised as an ID and left out.
-  await expect(page.locator('input[data-column="invoice"]')).not.toBeChecked();
+  await expect(page.locator('#preview input[data-column="invoice"]')).not.toBeChecked();
 
   await page.getByRole("button", { name: "Find derived columns" }).click();
   const vat = page.locator('article[data-column="vat"]');
@@ -267,6 +267,44 @@ test("reads JSON files and pasted cells", async ({ page }) => {
   }, tsv);
   await expect(page.locator("#file-name")).toHaveText("pasted cells");
   await expect(page.locator("#file-summary")).toHaveText("10 rows, 3 numeric columns");
+});
+
+test("wide files: a short preview, a column picker and suggestions", async ({ page }) => {
+  // 3 cars × 20 sensors, plus an id, Kibana metadata and a constant column.
+  const header = ["_id", "_score", "serial", "fixed"];
+  for (let car = 0; car < 3; car++) for (let s = 0; s < 20; s++) header.push(`car${car}_sensor${s}`);
+  header.push("total");
+  const rows = Array.from({ length: 15 }, (_, r) =>
+    header.map((h, c) => (h === "_id" ? `x${r}` : h === "serial" ? 9000 + r : h === "fixed" ? 7 : h === "_score" ? 1 : (r * 7 + c * 3) % 23)),
+  );
+  const csv = [header.join(","), ...rows.map((r) => r.join(","))].join("\n");
+  await page.goto("./");
+  await page.locator("#file").setInputFiles({ name: "wide.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await expect(page.locator("#preview thead th")).toHaveCount(31);
+  await page.getByRole("button", { name: `Show all ${header.length} columns` }).click();
+  await expect(page.locator("#preview thead th")).toHaveCount(header.length + 1);
+
+  const panel = page.locator("#columns-panel");
+  await expect(panel).toHaveAttribute("open", "");
+  // Metadata and the constant column start unticked; the serial is only suggested.
+  await expect(page.locator("#columns-summary")).toHaveText(`(${header.length - 3} of ${header.length - 1})`);
+  await expect(page.locator("#suggested")).toContainText("serial");
+  await page.getByRole("button", { name: "Untick the suggested" }).click();
+  await expect(page.locator('#preview input[data-column="serial"]')).not.toBeChecked();
+
+  // A group by prefix, and the filter.
+  await panel.getByLabel("car1_… (20)").uncheck();
+  await expect(page.locator('#preview input[data-column="car1_sensor4"]')).not.toBeChecked();
+  await page.getByLabel("Filter columns by name").fill("sensor1");
+  await page.getByRole("button", { name: "Untick all" }).click();
+  await expect(panel.getByLabel("car0_sensor15")).not.toBeChecked();
+  await expect(panel.getByLabel("car0_sensor2", { exact: true })).toBeChecked();
+
+  // The choice is remembered for the file.
+  await page.reload();
+  await page.locator("#file").setInputFiles({ name: "wide.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await expect(page.locator('#preview input[data-column="car1_sensor4"]')).not.toBeChecked();
+  await expect(page.locator('#preview input[data-column="car0_sensor2"]')).toBeChecked();
 });
 
 test("reads Parquet, Arrow and SQLite files in the browser", async ({ page }) => {

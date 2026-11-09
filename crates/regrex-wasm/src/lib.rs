@@ -62,6 +62,33 @@ struct ColumnInfo<'a> {
     /// How the cells were read when they are not plain numbers, such as
     /// `times as minutes`.
     read_as: Option<&'a str>,
+    /// Different values, counting up to [`MAX_DISTINCT`].
+    distinct: usize,
+    /// Whether every present value is larger than the one before (as in a
+    /// row number or an ID).
+    increasing: bool,
+}
+
+/// Different values counted in [`ColumnInfo::distinct`]: enough to tell
+/// constants, flags and codes from measurements.
+const MAX_DISTINCT: usize = 1000;
+
+/// Different finite values in `values`, up to `limit`.
+fn distinct(values: &[f64], limit: usize) -> usize {
+    let mut seen = std::collections::HashSet::new();
+    for v in values.iter().filter(|v| v.is_finite()) {
+        seen.insert(v.to_bits());
+        if seen.len() >= limit {
+            break;
+        }
+    }
+    seen.len()
+}
+
+/// Whether the present values only go up.
+fn increasing(values: &[f64]) -> bool {
+    let present: Vec<f64> = values.iter().copied().filter(|v| v.is_finite()).collect();
+    present.len() > 1 && present.windows(2).all(|w| w[1] > w[0])
 }
 
 /// Options for [`Dataset::explain`], as JSON. Every field is optional.
@@ -273,6 +300,8 @@ impl Dataset {
                             regrex_core::units::split_header(header).0 == *name || header == name
                         })
                         .map(|(_, how)| how.as_str()),
+                    distinct: distinct(values, MAX_DISTINCT),
+                    increasing: increasing(values),
                 })
                 .collect(),
             skipped: &self.loaded.skipped,

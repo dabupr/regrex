@@ -62,6 +62,20 @@
         </div>
         <p class="hint muted">Untick columns that are not data, such as IDs or invoice numbers.</p>
         <div class="table-wrap"><table id="preview"></table></div>
+        <button id="preview-more" type="button" class="link" hidden></button>
+
+        <details id="columns-panel" class="panel">
+          <summary>Columns to scan <span id="columns-summary" class="muted"></span></summary>
+          <div class="column-tools">
+            <input id="column-filter" type="search" placeholder="Filter by name" aria-label="Filter columns by name" autocomplete="off" />
+            <button id="tick-all" type="button">Tick all</button>
+            <button id="untick-all" type="button">Untick all</button>
+            <button id="untick-suggested" type="button">Untick the suggested</button>
+          </div>
+          <p class="hint muted">With a filter, the buttons only change the columns that match it. Your choice is remembered for this file name.</p>
+          <p id="suggested" class="hint muted"></p>
+          <div id="column-groups" class="column-groups"></div>
+        </details>
 
         <details id="settings" class="panel">
           <summary>Search settings <span id="settings-summary" class="muted"></span></summary>

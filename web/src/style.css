@@ -207,3 +207,13 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .card.flash { animation: flash 1.2s ease-out; }
 .copies { margin: 10px 0 0; padding-left: 20px; }
 .copies li { margin: 4px 0; overflow-wrap: anywhere; }
+
+#preview-more { margin-top: 6px; }
+.column-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.column-tools input[type="search"] { flex: 1 1 200px; min-width: 0; }
+.column-groups { max-height: 420px; overflow-y: auto; }
+.column-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 2px 12px; }
+.column-group legend { grid-column: 1 / -1; }
+.column-group label { overflow-wrap: anywhere; font-size: 13px; }
+.column-group label[hidden], .column-group[hidden] { display: none; }
+#suggested .reason { display: block; }
