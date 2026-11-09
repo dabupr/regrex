@@ -635,7 +635,21 @@ function download() {
   URL.revokeObjectURL(a.href);
 }
 
+/** Whether a file name has an extension the page cannot read (the list is the file input's `accept`). */
+function unsupportedExtension(name: string): string | null {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return null; // No extension: read it as CSV.
+  const ext = name.slice(dot).toLowerCase();
+  return ui.file.accept.split(",").includes(ext) ? null : ext;
+}
+
 async function readFile(file: File) {
+  const ext = unsupportedExtension(file.name);
+  if (ext) {
+    const formats = [...document.querySelectorAll("#formats b")].map((b) => b.textContent).join(", ");
+    showError(`Regrex cannot read ${ext} files. Supported formats: ${formats}.`);
+    return;
+  }
   await openFile(file.name, await file.arrayBuffer());
 }
 

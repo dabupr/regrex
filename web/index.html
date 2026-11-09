@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Find the formulas behind your data. Upload a CSV or Excel file and Regrex tells you which columns are computed from others, and which rows break the rule. Runs entirely in your browser." />
+    <meta name="description" content="Find the formulas behind your data. Upload a CSV, Excel, JSON, Parquet, Arrow or SQLite file and Regrex tells you which columns are computed from others, and which rows break the rule. Runs entirely in your browser." />
     <title>Regrex: find the formulas behind your data</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232b59c3'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='18' font-style='italic' fill='white' text-anchor='middle'%3Ef(x)%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/src/style.css" />
@@ -24,11 +24,22 @@
           other columns, with which formula, and which rows break the rule.
         </p>
         <label id="drop" class="drop" tabindex="0">
-          <input id="file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.xlsb,.ods,.json,.ndjson,.jsonl,.parquet,.arrow,.feather,.arrows,.sqlite,.sqlite3,.db" hidden />
+          <input id="file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.xlsb,.ods,.json,.ndjson,.jsonl,.parquet,.pq,.arrow,.feather,.arrows,.ipc,.sqlite,.sqlite3,.db" hidden />
           <strong>Drop a data file here</strong>
           <span>or click to choose one</span>
-          <span class="formats">CSV or TSV · Excel and OpenDocument (.xlsx, .xls, .ods) · JSON and JSON lines · Parquet · Arrow and Feather · SQLite</span>
         </label>
+        <div class="formats" aria-labelledby="formats-title">
+          <p id="formats-title" class="formats-title">Supported formats</p>
+          <ul id="formats">
+            <li><b>CSV / TSV</b> <code>.csv .tsv .txt</code></li>
+            <li><b>Excel</b> <code>.xlsx .xlsm .xls .xlsb</code></li>
+            <li><b>OpenDocument</b> <code>.ods</code></li>
+            <li><b>JSON</b> <code>.json .ndjson .jsonl</code></li>
+            <li><b>Parquet</b> <code>.parquet .pq</code></li>
+            <li><b>Arrow / Feather</b> <code>.arrow .feather .arrows .ipc</code></li>
+            <li><b>SQLite</b> <code>.sqlite .sqlite3 .db</code></li>
+          </ul>
+        </div>
         <p class="alt">
           You can also paste cells copied from a spreadsheet (Ctrl+V).<br />
           No file at hand? <button id="example" class="link" type="button">Try an example with 60 invoices</button>
