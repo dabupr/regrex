@@ -170,7 +170,11 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .other-badge { background: var(--good); }
 .formula-inline { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .formula-inline b { color: var(--accent); }
-.drop .formats { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.formats { max-width: 640px; margin: 12px auto 0; }
+.formats-title { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.formats ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.formats li { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+.formats code { color: var(--muted); font-size: 12px; }
 
 /* Charts */
 .chart-toggle { margin-top: 8px; }

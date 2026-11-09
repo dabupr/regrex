@@ -232,7 +232,7 @@ test("reads Parquet, Arrow and SQLite files in the browser", async ({ page }) =>
   const { readFile } = await import("node:fs/promises");
   const fixture = (name: string) => readFile(new URL(`./fixtures/${name}`, import.meta.url));
   await page.goto("./");
-  await expect(page.locator(".drop .formats")).toContainText("Parquet");
+  for (const format of ["CSV", "Excel", "JSON", "Parquet", "Arrow", "SQLite"]) await expect(page.locator("#formats")).toContainText(format);
 
   // Parquet compressed with zstd, and Arrow IPC: the same 60 invoices.
   for (const name of ["invoices.parquet", "invoices.arrow"]) {
@@ -253,6 +253,15 @@ test("reads Parquet, Arrow and SQLite files in the browser", async ({ page }) =>
   await page.locator("#sheet").selectOption("invoices");
   await expect(page.locator("#file-summary")).toHaveText("60 rows, 8 numeric columns, 1 text");
   await expect(page.locator("#sheet")).toHaveValue("invoices");
+});
+
+test("lists the supported formats and refuses other files clearly", async ({ page }) => {
+  await page.goto("./");
+  const accept = (await page.locator("#file").getAttribute("accept"))!.split(",");
+  const listed = (await page.locator("#formats code").allTextContents()).join(" ").split(" ");
+  expect(listed.sort()).toEqual([...accept].sort());
+  await page.locator("#file").setInputFiles({ name: "report.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") });
+  await expect(page.locator("#error")).toHaveText(/cannot read \.pdf files\. Supported formats: CSV \/ TSV, Excel, .*Parquet.*SQLite\./);
 });
 
 test("draws how the columns depend on each other and each formula against the file", async ({ page }) => {
