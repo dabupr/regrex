@@ -84,6 +84,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 
 | `derived[].other` | A second formula followed by many of the exceptions, when the column mixes two kinds of rows, or `null`: its `formula`, the `rows` that follow it and the `split` rule that tells them apart (`column`, `rule` such as `year >= 2023`, `accuracy`), or `null` when no column does. |
 | `derived[].copy_of` | When the column is a copy of another one (the same values, maybe shifted, negated or scaled by a power of ten, 60 or 3600, such as `serial + 1` or `1000 * km`), that column; otherwise `null`. Copies are found before the search, are not used as inputs, and the text report lists them apart under "Copies of other columns". |
+| `not_found[]` | Each column that was searched without finding a formula: `column`, and `inputs_tried`, the columns tried as its inputs (the ones that predict it best, at most 5 and sometimes one more). A formula over any other column cannot have been found. Constants, flags (two values) and copies are not searched, so they are not listed. |
 | `derived[].known` | The formula from the [library of known formulas](https://dabupr.github.io/regrex/library.html) that the column follows, or `null`. |
 | `known.id`, `known.name`, `known.domain` | Which library formula it is; see `crates/regrex-formulas/library/`. |
 | `known.expression` | The library formula, in its own symbols. |

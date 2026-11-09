@@ -49,6 +49,6 @@ pub use error::Error;
 pub use expr::{BinaryOp, Expr, UnaryOp};
 pub use scan::{
     check_formula, diagnose_exception, explain_column, explain_column_with_copies, find_copies,
-    fit_shape, infer_decimals, scan, DerivedColumn, ScanConfig, Table,
+    fit_shape, infer_decimals, inputs_tried, scan, DerivedColumn, ScanConfig, Table,
 };
 pub use search::{search, Candidate, SearchConfig};

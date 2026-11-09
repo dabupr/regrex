@@ -1,7 +1,9 @@
 //! `regrex`: find the formulas behind your data, from the command line.
 
 use clap::{Args, Parser, Subcommand};
-use regrex_core::{explain_column, scan, search, ScanConfig, SearchConfig};
+use regrex_core::{
+    explain_column_with_copies, find_copies, scan, search, ScanConfig, SearchConfig,
+};
 use regrex_io::report as output;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -149,10 +151,17 @@ pub(crate) fn scan_columns(
     if columns.is_empty() {
         return Ok(scan(&loaded.table, &config));
     }
+    // As in a full scan: copies are not used as inputs.
+    let copies = find_copies(&loaded.table, &config);
     let mut out = Vec::new();
     for name in columns {
         let index = column_index(&loaded.table, name)?;
-        out.extend(explain_column(&loaded.table, index, &config));
+        out.extend(explain_column_with_copies(
+            &loaded.table,
+            index,
+            &config,
+            &copies,
+        ));
     }
     Ok(out)
 }
@@ -224,8 +233,11 @@ fn run(cli: Cli) -> Result<(), String> {
         } => {
             let loaded = load(&file)?;
             let derived = scan_columns(&loaded, &columns, min_match, max_size)?;
-            let report =
+            let mut report =
                 output::ScanReport::new(&file.file.display().to_string(), &loaded, &derived);
+            if !columns.is_empty() {
+                report = report.only_columns(&columns);
+            }
             if file.json {
                 println!("{}", report.to_json());
             } else if mermaid {
