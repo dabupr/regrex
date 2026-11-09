@@ -76,3 +76,26 @@ def test_errors_are_value_errors():
         regrex.search({"x": [1.0, 2.0]}, [1.0, math.nan])
     with pytest.raises(TypeError):
         regrex.scan([1, 2, 3])
+
+
+def test_scan_tolerates_rounded_values_like_scan_file():
+    import csv
+
+    rows = list(csv.DictReader(open(DATA / "invoices.csv", newline="")))
+    data = {name: [float(r[name]) for r in rows] for name in rows[0] if name not in ("invoice", "product")}
+    from_file = regrex.scan_file(DATA / "invoices.csv", ignore=["invoice"])
+    from_data = regrex.scan(data)
+    vat_file = next(d for d in from_file["derived"] if d["column"] == "vat")
+    vat_data = next(d for d in from_data["derived"] if d["column"] == "vat")
+    assert vat_data["formula"] == vat_file["formula"] == "0.21 * net"
+    assert vat_data["matched_rows"] == vat_file["matched_rows"]
+    assert vat_data["exception_rows"] == vat_file["exception_rows"] == [42]
+
+
+def test_scan_takes_decimals_by_hand():
+    net = [10.0 + 7.3 * i for i in range(40)]
+    vat = [round(0.21 * x, 1) for x in net]
+    report = regrex.scan({"net": net, "vat": vat}, decimals={"vat": 1})
+    vat_row = next(d for d in report["derived"] if d["column"] == "vat")
+    assert vat_row["formula"] == "0.21 * net"
+    assert vat_row["exception_rows"] == []

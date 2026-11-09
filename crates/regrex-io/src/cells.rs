@@ -30,6 +30,9 @@ pub struct Reading {
     pub unit_text: Option<String>,
     /// How the cells were read, for people (`times as minutes`).
     pub note: String,
+    /// Whether the cells are dates or times of day (see
+    /// [`regrex_core::Table::timestamps`]).
+    pub timestamp: bool,
 }
 
 /// Reads a column whose cells are not plain numbers, if at least 90% of its
@@ -56,6 +59,7 @@ pub fn read_column(cells: &[&str], comma_decimal: bool) -> Option<Reading> {
             decimals: Some(0),
             unit_text: None,
             note: "true/false as 1/0".into(),
+            timestamp: false,
         });
     }
 
@@ -108,6 +112,7 @@ pub fn read_column(cells: &[&str], comma_decimal: bool) -> Option<Reading> {
             decimals: same.iter().flatten().map(|(_, d)| *d).max(),
             unit_text: Some(unit.to_string()),
             note: format!("numbers in {unit}"),
+            timestamp: false,
         });
     }
     None
@@ -201,6 +206,7 @@ fn stamp_column(stamps: &[Option<Stamp>]) -> Option<Reading> {
         decimals: Some(decimals),
         unit_text: None,
         note: note.into(),
+        timestamp: true,
     })
 }
 
@@ -419,6 +425,7 @@ mod tests {
             vec![at(864.0 + 47.0 / 60.0), at(864.0), at(864.0), at(865.0)]
         );
         assert_eq!(r.note, "dates and times as minutes since 1970-01-01");
+        assert!(r.timestamp);
     }
 
     #[test]

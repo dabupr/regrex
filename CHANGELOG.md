@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - A 0 in a row that breaks a formula is no longer explained as a factor ("1/100 of the expected value"): such a cell gets the new diagnosis `zero` (a missing value, or a reading that was off), and sign and factor mistakes are only looked for between values that are clearly not zero ([#27](https://github.com/dabupr/regrex/issues/27)).
+- Dates and times no longer match formulas that are off by minutes: a relative tolerance of 1e-6 on 26 million minutes since 1970 let `pickup = dropoff - fare` "match" taxi rides. Columns read as dates or times now only tolerate their own rounding (`Table::timestamps`) ([#45](https://github.com/dabupr/regrex/issues/45)).
+- Python: `regrex.scan(data)` tolerates rounded values as `scan_file` does. The decimals of each column are inferred from its values (`Table::infer_decimals`), or given by hand with `decimals={"vat": 2}` ([#31](https://github.com/dabupr/regrex/issues/31)).
 
 ## [0.1.0] - 2026-11-03
 
