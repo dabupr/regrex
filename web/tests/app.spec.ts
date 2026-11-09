@@ -197,6 +197,22 @@ test("a long search can be stopped and run again", async ({ page }) => {
   await expect(page.locator("#independent")).toHaveText("");
 });
 
+test("formulas appear while the search is still running", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Try an example/ }).click();
+  await page.getByText("Search settings").click();
+  await page.getByLabel(/Thorough/).check();
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  await expect(page.locator("article[data-column]").first()).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator("#progress")).toBeVisible();
+  await expect(page.locator("#independent")).toContainText("Still searching");
+  // Stopping keeps what was found.
+  const found = await page.locator("article[data-column]").count();
+  await page.getByRole("button", { name: "Stop" }).click();
+  await expect(page.locator("#progress")).toBeHidden();
+  expect(await page.locator("article[data-column]").count()).toBeGreaterThanOrEqual(found);
+});
+
 test("searches only the formulas of the library, by domain", async ({ page }) => {
   await page.goto("./");
   await page.getByRole("button", { name: /Try an example/ }).click();

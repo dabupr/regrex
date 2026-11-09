@@ -299,11 +299,15 @@ async function scanAll() {
   const done = new Set<string>();
   const running = new Set<string>();
   let next = 0;
+  const started = performance.now();
   const progress = () => {
     const names = [...running].slice(0, 3).join(", ") + (running.size > 3 ? "…" : "");
-    ui.progressText.textContent = `Checked ${done.size} of ${columns.length} columns${names ? ` · now ${names}` : ""}…`;
+    const left = timeLeft(performance.now() - started, done.size, columns.length);
+    ui.progressText.textContent =
+      `Checked ${done.size} of ${columns.length} columns${left ? ` · ${left}` : ""}${names ? ` · now ${names}` : ""}…`;
     ui.meter.style.width = `${(100 * done.size) / columns.length}%`;
   };
+  const live = liveResults(columns);
   const work = async () => {
     while (next < columns.length && !stopped) {
       const column = columns[next++];
@@ -311,7 +315,10 @@ async function scanAll() {
       progress();
       const d = await engine.explain(column, options);
       running.delete(column);
-      if (d) found.set(column, d);
+      if (d && !stopped) {
+        found.set(column, d);
+        live.add(d, inOrder());
+      }
       done.add(column);
       progress();
     }
@@ -351,6 +358,41 @@ async function scanAll() {
     ui.scan.disabled = false;
     ui.progress.hidden = true;
   }
+}
+
+/**
+ * Shows each formula as soon as its column is checked, in column order. The
+ * dependency diagram, the copies' review and the suspicious rows wait for the
+ * end of the scan, when `renderResults` redraws everything.
+ */
+function liveResults(columns: string[]) {
+  const position = new Map(columns.map((c, i) => [c, i]));
+  ui.graph.hidden = true;
+  ui.graphWrap.replaceChildren();
+  ui.copies.hidden = true;
+  ui.cards.replaceChildren();
+  ui.independent.textContent = "";
+  return {
+    add(d: Derived, all: Derived[]) {
+      ui.results.hidden = false;
+      ui.independent.textContent = "Still searching: more formulas may appear below.";
+      if (d.copy_of) return renderCopies(all.filter((x) => x.copy_of));
+      const card = derivedCard(d);
+      const after = [...ui.cards.querySelectorAll<HTMLElement>("article[data-column]")].find(
+        (c) => (position.get(c.dataset.column ?? "") ?? Infinity) > (position.get(d.column) ?? Infinity),
+      );
+      ui.cards.insertBefore(card, after ?? null);
+    },
+  };
+}
+
+/** "about 3 min left", from the time per column so far; empty until there is enough to go on. */
+function timeLeft(elapsedMs: number, done: number, total: number): string {
+  if (done < 2 || done >= total || elapsedMs < 3000) return "";
+  const seconds = ((elapsedMs / done) * (total - done)) / 1000;
+  if (seconds < 60) return `about ${Math.max(5, Math.round(seconds / 5) * 5)} s left`;
+  if (seconds < 3600) return `about ${Math.round(seconds / 60)} min left`;
+  return `about ${(seconds / 3600).toFixed(1)} h left`;
 }
 
 /** Stops the running scan, if any. */
