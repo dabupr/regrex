@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The JSON report lists the columns searched without finding a formula in `not_found`, each with the `inputs_tried`, to answer "why was X not found" ([#34](https://github.com/dabupr/regrex/issues/34)).
 
+- A test on a synthetic, wide sensor export (250 columns, 1200 rows: constants, flags, columns that are zero almost everywhere, copies, `-` for missing, Kibana dates and a few planted formulas) checks that every planted formula is found and no other column gets one, and CI runs it in release mode with a time budget ([#38](https://github.com/dabupr/regrex/issues/38)).
+
 ### Changed
 
 - Wide files are easier to handle in the web app: the preview shows the first 30 columns (and all of them on demand), and a "Columns to scan" panel filters columns by name, ticks or unticks them all or by prefix group (`coche0_…`), and suggests leaving out search metadata (`_score`, `*.keyword`), constant columns and ID-like ones, which start unticked. The choice is remembered per file name ([#33](https://github.com/dabupr/regrex/issues/33)).
