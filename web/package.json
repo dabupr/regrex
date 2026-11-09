@@ -18,7 +18,7 @@
     "@types/node": "^26.6.6",
     "@types/sql.js": "1.4.11",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.6"
   },
   "dependencies": {
     "apache-arrow": "21.2.0",
