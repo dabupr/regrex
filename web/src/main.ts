@@ -1,5 +1,6 @@
 import { dependencyGraph, scatter, scatterLegend } from "./charts";
 import { Engine } from "./engine";
+import { groups, loadChoice, saveChoice, suggestions } from "./columns";
 import { columnarFormat, readColumnar } from "./formats";
 import type { DatasetInfo, Derived, Known } from "./types";
 import {
@@ -63,6 +64,15 @@ const ui = {
   ownFormula: $<HTMLInputElement>("own-formula"),
   ownError: $("own-error"),
   ownResult: $("own-result"),
+  previewMore: $<HTMLButtonElement>("preview-more"),
+  columnsPanel: $<HTMLDetailsElement>("columns-panel"),
+  columnsSummary: $("columns-summary"),
+  columnFilter: $<HTMLInputElement>("column-filter"),
+  tickAll: $<HTMLButtonElement>("tick-all"),
+  untickAll: $<HTMLButtonElement>("untick-all"),
+  untickSuggested: $<HTMLButtonElement>("untick-suggested"),
+  suggested: $("suggested"),
+  columnGroups: $("column-groups"),
 };
 
 let settings: Settings = loadSettings();
@@ -115,11 +125,6 @@ function showError(message: string | null) {
   ui.error.textContent = message ?? "";
 }
 
-/** Columns that look like identifiers: whole numbers, all different, named like an ID. */
-function looksLikeId(name: string, info: DatasetInfo): boolean {
-  return /(^id$|_id$|^id_|number|^no\.?$|invoice|code|ref)/i.test(name) && info.columns.some((c) => c.name === name && c.decimals === 0);
-}
-
 /** Loads one sheet (or SQLite table) of a file into the engine. */
 async function loadSheet(name: string, bytes: ArrayBuffer, sheet?: string): Promise<DatasetInfo> {
   const format = columnarFormat(name, bytes);
@@ -146,7 +151,9 @@ async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
       }
     }
     if (info.columns.length === 0) throw new Error("No numeric columns found in this file.");
-    const ignored = new Set(info.columns.map((c) => c.name).filter((n) => looksLikeId(n, info)));
+    const suggested = suggestions(info);
+    const ignored =
+      loadChoice(name, info) ?? new Set([...suggested].filter(([, s]) => s.untick).map(([n]) => n));
     state = { name, bytes, info, ignored, derived: [], suspects: [], sheet };
     renderData();
   } catch (e) {
@@ -170,36 +177,138 @@ function renderData() {
   ui.sheet.replaceChildren(...info.sheets.map((s) => el("option", { value: s }, s)));
   if (state.sheet && info.sheets.includes(state.sheet)) ui.sheet.value = state.sheet;
 
+  renderPreview(false);
+  renderColumnPanel();
+  renderColumnChoices();
+  ui.ownResult.replaceChildren();
+  showOwnError(null);
+}
+
+/** Columns of the preview shown before "Show all columns" on wide files. */
+const PREVIEW_COLUMNS = 30;
+
+/** The first rows of the file, with a checkbox per numeric column. */
+function renderPreview(all: boolean) {
+  if (!state) return;
+  const { info } = state;
+  const wide = info.header.length > PREVIEW_COLUMNS + 10;
+  const shown = wide && !all ? info.header.slice(0, PREVIEW_COLUMNS) : info.header;
+  ui.previewMore.hidden = !wide;
+  ui.previewMore.textContent = all ? `Show the first ${PREVIEW_COLUMNS} columns` : `Show all ${info.header.length} columns`;
+  ui.previewMore.onclick = () => renderPreview(!all);
   const numeric = new Set(info.columns.map((c) => c.name));
   const readAs = new Map(info.columns.map((c) => [c.name, c.read_as]));
   const head = el("tr", {}, el("th", { class: "text" }, "#"));
-  for (const col of info.header) {
+  for (const col of shown) {
     if (!numeric.has(col)) {
       head.append(el("th", { class: "text" }, col, el("span", { class: "kind" }, "text, skipped")));
       continue;
     }
-    const box = el("input", { type: "checkbox", "data-column": col });
-    box.checked = !state.ignored.has(col);
-    box.addEventListener("change", () => {
-      if (box.checked) state!.ignored.delete(col);
-      else state!.ignored.add(col);
-      renderColumnChoices();
-    });
     const kind = readAs.get(col) ?? "number";
-    head.append(el("th", {}, el("label", {}, box, col), el("span", { class: "kind" }, kind)));
+    head.append(el("th", {}, el("label", {}, columnBox(col), col), el("span", { class: "kind" }, kind)));
   }
   const rows = info.preview.map((cells, i) =>
     el(
       "tr",
       { "data-row": String(i + 1) },
       el("td", { class: "rownum" }, String(i + 1)),
-      ...info.header.map((col, c) => el("td", numeric.has(col) ? {} : { class: "text" }, cells[c] ?? "")),
+      ...shown.map((col) => el("td", numeric.has(col) ? {} : { class: "text" }, cells[info.header.indexOf(col)] ?? "")),
     ),
   );
   ui.preview.replaceChildren(el("thead", {}, head), el("tbody", {}, ...rows));
+  for (const d of state.derived) highlight(d.exception_rows);
+}
+
+/** A checkbox that ticks or unticks one column wherever it is shown. */
+function columnBox(col: string): HTMLInputElement {
+  const box = el("input", { type: "checkbox", "data-column": col });
+  box.checked = !state!.ignored.has(col);
+  box.addEventListener("change", () => setIgnored([col], !box.checked));
+  return box;
+}
+
+/** Ticks (`ignored` false) or unticks columns, everywhere, and remembers the choice for the file. */
+function setIgnored(columns: string[], ignored: boolean) {
+  if (!state) return;
+  for (const c of columns) {
+    if (ignored) state.ignored.add(c);
+    else state.ignored.delete(c);
+  }
+  saveChoice(state.name, state.ignored);
+  syncColumnBoxes();
   renderColumnChoices();
-  ui.ownResult.replaceChildren();
-  showOwnError(null);
+}
+
+function syncColumnBoxes() {
+  if (!state) return;
+  for (const box of document.querySelectorAll<HTMLInputElement>("input[data-column]")) {
+    box.checked = !state.ignored.has(box.dataset.column ?? "");
+  }
+  for (const box of ui.columnGroups.querySelectorAll<HTMLInputElement>("input[data-group]")) {
+    const names = (box.dataset.group ?? "").split("\n");
+    const ticked = names.filter((n) => !state!.ignored.has(n)).length;
+    box.checked = ticked === names.length;
+    box.indeterminate = ticked > 0 && ticked < names.length;
+  }
+  const n = state.info.columns.length;
+  ui.columnsSummary.textContent = `(${n - state.ignored.size} of ${n})`;
+}
+
+/** The "Columns to scan" panel: filter, tick or untick all, suggestions, groups by prefix. */
+function renderColumnPanel() {
+  if (!state) return;
+  const { info } = state;
+  const names = info.columns.map((c) => c.name);
+  const suggested = suggestions(info);
+  ui.columnFilter.value = "";
+  ui.columnsPanel.open = names.length > PREVIEW_COLUMNS + 10;
+  // One line per reason, naming a few columns each.
+  const byReason = new Map<string, string[]>();
+  for (const [n, s] of suggested) byReason.set(s.why, [...(byReason.get(s.why) ?? []), n]);
+  ui.suggested.replaceChildren(
+    ...(suggested.size ? [`Suggested to leave out (${suggested.size}, marked ⚑):`] : []),
+    ...[...byReason].map(([why, cols]) => {
+      const shown = cols.slice(0, 4).flatMap((n, i) => [i ? ", " : "", el("code", {}, n)]);
+      const more = cols.length > 4 ? ` and ${cols.length - 4} more` : "";
+      return el("span", { class: "reason" }, `${cols.length} with ${why}: `, ...shown, more, ".");
+    }),
+  );
+  ui.untickSuggested.hidden = suggested.size === 0;
+  ui.untickSuggested.onclick = () => setIgnored([...suggested.keys()], true);
+  ui.columnGroups.replaceChildren(
+    ...groups(names).map((g) => {
+      const all = el("input", { type: "checkbox", "data-group": g.columns.join("\n") });
+      all.addEventListener("change", () => setIgnored(g.columns, !all.checked));
+      const legend = g.prefix
+        ? el("legend", {}, el("label", {}, all, ` ${g.prefix}_… `, el("span", { class: "muted" }, `(${g.columns.length})`)))
+        : el("legend", {}, el("label", {}, all, " Other columns ", el("span", { class: "muted" }, `(${g.columns.length})`)));
+      return el(
+        "fieldset",
+        { class: "column-group" },
+        legend,
+        ...g.columns.map((c) =>
+          el("label", { "data-name": c.toLowerCase() }, columnBox(c), " ", c, suggested.has(c) ? el("span", { class: "muted" }, " ⚑") : ""),
+        ),
+      );
+    }),
+  );
+  syncColumnBoxes();
+}
+
+/** Columns that match the filter box. */
+function filteredColumns(): string[] {
+  const q = ui.columnFilter.value.trim().toLowerCase();
+  return state ? state.info.columns.map((c) => c.name).filter((n) => n.toLowerCase().includes(q)) : [];
+}
+
+function filterColumnPanel() {
+  const q = ui.columnFilter.value.trim().toLowerCase();
+  for (const label of ui.columnGroups.querySelectorAll<HTMLElement>("label[data-name]")) {
+    label.hidden = !(label.dataset.name ?? "").includes(q);
+  }
+  for (const group of ui.columnGroups.querySelectorAll<HTMLElement>("fieldset")) {
+    group.hidden = !group.querySelector("label[data-name]:not([hidden])");
+  }
 }
 
 /** Fills the column choices of the settings and of "Test your own formula". */
@@ -785,6 +894,10 @@ ui.sheet.addEventListener("change", () => {
   if (state) void openFile(state.name, state.bytes, ui.sheet.value);
 });
 ui.scan.addEventListener("click", () => void scanAll());
+ui.columnFilter.addEventListener("input", filterColumnPanel);
+// With a filter, only the columns that match it.
+ui.tickAll.addEventListener("click", () => setIgnored(filteredColumns(), false));
+ui.untickAll.addEventListener("click", () => setIgnored(filteredColumns(), true));
 ui.download.addEventListener("click", download);
 ui.export.addEventListener("click", exportSuspects);
 

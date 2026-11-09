@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Wide files are easier to handle in the web app: the preview shows the first 30 columns (and all of them on demand), and a "Columns to scan" panel filters columns by name, ticks or unticks them all or by prefix group (`coche0_…`), and suggests leaving out search metadata (`_score`, `*.keyword`), constant columns and ID-like ones, which start unticked. The choice is remembered per file name ([#33](https://github.com/dabupr/regrex/issues/33)).
+- The web app shows each formula as soon as it is found, in column order, while the scan goes on, and the progress line estimates the time left; the dependency diagram and the suspicious rows still come at the end ([#32](https://github.com/dabupr/regrex/issues/32)).
 - The web app scans columns on several workers at once (all cores but one, at most 8), handing columns out from a queue so a slow one does not hold up the others; the formulas are then diagnosed together on one worker. On the small trains export (4 cores) a scan takes 99 s instead of 278 s. Each worker no longer copies the whole table for every column. `?workers=1` in the address runs on one worker, to compare ([#30](https://github.com/dabupr/regrex/issues/30)).
 - SQLite files are read with `rusqlite` 0.41, which bundles SQLite 3.54.1 and fixes [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459). The minimum supported Rust version is now 1.89.
 - `scan` checks columns in parallel (with the default `parallel` feature).

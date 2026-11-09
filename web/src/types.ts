@@ -6,6 +6,10 @@ export interface ColumnInfo {
   missing: number;
   /** How the cells were read when they are not plain numbers. */
   read_as: string | null;
+  /** Different values, counted up to 1000. */
+  distinct: number;
+  /** Whether every value is larger than the one before, as in an ID. */
+  increasing: boolean;
 }
 
 export interface DatasetInfo {
