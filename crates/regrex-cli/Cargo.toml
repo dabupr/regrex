@@ -31,4 +31,4 @@ default = ["all-formats"]
 all-formats = ["regrex-io/all-formats"]
 
 [dev-dependencies]
-toml = { version = "0.8", default-features = false, features = ["parse"] }
+toml = { version = "1.2", default-features = false, features = ["parse"] }
