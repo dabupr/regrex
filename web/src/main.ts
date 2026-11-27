@@ -878,7 +878,7 @@ function kindBadges(d: Derived): HTMLElement[] {
   const steps = d.between_rows || d.regime?.pieces.some((p) => p.formula.includes("slope of"));
   if (steps) out.push(el("span", { class: "badge kind-badge", title: "Links each row to the previous one, in the order of the table" }, "between rows"));
   if (d.within !== undefined && d.within !== null)
-    out.push(el("span", { class: "badge approx-badge", title: "Holds only to within this error" }, `≈ approximate, within ${fmt(d.within)}`));
+    out.push(el("span", { class: "badge approx-badge", title: "Holds only to within this error" }, `≈ approximate, within ${Number(d.within.toPrecision(2))}`));
   return out;
 }
 
