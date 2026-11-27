@@ -189,6 +189,7 @@ export type SearchEvent =
       /** Rows of the table, when the search only checked a sample of them. */
       rows_total?: number;
     }
+  | { kind: "confirming"; column: string; formula: string; sample: number; rows: number }
   | { kind: "second_formula"; column: string; rows: number }
   | { kind: "done"; column: string; found: boolean; near_misses: number };
 

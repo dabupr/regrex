@@ -115,26 +115,8 @@ pub fn scan_quick(
             derived.push(c.clone());
         }
     }
-    let confirm = |d: &DerivedColumn| -> Option<DerivedColumn> {
-        let plain = !d.copy && !d.steps && d.regime.is_none() && d.other.is_none();
-        if plain {
-            let checked = check_formula(table, d.target, &d.formula, config);
-            if checked.match_ratio() >= config.min_match {
-                return Some(checked);
-            }
-        }
-        // A formula between rows or per regime is looked for again the
-        // same way, without the full search that found nothing on the
-        // sample.
-        let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
-        if d.steps {
-            return crate::steps::explain_by_steps(table, d.target, config, &profile, &skip);
-        }
-        if d.regime.is_some() {
-            return crate::regime::explain_by_regime(table, d.target, config, &profile, &skip);
-        }
-        explain_column_in(table, d.target, config, &copies, &profile)
-    };
+    let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
+    let confirm = |d: &DerivedColumn| confirm(table, d, config, &copies, &profile, &skip);
     let todo: Vec<&DerivedColumn> = provisional.iter().filter(|d| !found[d.target]).collect();
     #[cfg(feature = "parallel")]
     let confirmed: Vec<Option<DerivedColumn>> = {
@@ -161,6 +143,34 @@ pub fn scan_quick(
         not_searched,
         dropped,
     }
+}
+
+/// A formula found on a sample of rows, checked on all rows of `table`:
+/// a plain formula is checked as it is; one between rows or per regime is
+/// looked for again the same way (cheap), and anything else is searched
+/// again on all rows. `None` when it does not hold on enough rows.
+pub fn confirm(
+    table: &Table,
+    d: &DerivedColumn,
+    config: &ScanConfig,
+    copies: &[Option<DerivedColumn>],
+    profile: &crate::profile::Profile,
+    skip: &[bool],
+) -> Option<DerivedColumn> {
+    let plain = !d.copy && !d.steps && d.regime.is_none() && d.other.is_none();
+    if plain {
+        let checked = check_formula(table, d.target, &d.formula, config);
+        if checked.match_ratio() >= config.min_match {
+            return Some(checked);
+        }
+    }
+    if d.steps {
+        return crate::steps::explain_by_steps(table, d.target, config, profile, skip);
+    }
+    if d.regime.is_some() {
+        return crate::regime::explain_by_regime(table, d.target, config, profile, skip);
+    }
+    explain_column_in(table, d.target, config, copies, profile)
 }
 
 #[cfg(test)]

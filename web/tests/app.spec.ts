@@ -379,7 +379,7 @@ test("shows what the search is doing and the formulas it came close to", async (
   await page.locator("#file").setInputFiles({ name: "mixed.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n")) });
   await page.getByRole("button", { name: "Find derived columns" }).click();
   // While it runs, each column says what it is doing.
-  await expect(page.locator("#progress-live li").first()).toContainText(/searching 60 rows with|best so far/);
+  await expect(page.locator("#progress-live li.running").first()).toContainText(/searching 60 rows with|best so far/);
 
   const almost = page.locator("#almost");
   await expect(almost).toBeVisible({ timeout: 45_000 });

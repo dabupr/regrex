@@ -460,7 +460,7 @@ async function checkOwnFormula() {
 
 /** The options of a scan with the current settings. */
 function scanOptions(ignore: string[]) {
-  return { ignore, ...searchOptions(settings) };
+  return { ignore, ...searchOptions(settings, state?.info.rows ?? 0) };
 }
 
 /** One line on what the search for a column is doing, from its events. */
@@ -481,6 +481,12 @@ function describeEvent(e: SearchEvent): (Node | string)[] {
         ...sample,
       ];
     }
+    case "confirming":
+      return [
+        "found ",
+        el("code", {}, e.formula),
+        ` on ${e.sample.toLocaleString()} sample rows, checking all ${e.rows.toLocaleString()} rows`,
+      ];
     case "second_formula":
       return [`looking for a second formula on the ${e.rows.toLocaleString()} rows that break it`];
     case "done":
@@ -529,10 +535,31 @@ async function scanAll() {
     drawing = true;
     requestAnimationFrame(() => {
       drawing = false;
+      // Every column, in order: found, nothing, being searched (with what
+      // the search is doing) or still to do.
       ui.progressLive.replaceChildren(
-        ...[...running].map((c) => {
-          const e = doing.get(c);
-          return el("li", {}, el("b", {}, c), ": ", ...(e ? describeEvent(e) : ["waiting for a worker"]));
+        ...columns.map((c) => {
+          if (running.has(c)) {
+            const e = doing.get(c);
+            return el(
+              "li",
+              { class: "running" },
+              el("span", { class: "state", "aria-hidden": "true" }),
+              el("b", {}, c),
+              el("span", { class: "what" }, ...(e ? describeEvent(e) : ["waiting for a worker"])),
+            );
+          }
+          if (done.has(c)) {
+            const d = found.get(c);
+            return el(
+              "li",
+              { class: d ? "found" : "none" },
+              el("span", { class: "state", "aria-hidden": "true" }, d ? "✓" : "–"),
+              el("b", {}, c),
+              el("span", { class: "what" }, d ? (d.regime ? `depends on ${d.regime.column}` : el("code", {}, d.formula)) : "no formula"),
+            );
+          }
+          return el("li", { class: "todo" }, el("span", { class: "state", "aria-hidden": "true" }), el("b", {}, c));
         }),
       );
     });
@@ -572,6 +599,7 @@ async function scanAll() {
         live.add(d, inOrder());
       }
       done.add(column);
+      drawLive();
       progress();
     }
   };
