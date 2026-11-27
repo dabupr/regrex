@@ -360,7 +360,14 @@ fn formula(table: &Table, d: &DerivedColumn, all: &[DerivedColumn]) -> AgentForm
         errors.push(error);
     }
     errors.sort_by(f64::total_cmp);
-    let max_error = errors.last().copied().unwrap_or(0.0);
+    // An approximate relation (a slope per stretch) has no value per row
+    // to compare with, but its largest error is known.
+    exact &= d.within.is_none();
+    let max_error = errors
+        .last()
+        .copied()
+        .unwrap_or(0.0)
+        .max(d.within.unwrap_or(0.0));
     let median_error = errors.get(errors.len() / 2).copied().unwrap_or(0.0);
     let other_rows = json.other.as_ref().map_or(&[][..], |o| o.rows.as_slice());
     let wrong_rows: Vec<usize> = json

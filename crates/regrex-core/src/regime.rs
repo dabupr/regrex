@@ -48,6 +48,15 @@ pub struct Piece {
     pub matched: usize,
     /// Runs of consecutive rows, for `per_run` pieces.
     pub runs: usize,
+    /// Whether the piece links each row to the previous one (a slope per
+    /// stretch, see [`crate::steps`]); `formula` is then no formula of one
+    /// row.
+    pub steps: bool,
+    /// Columns the piece uses besides those of `formula`.
+    pub inputs: Vec<usize>,
+    /// For an approximate piece, its largest error (see
+    /// [`DerivedColumn::within`]).
+    pub within: Option<f64>,
 }
 
 /// Regime columns tried per target, the most related first.
@@ -163,7 +172,7 @@ pub(crate) fn explain_by_regime(
     let mut best: Option<(usize, RegimeFormula, Vec<usize>, bool)> = None;
     for &(_, regime, runs) in &regimes {
         let o = order.as_ref().filter(|_| runs);
-        let res = pieces_for(table, target, regime, &present, config, o, skip);
+        let res = pieces_for(table, target, regime, &present, config, o, profile, skip);
         let Some((formula, matched)) = res else {
             continue;
         };
@@ -398,6 +407,27 @@ impl Order {
         })
     }
 
+    /// The order of `rows` alone, each run of consecutive rows a group of
+    /// its own, so that rows on either side of a gap are not neighbours.
+    pub(crate) fn within(&self, rows: &[usize]) -> Order {
+        let n = self.position.len();
+        let (mut position, mut group_of) = (vec![usize::MAX; n], vec![usize::MAX; n]);
+        let mut sorted = Vec::new();
+        for (g, run) in self.runs(rows).into_iter().enumerate() {
+            for r in run {
+                position[r] = sorted.len();
+                group_of[r] = g;
+                sorted.push(r);
+            }
+        }
+        Order {
+            column: self.column,
+            position,
+            sorted,
+            group_of,
+        }
+    }
+
     /// Runs of `rows` (sorted, consecutive in the order and in one group).
     pub(crate) fn runs(&self, rows: &[usize]) -> Vec<Vec<usize>> {
         let mut rows: Vec<usize> = rows
@@ -423,6 +453,7 @@ impl Order {
 }
 
 /// The best piece for each value of `regime`, and the rows they match.
+#[allow(clippy::too_many_arguments)]
 fn pieces_for(
     table: &Table,
     target: usize,
@@ -430,6 +461,7 @@ fn pieces_for(
     present: &[usize],
     config: &ScanConfig,
     order: Option<&Order>,
+    profile: &Profile,
     skip: &[bool],
 ) -> Option<(RegimeFormula, Vec<usize>)> {
     let r = &table.columns[regime];
@@ -477,11 +509,30 @@ fn pieces_for(
         let mut missed = present.len() - parts.iter().map(|p| p.1.len()).sum::<usize>();
         for (k, &i) in by_size.iter().enumerate() {
             let (part, slot) = (&parts[i].1, &mut found[i]);
-            let done = slot
-                .as_ref()
-                .is_some_and(|(_, rows)| rows.len() as f64 >= 0.98 * part.len() as f64);
+            // A constant along stretches may still be a slope (see
+            // `explain_part`).
+            let done = slot.as_ref().is_some_and(|(p, rows)| {
+                rows.len() as f64 >= 0.98 * part.len() as f64
+                    && !(order.is_some() && p.per_run && !p.formula.has_vars())
+            });
             if done {
                 continue;
+            }
+            // A value constant along stretches may be the slope of another
+            // column over each stretch (a gradient on the grades, but not on
+            // the vertical curves between them): that says more, so it wins
+            // on nearly as many rows.
+            let stretches = slot
+                .as_ref()
+                .is_some_and(|(p, _)| p.per_run && !p.formula.has_vars());
+            if let (true, Some(o)) = (stretches, order) {
+                let have = slot.as_ref().map_or(0, |s| s.1.len());
+                if let Some(better) = slope_piece(table, target, part, config, o, profile, &skip) {
+                    if better.1.len() as f64 >= 0.98 * have as f64 {
+                        *slot = Some(better);
+                        continue;
+                    }
+                }
             }
             if let Some(better) = explain_part(table, target, part, config, order, &skip, true) {
                 if slot.as_ref().is_none_or(|s| better.1.len() > s.1.len()) {
@@ -537,6 +588,42 @@ fn pieces_for(
     ))
 }
 
+/// The slope of another column over each stretch of `part` (see
+/// [`crate::steps`]), as a piece.
+fn slope_piece(
+    table: &Table,
+    target: usize,
+    part: &[usize],
+    config: &ScanConfig,
+    order: &Order,
+    profile: &Profile,
+    skip: &[bool],
+) -> Option<(Piece, Vec<usize>)> {
+    let y = &table.columns[target];
+    let within = order.within(part);
+    let d = crate::steps::explain_by_steps_in(table, target, config, profile, skip, &within)?;
+    let rows: Vec<usize> = within
+        .sorted
+        .iter()
+        .copied()
+        .filter(|&r| y[r].is_finite() && d.exceptions.binary_search(&r).is_err())
+        .collect();
+    let piece = Piece {
+        value: f64::NAN,
+        label: String::new(),
+        formula: d.formula,
+        per_run: false,
+        text: d.formula_text,
+        rows: part.len(),
+        matched: rows.len(),
+        runs: 0,
+        steps: true,
+        inputs: d.inputs,
+        within: d.within,
+    };
+    Some((piece, rows))
+}
+
 /// The best explanation of `target` on the rows of `part`: one value, a
 /// shape with constants per run, or one formula; cheap ones first, and the
 /// searches only while the rows are not all explained.
@@ -572,6 +659,9 @@ fn explain_part(
         rows: part.len(),
         matched,
         runs,
+        steps: false,
+        inputs: Vec::new(),
+        within: None,
     };
 
     // One value: the most common one.
@@ -838,6 +928,7 @@ fn derived(
     let mut inputs = vec![formula.column];
     for p in &formula.pieces {
         collect_vars(&p.formula, &mut inputs);
+        inputs.extend_from_slice(&p.inputs);
         if p.per_run {
             if let Some(o) = order {
                 inputs.push(o.column);
@@ -862,7 +953,7 @@ fn derived(
     let main = formula
         .pieces
         .iter()
-        .filter(|p| !p.per_run)
+        .filter(|p| !p.per_run && !p.steps)
         .max_by_key(|p| p.rows)
         .map_or(Expr::Const(f64::NAN), |p| p.formula.clone());
     DerivedColumn {
@@ -881,6 +972,11 @@ fn derived(
         exceptions,
         other: None,
         copy: false,
+        within: formula
+            .pieces
+            .iter()
+            .filter_map(|p| p.within)
+            .reduce(f64::max),
         regime: Some(formula),
         steps: false,
     }
