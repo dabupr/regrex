@@ -36,6 +36,11 @@ enum Command {
         /// Print the column dependencies as a Mermaid diagram (renders on GitHub).
         #[arg(long, conflicts_with = "json")]
         mermaid: bool,
+        /// Print a compact JSON report for AI agents: every column with what
+        /// it holds, each formula with its errors, the near misses and the
+        /// inputs tried for the columns left unexplained.
+        #[arg(long, conflicts_with_all = ["json", "mermaid"])]
+        agent: bool,
         /// Tell on stderr what the search is doing, column by column: the
         /// inputs it tries, the best formula so far and how it ended.
         #[arg(long, short)]
@@ -280,6 +285,7 @@ fn run(cli: Cli) -> Result<(), String> {
             min_match,
             max_size,
             mermaid,
+            agent,
             verbose,
         } => {
             let loaded = load(&file)?;
@@ -290,6 +296,17 @@ fn run(cli: Cli) -> Result<(), String> {
                 }
             };
             let found = scan_columns(&loaded, &columns, min_match, max_size, &on_event)?;
+            if agent {
+                let report = regrex_io::agent::AgentReport::new(
+                    &file.file.display().to_string(),
+                    &loaded,
+                    &found.derived,
+                    &found.near_misses,
+                    &columns,
+                );
+                println!("{}", report.to_json());
+                return Ok(());
+            }
             let mut report =
                 output::ScanReport::new(&file.file.display().to_string(), &loaded, &found.derived)
                     .with_near_misses(table, &found.near_misses);
