@@ -220,7 +220,8 @@ fn run(base: &Path, case: &Case) -> Result<Outcome, String> {
 fn columns_used(d: &DerivedColumn, names: &[String]) -> BTreeSet<String> {
     std::iter::once(d.target)
         .chain(d.inputs.iter().copied())
-        .map(|i| names[i].clone())
+        // `codi#num`, read out of the text column `codi`, belongs to it.
+        .map(|i| names[i].split('#').next().unwrap_or(&names[i]).to_string())
         .collect()
 }
 

@@ -107,6 +107,8 @@ pub(crate) fn explain_by_regime(
         .enumerate()
         .filter(|&(c, p)| {
             c != target
+                // `codi#num` is read out of `codi`: no regime of its own.
+                && base_name(&table.names[c]) != base_name(&table.names[target])
                 && (p.role == Role::Regime || p.role == Role::Flag && p.category)
                 && !skip.get(c).copied().unwrap_or(false)
         })
@@ -220,6 +222,11 @@ fn correlation_ratio_many(groups: &[f64], y: &[f64]) -> f64 {
     let r2 = between / total;
     let adjusted = 1.0 - (1.0 - r2) * (n - 1) as f64 / (n - k) as f64;
     adjusted.max(0.0).sqrt()
+}
+
+/// The column a number read out of text comes from: `codi` for `codi#num`.
+pub(crate) fn base_name(name: &str) -> &str {
+    name.split('#').next().unwrap_or(name)
 }
 
 /// The rows of an ordered table, sorted, with the group of each row.
@@ -354,12 +361,18 @@ fn pieces_for(
     // is no formula: any column that changes seldom does.
     // The rest must hold on a fair share of the rows, so one small regime
     // with a single value does not carry a column of per-run constants.
-    let informative: usize = pieces
-        .iter()
-        .filter(|p| !(p.per_run && p.formula.num_params() == 1 && !p.formula.has_vars()))
-        .map(|p| p.matched)
-        .sum();
-    if pieces.len() < 2 || (informative as f64) < MIN_INFORMATIVE_SHARE * matched.len() as f64 {
+    // Pieces with fitted constants per run fit nearly anything, so pieces
+    // with one formula for all their rows must hold on a fair share of the
+    // rows, and not all be the same formula (a column that is mostly one
+    // value is not explained by any regime).
+    let fixed: Vec<&Piece> = pieces.iter().filter(|p| !p.per_run).collect();
+    let informative: usize = fixed.iter().map(|p| p.matched).sum();
+    let all_same =
+        pieces.len() == fixed.len() && fixed.windows(2).all(|w| w[0].formula == w[1].formula);
+    if pieces.len() < 2
+        || all_same
+        || (informative as f64) < MIN_INFORMATIVE_SHARE * matched.len() as f64
+    {
         return None;
     }
     matched.sort_unstable();

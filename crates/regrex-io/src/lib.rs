@@ -24,6 +24,7 @@
 mod cells;
 #[cfg(any(feature = "parquet", feature = "arrow"))]
 mod columnar;
+mod hidden;
 mod json;
 pub mod report;
 #[cfg(feature = "sqlite")]
@@ -340,6 +341,26 @@ fn read_categories(cells: &[&str]) -> Option<(Vec<Option<f64>>, Vec<String>)> {
     (present > 0 && labels.len() * 2 <= present).then_some((codes, labels))
 }
 
+/// Adds the numbers read out of a text column (see [`hidden`]) as columns.
+fn push_hidden(
+    table: &mut Table,
+    converted: &mut Vec<(String, String)>,
+    header_name: &str,
+    hidden: Vec<hidden::Hidden>,
+) {
+    for h in hidden {
+        converted.push((header_name.to_string(), format!("{}: {}", h.name, h.note)));
+        table.names.push(h.name);
+        table.units.push(None);
+        table
+            .columns
+            .push(h.values.iter().map(|v| v.unwrap_or(f64::NAN)).collect());
+        table.decimals.push(h.decimals);
+        table.timestamps.push(false);
+        table.labels.push(None);
+    }
+}
+
 /// Keeps columns where most non-empty cells are numbers, or can be read as
 /// numbers (see [`cells`]).
 fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>) -> Loaded {
@@ -374,6 +395,7 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
             name
         };
         let mut labels = None;
+        let mut hidden = Vec::new();
         let (values, decimals, timestamp) = if non_empty > 0 && numeric * 10 >= non_empty * 9 {
             (
                 parsed.iter().map(|p| p.map(|(v, _)| v)).collect::<Vec<_>>(),
@@ -389,13 +411,17 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
             }
             converted.push((header_name.clone(), reading.note));
             (reading.values, reading.decimals, reading.timestamp)
-        } else if let Some((codes, names)) = read_categories(&cells) {
-            categories.push(header_name.clone());
-            labels = Some(names);
-            (codes, Some(0), false)
         } else {
-            skipped.push(header_name.clone());
-            continue;
+            hidden = hidden::hidden_numbers(&name, &cells, comma_decimal);
+            if let Some((codes, names)) = read_categories(&cells) {
+                categories.push(header_name.clone());
+                labels = Some(names);
+                (codes, Some(0), false)
+            } else {
+                skipped.push(header_name.clone());
+                push_hidden(&mut table, &mut converted, header_name, hidden);
+                continue;
+            }
         };
         table.names.push(name);
         table.units.push(unit);
@@ -405,6 +431,7 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
         table.decimals.push(decimals);
         table.timestamps.push(timestamp);
         table.labels.push(labels);
+        push_hidden(&mut table, &mut converted, header_name, hidden);
     }
     Loaded {
         table,
