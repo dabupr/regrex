@@ -87,6 +87,8 @@ fn export() -> (String, BTreeSet<String>) {
     let ids: Vec<f64> = (0..ROWS).map(|r| 380_000.0 + r as f64).collect();
     e.numbers("PKTren", &ids);
     e.push("_id", (0..ROWS).map(|r| format!("x{r:06}")).collect());
+    // The number in `_id` is read out of the text, and it is PKTren - 380000.
+    allowed.insert("_id#num".to_string());
     e.push("_score", vec!["-".to_string(); ROWS]);
 
     // Planted formulas.

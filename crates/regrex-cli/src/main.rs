@@ -36,6 +36,16 @@ enum Command {
         /// Print the column dependencies as a Mermaid diagram (renders on GitHub).
         #[arg(long, conflicts_with = "json")]
         mermaid: bool,
+        /// Search a sample of rows first (blocks spread over the file), then
+        /// confirm on all rows only the formulas found there. Much faster on
+        /// large files; columns without a formula on the sample are not
+        /// searched again.
+        #[arg(long, conflicts_with_all = ["columns", "agent"])]
+        quick: bool,
+        /// Rows in the sample of --quick (default: 2000 or 5% of the rows,
+        /// whichever is larger).
+        #[arg(long, requires = "quick")]
+        sample: Option<usize>,
         /// Print a compact JSON report for AI agents: every column with what
         /// it holds, each formula with its errors, the near misses and the
         /// inputs tried for the columns left unexplained.
@@ -285,31 +295,52 @@ fn run(cli: Cli) -> Result<(), String> {
             min_match,
             max_size,
             mermaid,
+            quick,
+            sample,
             agent,
             verbose,
         } => {
             let loaded = load(&file)?;
             let table = &loaded.table;
-            let on_event = |e: ScanEvent| {
-                if verbose {
-                    print_event(table, &e);
+            let name = file.file.display().to_string();
+            let mut report = if quick {
+                let mut config = ScanConfig {
+                    min_match,
+                    ..ScanConfig::default()
+                };
+                config.search.max_size = max_size;
+                let rows = table.n_rows();
+                let size = sample.unwrap_or((rows / 20).max(2000));
+                let q = regrex_core::scan_quick(table, &config, size, |d, confirmed| {
+                    let stage = if confirmed {
+                        "confirmed"
+                    } else {
+                        "provisional"
+                    };
+                    eprintln!("{stage}: {} = {}", table.names[d.target], d.formula_text);
+                });
+                output::ScanReport::new(&name, &loaded, &q.derived).with_quick(table, &q)
+            } else {
+                let on_event = |e: ScanEvent| {
+                    if verbose {
+                        print_event(table, &e);
+                    }
+                };
+                let found = scan_columns(&loaded, &columns, min_match, max_size, &on_event)?;
+                if agent {
+                    let report = regrex_io::agent::AgentReport::new(
+                        &name,
+                        &loaded,
+                        &found.derived,
+                        &found.near_misses,
+                        &columns,
+                    );
+                    println!("{}", report.to_json());
+                    return Ok(());
                 }
+                output::ScanReport::new(&name, &loaded, &found.derived)
+                    .with_near_misses(table, &found.near_misses)
             };
-            let found = scan_columns(&loaded, &columns, min_match, max_size, &on_event)?;
-            if agent {
-                let report = regrex_io::agent::AgentReport::new(
-                    &file.file.display().to_string(),
-                    &loaded,
-                    &found.derived,
-                    &found.near_misses,
-                    &columns,
-                );
-                println!("{}", report.to_json());
-                return Ok(());
-            }
-            let mut report =
-                output::ScanReport::new(&file.file.display().to_string(), &loaded, &found.derived)
-                    .with_near_misses(table, &found.near_misses);
             if !columns.is_empty() {
                 report = report.only_columns(&columns);
             }

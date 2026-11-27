@@ -52,6 +52,11 @@ struct Info<'a> {
     sheets: &'a [String],
     columns: Vec<ColumnInfo<'a>>,
     skipped: &'a [String],
+    /// Text columns read as categories (not in `columns`, which are the
+    /// numbers formulas are searched for).
+    categories: &'a [String],
+    /// How the table is laid out and what each column is for.
+    structure: regrex_io::report::StructureJson,
 }
 
 #[derive(Serialize)]
@@ -252,6 +257,8 @@ impl ReviewItem {
             exceptions: rows(&self.exception_rows),
             other,
             copy: self.copy_of.is_some(),
+            regime: None,
+            steps: false,
         })
     }
 }
@@ -296,7 +303,9 @@ impl Dataset {
                 .iter()
                 .zip(&t.columns)
                 .zip(&t.decimals)
-                .map(|((name, values), decimals)| ColumnInfo {
+                .enumerate()
+                .filter(|(i, _)| !t.is_category(*i))
+                .map(|(_, ((name, values), decimals))| ColumnInfo {
                     name,
                     decimals: *decimals,
                     missing: values.iter().filter(|v| v.is_nan()).count(),
@@ -313,6 +322,8 @@ impl Dataset {
                 })
                 .collect(),
             skipped: &self.loaded.skipped,
+            categories: &self.loaded.categories,
+            structure: regrex_io::report::StructureJson::new(t),
         };
         serde_json::to_string(&info).expect("serializable")
     }
@@ -686,17 +697,7 @@ impl Dataset {
 
 /// The given rows (numbered from 0, in increasing order) of `table`.
 fn rows_of(table: &regrex_core::Table, rows: &[usize]) -> regrex_core::Table {
-    regrex_core::Table {
-        names: table.names.clone(),
-        columns: table
-            .columns
-            .iter()
-            .map(|c| rows.iter().map(|&r| c[r]).collect())
-            .collect(),
-        decimals: table.decimals.clone(),
-        units: table.units.clone(),
-        timestamps: table.timestamps.clone(),
-    }
+    regrex_core::progressive::sub_table(table, rows)
 }
 
 /// A [`ScanEvent`] as sent to the page, with column names.

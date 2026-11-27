@@ -287,7 +287,8 @@ test("wide files: a short preview, a column picker and suggestions", async ({ pa
   const panel = page.locator("#columns-panel");
   await expect(panel).toHaveAttribute("open", "");
   // Metadata and the constant column start unticked; the serial is only suggested.
-  await expect(page.locator("#columns-summary")).toHaveText(`(${header.length - 3} of ${header.length - 1})`);
+  // The number in `_id` (x0, x1, ...) is read as a column of its own.
+  await expect(page.locator("#columns-summary")).toHaveText(`(${header.length - 2} of ${header.length})`);
   await expect(page.locator("#suggested")).toContainText("serial");
   await page.getByRole("button", { name: "Untick the suggested" }).click();
   await expect(page.locator('#preview input[data-column="serial"]')).not.toBeChecked();

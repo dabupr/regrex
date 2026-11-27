@@ -194,10 +194,12 @@ impl AgentReport {
         let requested = |name: &str| columns.is_empty() || columns.iter().any(|c| c == name);
         let mut out_columns = Vec::with_capacity(loaded.header.len());
         for (i, header) in loaded.header.iter().enumerate() {
+            // Text read as categories is still text for the agent.
             let numeric = table
                 .names
                 .iter()
-                .position(|n| n == header || regrex_core::units::split_header(header).0 == *n);
+                .position(|n| n == header || regrex_core::units::split_header(header).0 == *n)
+                .filter(|&c| !table.is_category(c));
             out_columns.push(match numeric {
                 Some(c) => {
                     let values = &table.columns[c];

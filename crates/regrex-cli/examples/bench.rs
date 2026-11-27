@@ -180,8 +180,14 @@ fn run(base: &Path, case: &Case) -> Result<Outcome, String> {
         loaded.table.remove_column(i);
     }
     let names = loaded.table.names.clone();
+    // Text columns the reader skips can still belong to a relation (one
+    // that is not found yet).
     for rel in &case.relations {
-        if let Some(c) = rel.columns.iter().find(|c| !names.contains(c)) {
+        if let Some(c) = rel
+            .columns
+            .iter()
+            .find(|c| !names.contains(c) && !loaded.skipped.contains(c))
+        {
             return Err(format!("no column {c:?} for `{}`", rel.formula));
         }
     }
@@ -191,6 +197,19 @@ fn run(base: &Path, case: &Case) -> Result<Outcome, String> {
 
     let mut found = vec![false; case.relations.len()];
     let mut false_positives = Vec::new();
+    for t in regrex_io::text_relations(&loaded) {
+        let used: BTreeSet<String> = std::iter::once(t.column.clone()).chain(t.inputs).collect();
+        let mut explained = false;
+        for (i, rel) in case.relations.iter().enumerate() {
+            if used.is_subset(&rel.columns) {
+                found[i] = true;
+                explained = true;
+            }
+        }
+        if !explained {
+            false_positives.push(format!("{} = {}", t.column, t.formula));
+        }
+    }
     for d in &derived {
         let used = columns_used(d, &names);
         let mut explained = false;
@@ -214,7 +233,8 @@ fn run(base: &Path, case: &Case) -> Result<Outcome, String> {
 fn columns_used(d: &DerivedColumn, names: &[String]) -> BTreeSet<String> {
     std::iter::once(d.target)
         .chain(d.inputs.iter().copied())
-        .map(|i| names[i].clone())
+        // `codi#num`, read out of the text column `codi`, belongs to it.
+        .map(|i| names[i].split('#').next().unwrap_or(&names[i]).to_string())
         .collect()
 }
 

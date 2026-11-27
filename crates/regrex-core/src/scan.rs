@@ -30,6 +30,13 @@ pub struct Table {
     /// error, which would let `dropoff = pickup + fare` match within half an
     /// hour. May be empty or shorter than `columns`.
     pub timestamps: Vec<bool>,
+    /// For columns read from text, the label of each value: the column
+    /// holds `0, 1, 2…` (`NaN` when missing) and `labels[i][v]` is the text
+    /// of value `v`. Such a column is a category: it can tell rows apart
+    /// (which formula applies, which group a row is in) but is never the
+    /// target or an input of a formula, since its numbers are arbitrary.
+    /// May be empty or shorter than `columns`.
+    pub labels: Vec<Option<Vec<String>>>,
 }
 
 impl Table {
@@ -61,6 +68,21 @@ impl Table {
         }
     }
 
+    /// Whether column `i` holds categories read from text (see
+    /// [`Table::labels`]).
+    pub fn is_category(&self, i: usize) -> bool {
+        self.labels.get(i).is_some_and(Option::is_some)
+    }
+
+    /// The text of value `v` of column `i`, for categories.
+    pub fn label(&self, i: usize, v: f64) -> Option<&str> {
+        let labels = self.labels.get(i)?.as_ref()?;
+        (v >= 0.0 && v.fract() == 0.0)
+            .then(|| labels.get(v as usize))
+            .flatten()
+            .map(String::as_str)
+    }
+
     /// Removes column `i`.
     pub fn remove_column(&mut self, i: usize) {
         self.names.remove(i);
@@ -73,6 +95,9 @@ impl Table {
         }
         if i < self.timestamps.len() {
             self.timestamps.remove(i);
+        }
+        if i < self.labels.len() {
+            self.labels.remove(i);
         }
     }
 }
@@ -166,6 +191,15 @@ pub struct DerivedColumn {
     /// the formula is that column, maybe shifted or scaled, as in `id`,
     /// `serial + 1` or `1000 * km`.
     pub copy: bool,
+    /// A formula per value of a regime column, when the column has one (see
+    /// [`crate::regime`]). `formula` is then the formula of the largest
+    /// piece with fixed constants, and `formula_text` sums up every piece.
+    pub regime: Option<crate::regime::RegimeFormula>,
+    /// Whether the formula links each row to the previous one in the order
+    /// of the table (see [`crate::steps`]), as in a running total or a
+    /// chainage measured along coordinates. `formula` is then no formula of
+    /// one row, and `formula_text` says what holds.
+    pub steps: bool,
 }
 
 /// A second formula for some rows of a derived column.
@@ -191,6 +225,9 @@ pub struct Split {
     pub condition: Condition,
     /// Fraction of the rows of both formulas the rule classifies correctly.
     pub accuracy: f64,
+    /// For a column of categories, the text of the values in
+    /// [`Condition::OneOf`].
+    pub labels: Vec<String>,
 }
 
 /// A condition on the values of one column.
@@ -211,6 +248,12 @@ impl Split {
         match &self.condition {
             Condition::AtMost(v) => format!("{name} <= {}", crate::expr::format_number(*v)),
             Condition::AtLeast(v) => format!("{name} >= {}", crate::expr::format_number(*v)),
+            Condition::OneOf(_) if !self.labels.is_empty() && self.labels.len() == 1 => {
+                format!("{name} = {}", self.labels[0])
+            }
+            Condition::OneOf(_) if !self.labels.is_empty() => {
+                format!("{name} in {{{}}}", self.labels.join(", "))
+            }
             Condition::OneOf(values) if values.len() == 1 => {
                 format!("{name} = {}", crate::expr::format_number(values[0]))
             }
@@ -244,7 +287,8 @@ pub fn scan(table: &Table, config: &ScanConfig) -> Vec<DerivedColumn> {
     // Copies of other columns are found first, cheaply: they need no search
     // and are left out as inputs, so they do not take the place of others.
     let copies = find_copies(table, config);
-    let explain = |t: usize| explain_column_with_copies(table, t, config, &copies);
+    let profile = crate::profile::profile(table);
+    let explain = |t: usize| explain_column_in(table, t, config, &copies, &profile);
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
@@ -262,17 +306,37 @@ pub fn scan(table: &Table, config: &ScanConfig) -> Vec<DerivedColumn> {
 /// Like [`explain_column`], with the copies found by [`find_copies`] on the
 /// same table: a copy is returned as is, and copies are not used as inputs
 /// (the column they copy is).
+///
+/// Works out the table's [`crate::profile::Profile`] on every call; when
+/// explaining many columns of one table, compute it once and call
+/// [`explain_column_in`].
 pub fn explain_column_with_copies(
     table: &Table,
     target: usize,
     config: &ScanConfig,
     copies: &[Option<DerivedColumn>],
 ) -> Option<DerivedColumn> {
+    let profile = crate::profile::profile(table);
+    explain_column_in(table, target, config, copies, &profile)
+}
+
+/// Like [`explain_column_with_copies`], with the table's profile: when no
+/// single formula explains the column, a formula per value of a regime
+/// column is tried (see [`crate::regime`]).
+pub fn explain_column_in(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    copies: &[Option<DerivedColumn>],
+    profile: &crate::profile::Profile,
+) -> Option<DerivedColumn> {
     if let Some(copy) = copies.get(target).and_then(Option::as_ref) {
         return Some(copy.clone());
     }
     let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
     explain_column_skipping(table, target, config, &skip)
+        .or_else(|| crate::steps::explain_by_steps(table, target, config, profile, &skip))
+        .or_else(|| crate::regime::explain_by_regime(table, target, config, profile, &skip))
 }
 
 /// Like [`explain_column_with_copies`], keeping the formulas it rejects
@@ -295,8 +359,38 @@ pub fn explain_column_detailed(
             near_misses: Vec::new(),
         };
     }
+    let profile = crate::profile::profile(table);
+    explain_column_detailed_in(table, target, config, copies, &profile, on_event)
+}
+
+/// Like [`explain_column_detailed`], with the table's profile: when no
+/// single formula explains the column, a formula between consecutive rows
+/// or per value of a regime column is tried, as in [`explain_column_in`].
+pub fn explain_column_detailed_in(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    copies: &[Option<DerivedColumn>],
+    profile: &crate::profile::Profile,
+    on_event: &dyn Fn(ScanEvent),
+) -> Explanation {
+    if let Some(copy) = copies.get(target).and_then(Option::as_ref) {
+        return Explanation {
+            found: Some(copy.clone()),
+            near_misses: Vec::new(),
+        };
+    }
     let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
-    explain_column_events(table, target, config, &skip, on_event)
+    let mut e = explain_column_events(table, target, config, &skip, on_event);
+    if e.found.is_none() {
+        e.found = crate::steps::explain_by_steps(table, target, config, profile, &skip)
+            .or_else(|| crate::regime::explain_by_regime(table, target, config, profile, &skip));
+        if e.found.is_some() {
+            // The formulas it came close to are beaten by the one found.
+            e.near_misses.clear();
+        }
+    }
+    e
 }
 
 /// What [`scan_detailed`] finds.
@@ -319,7 +413,9 @@ pub fn scan_detailed(
     on_event: &(dyn Fn(ScanEvent) + Sync),
 ) -> ScanResult {
     let copies = find_copies(table, config);
-    let explain = |t: usize| explain_column_detailed(table, t, config, &copies, on_event);
+    let profile = crate::profile::profile(table);
+    let explain =
+        |t: usize| explain_column_detailed_in(table, t, config, &copies, &profile, on_event);
     #[cfg(feature = "parallel")]
     let all: Vec<Explanation> = {
         use rayon::prelude::*;
@@ -352,6 +448,7 @@ pub fn inputs_tried(
         .columns
         .get(target)
         .is_some_and(|y| distinct_values(y, 3) >= 3)
+        && !table.is_category(target)
         && copies.get(target).is_none_or(Option::is_none);
     if !searched {
         return Vec::new();
@@ -401,8 +498,9 @@ pub fn find_copies(table: &Table, config: &ScanConfig) -> Vec<Option<DerivedColu
     // Columns that are not copies, in order: the ones copies are made of.
     let mut originals: Vec<usize> = Vec::new();
     for (j, slot) in out.iter_mut().enumerate() {
-        // Flags and constants are neither copies nor worth copying.
-        if distinct_values(&table.columns[j], 3) < 3 {
+        // Flags and constants are neither copies nor worth copying, and
+        // categories are compared by their labels, not their numbers.
+        if distinct_values(&table.columns[j], 3) < 3 || table.is_category(j) {
             continue;
         }
         *slot = originals
@@ -470,7 +568,7 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
 }
 
 /// [`explain_column`] without the columns marked in `skip` as inputs.
-fn explain_column_skipping(
+pub(crate) fn explain_column_skipping(
     table: &Table,
     target: usize,
     config: &ScanConfig,
@@ -527,7 +625,8 @@ fn explain_column_inner(
     let y_all = table.columns.get(target)?;
     // Constant columns and flags (two values) are not computed from others,
     // or not in a way a formula can show; any formula would be a fluke.
-    if distinct_values(y_all, 3) < 3 {
+    // Categories hold arbitrary numbers for their labels.
+    if distinct_values(y_all, 3) < 3 || table.is_category(target) {
         return None;
     }
     let candidates_cols = select_inputs(table, target, config.max_inputs, skip);
@@ -1073,7 +1172,7 @@ const TINY_SAMPLES: usize = 24;
 
 /// The formula with its constants turned into parameters, except exponents
 /// and small whole numbers (`x^2`, `2 * pi`), which define the shape.
-fn parametrize(e: &Expr) -> Expr {
+pub(crate) fn parametrize(e: &Expr) -> Expr {
     fn go(e: &Expr) -> Expr {
         match e {
             Expr::Const(c) if c.fract() != 0.0 || c.abs() > 10.0 => Expr::Param(0),
@@ -1102,7 +1201,7 @@ fn parametrize(e: &Expr) -> Expr {
 ///     columns: vec![vec![10.0, 20.0, 30.0], vec![2.1, 4.2, 3.0]],
 ///     decimals: vec![Some(2), Some(2)],
 ///     units: vec![None, None],
-///     timestamps: Vec::new(),
+///     ..Table::default()
 /// };
 /// let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
 /// let formula = parse_expr("0.21 * net", &names).unwrap();
@@ -1145,7 +1244,7 @@ pub fn check_formula(
 ///     columns: vec![vec![10.0, 20.0, 30.0, 40.0], vec![2.1, 4.2, 6.3, 8.4]],
 ///     decimals: vec![Some(2), Some(2)],
 ///     units: vec![None, None],
-///     timestamps: Vec::new(),
+///     ..Table::default()
 /// };
 /// let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
 /// let (shape, _) = parse_template("rate * net", &names).unwrap();
@@ -1355,7 +1454,7 @@ fn culprit(
 /// How far a row of column `target` may be from a formula's value and still
 /// match: half a unit in the last written decimal, or a small relative error
 /// (except for dates and times).
-fn row_tolerance<'a>(
+pub(crate) fn row_tolerance<'a>(
     table: &'a Table,
     target: usize,
     config: &'a ScanConfig,
@@ -1412,12 +1511,17 @@ fn derived(
         exceptions,
         other: None,
         copy: false,
+        regime: None,
+        steps: false,
     }
 }
 
 /// Columns with more different values than this are not treated as
 /// categories by split rules.
 const MAX_CATEGORIES: usize = 12;
+
+/// The same for columns of text categories, whose labels name the rule.
+const MAX_TEXT_CATEGORIES: usize = 50;
 
 /// Minimum share of rows a split rule must classify correctly.
 const MIN_SPLIT_ACCURACY: f64 = 0.95;
@@ -1457,39 +1561,47 @@ fn split_rule(table: &Table, target: usize, main: &[usize], other: &[usize]) -> 
         if a.is_empty() || b.is_empty() {
             continue;
         }
+        let category = table.is_category(c);
         let correct = |is_other: &dyn Fn(f64) -> bool| {
             let hits = a.iter().filter(|&&v| !is_other(v)).count()
                 + b.iter().filter(|&&v| is_other(v)).count();
             hits as f64 / total
         };
-        // Thresholds: between the largest and smallest values of the groups.
-        let (a_min, a_max) = min_max(&a);
-        let (b_min, b_max) = min_max(&b);
-        if b_max < a_min {
-            consider(Split {
-                column: c,
-                condition: Condition::AtMost(b_max),
-                accuracy: correct(&|v| v <= b_max),
-            });
-        } else if b_min > a_max {
-            consider(Split {
-                column: c,
-                condition: Condition::AtLeast(b_min),
-                accuracy: correct(&|v| v >= b_min),
-            });
-        } else {
-            // Overlapping ranges: the best cut among the values of `other`.
-            for &t in &b {
+        // Thresholds, on numbers only: a category's numbers have no order.
+        if !category {
+            // Between the largest and smallest values of the groups.
+            let (a_min, a_max) = min_max(&a);
+            let (b_min, b_max) = min_max(&b);
+            if b_max < a_min {
                 consider(Split {
                     column: c,
-                    condition: Condition::AtMost(t),
-                    accuracy: correct(&|v| v <= t),
+                    condition: Condition::AtMost(b_max),
+                    accuracy: correct(&|v| v <= b_max),
+                    labels: Vec::new(),
                 });
+            } else if b_min > a_max {
                 consider(Split {
                     column: c,
-                    condition: Condition::AtLeast(t),
-                    accuracy: correct(&|v| v >= t),
+                    condition: Condition::AtLeast(b_min),
+                    accuracy: correct(&|v| v >= b_min),
+                    labels: Vec::new(),
                 });
+            } else {
+                // Overlapping ranges: the best cut among the values of `other`.
+                for &t in &b {
+                    consider(Split {
+                        column: c,
+                        condition: Condition::AtMost(t),
+                        accuracy: correct(&|v| v <= t),
+                        labels: Vec::new(),
+                    });
+                    consider(Split {
+                        column: c,
+                        condition: Condition::AtLeast(t),
+                        accuracy: correct(&|v| v >= t),
+                        labels: Vec::new(),
+                    });
+                }
             }
         }
         // Categories: the values of `other`, when there are few of them, in
@@ -1498,15 +1610,26 @@ fn split_rule(table: &Table, target: usize, main: &[usize], other: &[usize]) -> 
         let mut cats: Vec<f64> = b.clone();
         cats.sort_by(f64::total_cmp);
         cats.dedup();
+        // Text categories may have more labels than numeric codes.
+        let max_values = if category {
+            MAX_TEXT_CATEGORIES
+        } else {
+            MAX_CATEGORIES
+        };
         if cats.len() <= 3
             && cats.len() < b.len()
-            && distinct_values(values, MAX_CATEGORIES + 1) <= MAX_CATEGORIES
+            && distinct_values(values, max_values + 1) <= max_values
         {
             let accuracy = correct(&|v| cats.contains(&v));
+            let labels = cats
+                .iter()
+                .filter_map(|&v| table.label(c, v).map(str::to_string))
+                .collect();
             consider(Split {
                 column: c,
                 condition: Condition::OneOf(cats),
                 accuracy,
+                labels,
             });
         }
     }
@@ -1555,7 +1678,7 @@ fn search_rows(
 }
 
 /// Rows (from `rows`) where `formula` reproduces `y` within tolerance.
-fn matching_rows(
+pub(crate) fn matching_rows(
     formula: &Expr,
     table: &Table,
     rows: &[usize],
@@ -1616,7 +1739,7 @@ fn ranked_inputs(table: &Table, target: usize, skip: &[bool]) -> Vec<usize> {
     let present = y.iter().filter(|v| v.is_finite()).count();
     let mut scored: Vec<(f64, usize)> = (0..table.columns.len())
         .filter(|&c| c != target && !skip.get(c).copied().unwrap_or(false))
-        .filter(|&c| !is_constant(&table.columns[c]))
+        .filter(|&c| !is_constant(&table.columns[c]) && !table.is_category(c))
         // Only rows where every input is present are searched, so a column
         // missing in many of the target's rows would leave too few of them.
         .filter(|&c| {
@@ -1703,7 +1826,7 @@ fn input_score(x: &[f64], y: &[f64]) -> f64 {
 /// of the share of the variance of `y` explained by its mean in each
 /// category, less what that many categories explain by chance. 1 when `x`
 /// alone fixes `y`, whatever the shape of the relation.
-fn correlation_ratio(x: &[f64], y: &[f64]) -> f64 {
+pub(crate) fn correlation_ratio(x: &[f64], y: &[f64]) -> f64 {
     let mut groups: Vec<(f64, f64, usize)> = Vec::new(); // value, sum of y, count
     let (mut sum, mut sum2, mut n) = (0.0, 0.0, 0usize);
     for (&a, &b) in x.iter().zip(y) {
@@ -2006,7 +2129,7 @@ fn remap_vars(e: &Expr, map: &[usize]) -> Expr {
     }
 }
 
-fn collect_vars(e: &Expr, out: &mut Vec<usize>) {
+pub(crate) fn collect_vars(e: &Expr, out: &mut Vec<usize>) {
     match e {
         Expr::Var(i) => out.push(*i),
         Expr::Const(_) | Expr::Param(_) => {}
@@ -2288,7 +2411,46 @@ mod tests {
             decimals: vec![Some(0), Some(0), Some(2)],
             units: vec![None; 3],
             timestamps: Vec::new(),
+            labels: Vec::new(),
         }
+    }
+
+    #[test]
+    fn a_text_category_splits_two_formulas_and_is_never_a_target() {
+        // Spain at 21%, Canary Islands at 7%, by a text column.
+        let n = 60;
+        let net: Vec<f64> = (0..n).map(|i| 20.0 + ((i * 37) % 101) as f64).collect();
+        let region: Vec<f64> = (0..n).map(|i| ((i * 7) % 3 == 0) as u8 as f64).collect();
+        let vat: Vec<f64> = (0..n)
+            .map(|i| {
+                let rate = if region[i] == 1.0 { 0.07 } else { 0.21 };
+                (net[i] * rate * 100.0).round() / 100.0
+            })
+            .collect();
+        let table = Table {
+            names: vec!["net".into(), "region".into(), "vat".into()],
+            columns: vec![net, region, vat],
+            decimals: vec![Some(0), Some(0), Some(2)],
+            labels: vec![
+                None,
+                Some(vec!["Spain".into(), "Canary Islands".into()]),
+                None,
+            ],
+            ..Table::default()
+        };
+        let found = scan(&table, &ScanConfig::default());
+        assert!(found
+            .iter()
+            .all(|d| d.target != 1 && !d.inputs.contains(&1)));
+        let d = found.iter().find(|d| d.target == 2).expect("vat is found");
+        let other = d.other.as_ref().expect("a second rate");
+        let split = other.split.as_ref().expect("the region splits them");
+        assert!(
+            ["region = Canary Islands", "region = Spain"]
+                .contains(&split.text(&table.names).as_str()),
+            "{}",
+            split.text(&table.names)
+        );
     }
 
     #[test]
@@ -2331,6 +2493,7 @@ mod tests {
             decimals: vec![Some(0), Some(0)],
             units: vec![None, None],
             timestamps: Vec::new(),
+            labels: Vec::new(),
         };
         let (shape, params) = parse_template("a * x^b", &["x", "y"]).unwrap();
         assert_eq!(params, ["a", "b"]);
@@ -2361,6 +2524,7 @@ mod tests {
             decimals: vec![Some(0), Some(2)],
             units: vec![None, None],
             timestamps: Vec::new(),
+            labels: Vec::new(),
         };
         let found = explain_column(&table, 1, &ScanConfig::default()).expect("vat is derived");
         assert_eq!(
@@ -2394,6 +2558,7 @@ mod tests {
             decimals: vec![Some(2), Some(2), Some(1), Some(0)],
             units: Vec::new(),
             timestamps: vec![true, true, false, false],
+            labels: Vec::new(),
         };
         // The real relation is still found.
         let found = explain_column(&table, 1, &ScanConfig::default()).expect("dropoff is derived");

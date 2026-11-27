@@ -35,7 +35,8 @@ fn scan_csv_finds_formulas_and_exceptions() {
     let report = scan_json("tests/invoices.csv");
     assert_eq!(report["schema_version"], 1);
     assert_eq!(report["rows"], 60);
-    assert_eq!(report["skipped_columns"][0], "product");
+    assert_eq!(report["category_columns"][0], "product");
+    assert_eq!(report["structure"]["roles"].as_array().unwrap().len(), 8);
 
     let subtotal = derived(&report, "subtotal");
     assert_eq!(subtotal["formula"], "price * quantity");
@@ -363,4 +364,32 @@ fn scan_agent_report_is_compact_and_complete() {
     assert_eq!(vat["wrong"][0]["likely"], "used 0.1 instead of 0.21");
     assert!(vat["max_error"].as_f64().unwrap() <= 0.005 + 1e-9);
     assert!(report["notes"].as_array().unwrap().len() >= 3);
+}
+
+#[test]
+fn a_quick_scan_searches_a_sample_and_confirms_on_all_rows() {
+    let (ok, stdout, stderr) = regrex(&[
+        "scan",
+        "tests/invoices.csv",
+        "--ignore",
+        "invoice",
+        "--json",
+        "--quick",
+        "--sample",
+        "20",
+    ]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(report["quick"]["sample_rows"], 20);
+    assert_eq!(report["quick"]["max_broken_share"], 0.15);
+    assert_eq!(derived(&report, "subtotal")["formula"], "price * quantity");
+    assert_eq!(derived(&report, "subtotal")["checked_rows"], 60);
+    assert!(
+        stderr.contains("provisional: subtotal = price * quantity"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("confirmed: subtotal = price * quantity"),
+        "{stderr}"
+    );
 }

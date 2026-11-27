@@ -95,6 +95,7 @@ fn scan_json(
         names,
         columns,
         timestamps: Vec::new(),
+        labels: Vec::new(),
     };
     // Like a CSV file, where the decimals are read from the text.
     table.infer_decimals();
@@ -102,6 +103,7 @@ fn scan_json(
         header: table.names.clone(),
         table,
         skipped: Vec::new(),
+        categories: Vec::new(),
         rows: Vec::new(),
         sheets: Vec::new(),
         converted: Vec::new(),

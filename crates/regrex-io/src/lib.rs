@@ -25,6 +25,9 @@ pub mod agent;
 mod cells;
 #[cfg(any(feature = "parquet", feature = "arrow"))]
 mod columnar;
+mod hidden;
+pub mod text_relations;
+pub use text_relations::{text_relations, TextRelation};
 mod json;
 pub mod report;
 #[cfg(feature = "sqlite")]
@@ -40,8 +43,13 @@ use std::io::Cursor;
 pub struct Loaded {
     /// The numeric columns.
     pub table: Table,
-    /// Names of the columns that were not numeric.
+    /// Names of the text columns that were left out: free text, with
+    /// about as many different values as rows.
     pub skipped: Vec<String>,
+    /// Names of the text columns read as categories (see
+    /// [`regrex_core::Table::labels`]): codes, names, types and modes, which
+    /// can decide which formula applies but are not computed with.
+    pub categories: Vec<String>,
     /// Every column name, numeric or not, in file order.
     pub header: Vec<String>,
     /// Every data row as text, in file order (row 1 is `rows[0]`), for
@@ -309,11 +317,59 @@ fn clearly_decimal_comma(s: &str) -> bool {
         })
 }
 
+/// Reads a text column as categories: each different (trimmed) text gets a
+/// number, in order of first appearance, and missing cells none. Columns
+/// with about as many texts as rows (free text, unique ids) are not
+/// categories: nothing repeats to tell rows apart.
+fn read_categories(cells: &[&str]) -> Option<(Vec<Option<f64>>, Vec<String>)> {
+    let mut labels: Vec<String> = Vec::new();
+    let mut index: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    let mut present = 0;
+    let codes: Vec<Option<f64>> = cells
+        .iter()
+        .map(|s| {
+            if cells::is_missing(s) {
+                return None;
+            }
+            present += 1;
+            let s = s.trim();
+            let next = labels.len();
+            let i = *index.entry(s).or_insert_with(|| {
+                labels.push(s.to_string());
+                next
+            });
+            Some(i as f64)
+        })
+        .collect();
+    (present > 0 && labels.len() * 2 <= present).then_some((codes, labels))
+}
+
+/// Adds the numbers read out of a text column (see [`hidden`]) as columns.
+fn push_hidden(
+    table: &mut Table,
+    converted: &mut Vec<(String, String)>,
+    header_name: &str,
+    hidden: Vec<hidden::Hidden>,
+) {
+    for h in hidden {
+        converted.push((header_name.to_string(), format!("{}: {}", h.name, h.note)));
+        table.names.push(h.name);
+        table.units.push(None);
+        table
+            .columns
+            .push(h.values.iter().map(|v| v.unwrap_or(f64::NAN)).collect());
+        table.decimals.push(h.decimals);
+        table.timestamps.push(false);
+        table.labels.push(None);
+    }
+}
+
 /// Keeps columns where most non-empty cells are numbers, or can be read as
 /// numbers (see [`cells`]).
 fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>) -> Loaded {
     let mut table = Table::default();
     let mut skipped = Vec::new();
+    let mut categories = Vec::new();
     let mut converted = Vec::new();
     // If any cell in the file clearly uses a decimal comma, they all do.
     let comma_decimal = rows.iter().flatten().any(|s| clearly_decimal_comma(s));
@@ -341,6 +397,8 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
         } else {
             name
         };
+        let mut labels = None;
+        let mut hidden = Vec::new();
         let (values, decimals, timestamp) = if non_empty > 0 && numeric * 10 >= non_empty * 9 {
             (
                 parsed.iter().map(|p| p.map(|(v, _)| v)).collect::<Vec<_>>(),
@@ -357,8 +415,16 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
             converted.push((header_name.clone(), reading.note));
             (reading.values, reading.decimals, reading.timestamp)
         } else {
-            skipped.push(header_name.clone());
-            continue;
+            hidden = hidden::hidden_numbers(&name, &cells, comma_decimal);
+            if let Some((codes, names)) = read_categories(&cells) {
+                categories.push(header_name.clone());
+                labels = Some(names);
+                (codes, Some(0), false)
+            } else {
+                skipped.push(header_name.clone());
+                push_hidden(&mut table, &mut converted, header_name, hidden);
+                continue;
+            }
         };
         table.names.push(name);
         table.units.push(unit);
@@ -367,10 +433,13 @@ fn build_table(header: Vec<String>, rows: Vec<Vec<String>>, sheets: Vec<String>)
             .push(values.iter().map(|v| v.unwrap_or(f64::NAN)).collect());
         table.decimals.push(decimals);
         table.timestamps.push(timestamp);
+        table.labels.push(labels);
+        push_hidden(&mut table, &mut converted, header_name, hidden);
     }
     Loaded {
         table,
         skipped,
+        categories,
         rows,
         header,
         sheets,

@@ -26,8 +26,13 @@ pub struct ScanReport {
     pub rows: usize,
     /// Numeric columns.
     pub columns: Vec<String>,
-    /// Columns that were not numeric.
+    /// Text columns left out (free text, about one value per row).
     pub skipped_columns: Vec<String>,
+    /// Text columns read as categories: they tell rows apart but are not
+    /// computed with.
+    pub category_columns: Vec<String>,
+    /// How the table is laid out and what each column is for.
+    pub structure: StructureJson,
     /// Columns that were not plain numbers but were read as numbers
     /// (`true`/`false`, times, dates, numbers with a unit), and how.
     pub converted_columns: Vec<ConvertedJson>,
@@ -36,10 +41,134 @@ pub struct ScanReport {
     /// Columns that were searched without finding a formula, with the
     /// columns tried as their inputs.
     pub not_found: Vec<NotFoundJson>,
+    /// Relations between text columns: concatenations and codes that match
+    /// names one to one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub text_relations: Vec<TextRelationJson>,
+    /// For a quick scan (`--quick`), what was searched on a sample only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quick: Option<QuickJson>,
     /// Formulas the scan found but did not report, because they hold on too
     /// few rows or only within a group: where to look next. Most rows
     /// matched first.
     pub near_misses: Vec<NearMissJson>,
+}
+
+/// How a quick scan was done (see [`regrex_core::progressive`]).
+#[derive(Debug, Clone, Serialize)]
+pub struct QuickJson {
+    /// Rows of the sample every column was searched on.
+    pub sample_rows: usize,
+    /// With 95% confidence, a formula that matched every sampled row is
+    /// broken by less than this share of all rows (3 / sample_rows).
+    pub max_broken_share: f64,
+    /// Columns without a formula on the sample, not searched on all rows.
+    pub not_searched: Vec<String>,
+    /// Formulas found on the sample that did not hold on all rows.
+    pub dropped: Vec<String>,
+}
+
+/// A relation between text columns (see [`crate::text_relations()`]).
+#[derive(Debug, Clone, Serialize)]
+pub struct TextRelationJson {
+    /// The column explained.
+    pub column: String,
+    /// What holds, as in `line + "|" + track`.
+    pub formula: String,
+    /// The other columns of the relation.
+    pub inputs: Vec<String>,
+    /// Rows where it holds.
+    pub matched_rows: usize,
+    /// Rows where every column of the relation has a value.
+    pub checked_rows: usize,
+}
+
+/// How the table is laid out (see [`mod@regrex_core::profile`]).
+#[derive(Debug, Clone, Serialize)]
+pub struct StructureJson {
+    /// Columns that split the rows into independent sequences.
+    pub groups: Vec<String>,
+    /// The column that orders the rows within each group.
+    pub order: Option<String>,
+    /// What each column is for, in column order.
+    pub roles: Vec<RoleJson>,
+}
+
+/// What one column is for.
+#[derive(Debug, Clone, Serialize)]
+pub struct RoleJson {
+    /// The column.
+    pub column: String,
+    /// `measurement`, `regime`, `group key`, `order`, `code`,
+    /// `identifier`, `flag` or `constant`.
+    pub role: String,
+    /// Whether the column is text read as categories.
+    pub category: bool,
+    /// Different values.
+    pub distinct: usize,
+    /// Average run of equal values along the order, when there is one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mean_run: Option<f64>,
+}
+
+impl StructureJson {
+    /// The structure of `table`.
+    pub fn new(table: &regrex_core::Table) -> Self {
+        let p = regrex_core::profile(table);
+        let names = &table.names;
+        StructureJson {
+            groups: p.groups.iter().map(|&g| names[g].clone()).collect(),
+            order: p.order.map(|o| names[o].clone()),
+            roles: p
+                .columns
+                .iter()
+                .enumerate()
+                .map(|(i, c)| RoleJson {
+                    column: names[i].clone(),
+                    role: c.role.name().to_string(),
+                    category: c.category,
+                    distinct: c.distinct,
+                    mean_run: c.mean_run.map(|r| (r * 10.0).round() / 10.0),
+                })
+                .collect(),
+        }
+    }
+
+    /// One or two lines for people, such as `Rows: grouped by line, track,
+    /// in order of pk. Regimes: curve_type.`
+    pub fn summary(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(order) = &self.order {
+            if self.groups.is_empty() {
+                parts.push(format!("Rows in order of {order}."));
+            } else {
+                parts.push(format!(
+                    "Rows grouped by {}, in order of {order}.",
+                    self.groups.join(", ")
+                ));
+            }
+        }
+        // Numbers with few values are codes for the profile, but in a
+        // summary they would read as if they were not computed with.
+        let with = |role: &str| -> Vec<String> {
+            self.roles
+                .iter()
+                .filter(|r| r.role == role && (r.category || role == "regime"))
+                .map(|r| r.column.clone())
+                .collect()
+        };
+        for (role, label) in [
+            ("regime", "Regimes"),
+            ("code", "Codes"),
+            ("identifier", "Identifiers"),
+        ] {
+            let cols = with(role);
+            if !cols.is_empty() {
+                parts.push(format!("{label}: {}.", cols.join(", ")));
+            }
+        }
+        parts.join(" ")
+    }
 }
 
 /// Rows of a near miss listed in [`NearMissJson::missed_rows`].
@@ -192,6 +321,44 @@ pub struct DerivedJson {
     /// When the column is a copy of another one (the same values, maybe
     /// shifted or scaled, such as `serial + 1` or `1000 * km`), that column.
     pub copy_of: Option<String>,
+    /// When the formula changes with a regime column (a curve type, a
+    /// region), that column and one piece per value; `formula` then sums
+    /// them up.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub regime: Option<RegimeJson>,
+    /// Whether the formula links each row to the previous one, in the
+    /// order of the table (a running total, a chainage along coordinates).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub between_rows: bool,
+}
+
+/// A formula per value of a regime column.
+#[derive(Debug, Clone, Serialize)]
+pub struct RegimeJson {
+    /// The regime column.
+    pub column: String,
+    /// One piece per value.
+    pub pieces: Vec<PieceJson>,
+}
+
+/// The formula for the rows with one value of the regime column.
+#[derive(Debug, Clone, Serialize)]
+pub struct PieceJson {
+    /// The value, as written in the file.
+    pub value: String,
+    /// The formula, such as `0`, `0.21 * net`, `constant per run` or
+    /// `c0 + c1 * pk, constants per run`.
+    pub formula: String,
+    /// Whether the constants are fitted again on each run of consecutive
+    /// rows (each curve, each section).
+    pub per_run: bool,
+    /// Rows with this value.
+    pub rows: usize,
+    /// Rows the formula reproduces.
+    pub matched_rows: usize,
+    /// Runs of consecutive rows, for `per_run` pieces.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runs: Option<usize>,
 }
 
 /// A second formula for some rows of a derived column.
@@ -413,10 +580,16 @@ impl DerivedJson {
                 accuracy: split.accuracy,
             }),
         });
+        // A piecewise formula has no single expected value to compare with.
+        let details = if d.regime.is_some() || d.steps {
+            0
+        } else {
+            MAX_EXCEPTION_DETAILS
+        };
         let exceptions = d
             .exceptions
             .iter()
-            .take(MAX_EXCEPTION_DETAILS)
+            .take(details)
             .map(|&r| {
                 let row: Vec<f64> = table.columns.iter().map(|c| c[r]).collect();
                 let follows_other = other
@@ -455,12 +628,32 @@ impl DerivedJson {
             match_ratio: d.match_ratio(),
             exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
             exceptions,
-            known: if d.copy { None } else { known_column(table, d) },
+            known: if d.copy || d.regime.is_some() || d.steps {
+                None
+            } else {
+                known_column(table, d)
+            },
             other,
             copy_of: d
                 .copy
                 .then(|| d.inputs.first().map(|&i| names[i].clone()))
                 .flatten(),
+            regime: d.regime.as_ref().map(|g| RegimeJson {
+                column: names[g.column].clone(),
+                pieces: g
+                    .pieces
+                    .iter()
+                    .map(|p| PieceJson {
+                        value: p.label.clone(),
+                        formula: p.text.clone(),
+                        per_run: p.per_run,
+                        rows: p.rows,
+                        matched_rows: p.matched,
+                        runs: p.per_run.then_some(p.runs),
+                    })
+                    .collect(),
+            }),
+            between_rows: d.steps,
         }
     }
 }
@@ -511,6 +704,8 @@ impl ScanReport {
             rows: loaded.table.n_rows(),
             columns: names.clone(),
             skipped_columns: loaded.skipped.clone(),
+            category_columns: loaded.categories.clone(),
+            structure: StructureJson::new(&loaded.table),
             converted_columns: loaded
                 .converted
                 .iter()
@@ -524,8 +719,38 @@ impl ScanReport {
                 .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
                 .collect(),
             not_found: not_found(&loaded.table, derived),
+            text_relations: crate::text_relations(loaded)
+                .into_iter()
+                .map(|r| TextRelationJson {
+                    column: r.column,
+                    formula: r.formula,
+                    inputs: r.inputs,
+                    matched_rows: r.matched,
+                    checked_rows: r.checked,
+                })
+                .collect(),
+            quick: None,
             near_misses: Vec::new(),
         }
+    }
+
+    /// Adds what a quick scan left out; the columns not searched on all
+    /// rows are not listed as searched without a formula.
+    pub fn with_quick(mut self, table: &regrex_core::Table, q: &regrex_core::QuickScan) -> Self {
+        let names = &table.names;
+        let not_searched: Vec<String> = q.not_searched.iter().map(|&c| names[c].clone()).collect();
+        self.not_found.retain(|m| !not_searched.contains(&m.column));
+        self.quick = Some(QuickJson {
+            sample_rows: q.sample_rows,
+            max_broken_share: q.sample_bound(),
+            not_searched,
+            dropped: q
+                .dropped
+                .iter()
+                .map(|d| format!("{} = {}", names[d.target], d.formula_text))
+                .collect(),
+        });
+        self
     }
 
     /// Adds the near misses of the scan ([`regrex_core::scan_detailed`]).
@@ -581,14 +806,46 @@ impl ScanReport {
             "{}: {} rows, {} numeric columns",
             self.file,
             self.rows,
-            self.columns.len()
+            self.columns.len() - self.category_columns.len()
         );
+        if !self.category_columns.is_empty() {
+            let _ = writeln!(
+                s,
+                "Text read as categories: {}",
+                self.category_columns.join(", ")
+            );
+        }
         if !self.skipped_columns.is_empty() {
             let _ = writeln!(
                 s,
-                "Skipped (not numeric): {}",
+                "Skipped (free text): {}",
                 self.skipped_columns.join(", ")
             );
+        }
+        let summary = self.structure.summary();
+        if !summary.is_empty() {
+            let _ = writeln!(s, "{summary}");
+        }
+        if let Some(q) = &self.quick {
+            let _ = writeln!(
+                s,
+                "Quick scan: every column searched on {} of {} rows, formulas confirmed on all rows.",
+                q.sample_rows, self.rows
+            );
+            if !q.not_searched.is_empty() {
+                let _ = writeln!(
+                    s,
+                    "Not searched on all rows (no formula on the sample): {}",
+                    q.not_searched.join(", ")
+                );
+            }
+            if !q.dropped.is_empty() {
+                let _ = writeln!(
+                    s,
+                    "Found on the sample but not on all rows: {}",
+                    q.dropped.join("; ")
+                );
+            }
         }
         if !self.converted_columns.is_empty() {
             let list: Vec<String> = self
@@ -613,10 +870,35 @@ impl ScanReport {
             .unwrap_or(0);
         let fwidth = main
             .iter()
+            .filter(|d| d.regime.is_none())
             .map(|d| d.formula.chars().count())
             .max()
             .unwrap_or(0);
         for d in main {
+            if let Some(g) = &d.regime {
+                // One line per piece: `  Clothoid  1 / (c0 + c1 * pk), ...`.
+                let _ = write!(
+                    s,
+                    "  {:<width$} = by {}   {}/{} rows",
+                    d.column, g.column, d.matched_rows, d.checked_rows
+                );
+                let lw = g
+                    .pieces
+                    .iter()
+                    .map(|p| p.value.chars().count())
+                    .max()
+                    .unwrap_or(0);
+                for p in &g.pieces {
+                    let runs = p.runs.map(|n| format!(", {n} runs")).unwrap_or_default();
+                    let _ = write!(
+                        s,
+                        "\n  {:width$}     {:<lw$}  {}   ({}/{} rows{runs})",
+                        "", p.value, p.formula, p.matched_rows, p.rows
+                    );
+                }
+                let _ = writeln!(s);
+                continue;
+            }
             let _ = write!(
                 s,
                 "  {:<width$} = {:<fwidth$}   {}/{} rows",
@@ -691,6 +973,17 @@ impl ScanReport {
         if !copies.is_empty() {
             let _ = writeln!(s, "\nCopies of other columns:");
             s += &copies_text(&copies);
+        }
+        if !self.text_relations.is_empty() {
+            let _ = writeln!(s, "\nText relations:");
+            for r in &self.text_relations {
+                let rows = if r.matched_rows == r.checked_rows {
+                    String::new()
+                } else {
+                    format!(" ({}/{} rows)", r.matched_rows, r.checked_rows)
+                };
+                let _ = writeln!(s, "  {} = {}{rows}", r.column, r.formula);
+            }
         }
         s += &self.near_misses_text();
         s

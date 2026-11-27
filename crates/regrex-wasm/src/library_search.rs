@@ -209,6 +209,7 @@ mod tests {
             units: vec![None; columns.len()],
             columns,
             timestamps: Vec::new(),
+            labels: Vec::new(),
         }
     }
 
