@@ -336,7 +336,7 @@ impl Dataset {
     }
 
     /// Like [`Dataset::explain`], telling `on_event` what the search is
-    /// doing (one JSON object per call, see [`EventJson`]) and returning
+    /// doing (one JSON object per call, such as `{"kind":"best", "column":…}`) and returning
     /// `{"found": derived column or null, "near_misses": [...]}`: the
     /// formulas it found but did not report, as in the command-line JSON.
     pub fn explain_detailed(
