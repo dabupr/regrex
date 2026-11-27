@@ -180,8 +180,14 @@ fn run(base: &Path, case: &Case) -> Result<Outcome, String> {
         loaded.table.remove_column(i);
     }
     let names = loaded.table.names.clone();
+    // Text columns the reader skips can still belong to a relation (one
+    // that is not found yet).
     for rel in &case.relations {
-        if let Some(c) = rel.columns.iter().find(|c| !names.contains(c)) {
+        if let Some(c) = rel
+            .columns
+            .iter()
+            .find(|c| !names.contains(c) && !loaded.skipped.contains(c))
+        {
             return Err(format!("no column {c:?} for `{}`", rel.formula));
         }
     }
