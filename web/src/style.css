@@ -312,7 +312,7 @@ h1 {
 /* A column in its colour. */
 .col { color: var(--col, var(--accent)); }
 span.col { font-weight: 600; }
-.formula .col { font-weight: 700; }
+.formula .col, .formula-inline .col, .progress-live .col { color: var(--col, var(--accent)); font-weight: 700; }
 th.colhead { box-shadow: inset 0 3px 0 var(--col); }
 th.colhead label, th.colhead { color: var(--text); }
 .chart.graph .node rect { stroke: var(--col, var(--border)); }

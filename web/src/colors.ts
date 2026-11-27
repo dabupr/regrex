@@ -9,7 +9,7 @@ const order = new Map<string, number>();
 /** Gives the columns of a newly read file their colours, in file order. */
 export function setColumns(names: string[]) {
   order.clear();
-  names.forEach((n) => order.set(n, order.size));
+  for (const n of names) if (!order.has(n)) order.set(n, order.size);
 }
 
 /** The CSS colour of a column: `GIS5550` read as `code#num` shares the colour of `code`. */
