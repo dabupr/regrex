@@ -9,14 +9,20 @@ Regrex runs in the browser (WebAssembly, data never leaves the device), as a com
 - [README](https://github.com/dabupr/regrex/blob/main/README.md): what Regrex does, install and quick examples
 - [JSON output](https://github.com/dabupr/regrex/blob/main/docs/json-output.md): fields of scan and fit reports, formula syntax
 - [MCP server](https://github.com/dabupr/regrex/blob/main/docs/mcp.md): `regrex mcp` setup for Claude, Cursor and VS Code, and its tools
-- [Python package](https://github.com/dabupr/regrex/blob/main/crates/regrex-py/README.md): `regrex.search`, `regrex.scan`, `regrex.scan_file`
+- [Python package](https://github.com/dabupr/regrex/blob/main/crates/regrex-py/README.md): `regrex.search`, `regrex.scan`, `regrex.scan_file`, `regrex.describe_file`
 - [Roadmap](https://github.com/dabupr/regrex/blob/main/docs/ROADMAP.md): planned phases
 
 ## Usage
 
+- `regrex describe FILE --json`: what the table holds, without searching: each column's role (group key, order, regime, code, measurement), values and range, and relations between text columns. About as fast as reading the file; use it first on a large or unknown file
 - `regrex scan FILE --ignore id --json`: computed columns and exception rows
+- `regrex scan FILE --agent`: compact report for an agent to judge the results (column summaries, structure, errors of each formula, near misses, inputs tried)
+- `regrex scan FILE --quick`: search a sample of rows first and confirm on all rows; several times faster on large files
+- `regrex scan A --with B`: match the rows of two files on the columns both have (line, track, chainage) and find relations between them
 - `regrex fit FILE --target COLUMN --json`: candidate formulas for one column
-- `regrex mcp`: MCP server on stdio with tools `scan_dataset`, `fit_formula`, `fit_values`, `check_formula`, `check_units`
+- `regrex mcp`: MCP server on stdio with tools `describe_table`, `scan_dataset` (with `with`, `quick`, `sample` and `format: "agent"`), `fit_formula`, `fit_values`, `check_formula`, `check_units`
+- A typical agent session: `describe_table` on the file, then `scan_dataset` with `quick: true` and `format: "agent"`, then `check_formula` on what looks plausible
+- No AI inside: the same file and options always give the same result
 - Units in headers, such as `time (s)` or `distance [m]`, rule out formulas that mix incompatible units
 
 ## Optional

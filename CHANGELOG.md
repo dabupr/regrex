@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- For AI agents and scripts, the MCP server and the Python package do what the command line does ([#113](https://github.com/dabupr/regrex/issues/113)):
+  - a second file matched on the columns both have (MCP `with`, Python `scan_file(..., with_=...)`);
+  - a quick scan on a sample confirmed on all rows (MCP `quick` and `sample`, Python `quick=True`);
+  - `regrex describe`, the MCP tool `describe_table` and Python's `describe_file` tell what a table holds without searching: every column with its values and range, the groups and order of the rows, the role of each column and the relations between text columns, in about the time it takes to read the file (9 s on a 249,000-row table, against half a minute for a quick scan);
+  - the agent report (`--agent`, MCP `format: "agent"`) also gives the `structure` and `text_relations`, and works with a quick scan;
+  - reports say how the rows of the two files were matched in `joined`;
+  - the Python results have typed fields (`regrex.ScanReport`, `regrex.Description`, `regrex.Structure`…) for type checkers.
 - The scan works out what each column is for, without AI: group keys (line, track), the column that orders the rows (a chainage, a time), text columns read as categories (types, names, codes), identifiers and measurements, shown in the text report and in `structure` in the JSON report (`regrex_core::profile`). Text columns are no longer skipped: their values can decide which formula applies ([#98](https://github.com/dabupr/regrex/issues/98)).
 - Formulas that change with a text column: `cant = by curve_type: Straight 0; Circular constant along stretches; Clothoid c0 + c1 * pk, constants per run`, with constants fitted on each run of rows, and rates per category such as a VAT rate per country, even in shuffled rows (`derived[].regime` in the JSON report) ([#101](https://github.com/dabupr/regrex/issues/101), [#72](https://github.com/dabupr/regrex/issues/72)).
 - Formulas between consecutive rows of an ordered table: a running total (`previous balance + amount`), a chainage that grows by the distance between consecutive points `(x, y)` or `(x, y, z)`, and a gradient that is the slope of a height on each stretch (`derived[].between_rows`) ([#100](https://github.com/dabupr/regrex/issues/100)).
@@ -53,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Numbers that round to a whole number lost their trailing zeros: 437029.8 was printed as `43703` instead of `437030`, in formulas and column ranges.
 - A value constant along stretches that is neither another column nor a slope is kept as it is again, without searching each part for a formula: a circuit code per stretch took 2 minutes to rule out on the 249,000-row track table, now under 10 s (`regrex scan --quick` 74 s → 33 s there, the web app 3.6 → 1.4 min).
 - A chainage given in whole metres (a point every metre about 0.997 m apart) is again found as `previous PK + distance between consecutive (x, y)`: it is now checked over 50 steps instead of one, since one step is off by up to half a metre once rounded. The web app, which reads Parquet values like `2833.0` as whole numbers, missed it.
 - A 0 in a row that breaks a formula is no longer explained as a factor ("1/100 of the expected value"): such a cell gets the new diagnosis `zero` (a missing value, or a reading that was off), and sign and factor mistakes are only looked for between values that are clearly not zero ([#27](https://github.com/dabupr/regrex/issues/27)).

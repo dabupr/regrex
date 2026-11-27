@@ -23,6 +23,15 @@ for d in report["derived"]:
 
 # Also works with pandas DataFrames or dicts of columns:
 report = regrex.scan(df, units={"time": "s", "distance": "m"})
+
+# What does a large file hold? Roles, groups, order, text relations; nothing searched.
+info = regrex.describe_file("track.parquet")
+print(info["structure"]["groups"], info["structure"]["order"])
+
+# Search a sample first and confirm on all rows (much faster on large files),
+# with the rows of a second file matched on the columns both have.
+report = regrex.scan_file("track.parquet", with_="design.csv", quick=True)
+print(report["joined"]["keys"], report["quick"]["sample_rows"])
 ```
 
 Results are plain dictionaries with the same fields as the `--json` output of the `regrex` command-line tool.

@@ -99,3 +99,47 @@ def test_scan_takes_decimals_by_hand():
     vat_row = next(d for d in report["derived"] if d["column"] == "vat")
     assert vat_row["formula"] == "0.21 * net"
     assert vat_row["exception_rows"] == []
+
+
+def _track(tmp_path):
+    """A small track table and a second file of designed radii, matched on
+    line and chainage."""
+    a = ["line,pk,curve,radius"]
+    b = ["line,pk,design_radius"]
+    for line in ("L1", "L2"):
+        for pk in range(0, 400, 5):
+            curve = "circular" if 100 <= pk < 300 else "straight"
+            r = 500 + (pk // 100) * 100 if curve == "circular" else 0
+            a.append(f"{line},{pk},{curve},{r}")
+            b.append(f"{line},{pk},{r}")
+    pa, pb = tmp_path / "track.csv", tmp_path / "design.csv"
+    pa.write_text("\n".join(a) + "\n")
+    pb.write_text("\n".join(b) + "\n")
+    return pa, pb
+
+
+def test_scan_file_with_a_second_file(tmp_path):
+    a, b = _track(tmp_path)
+    report = regrex.scan_file(a, with_=b)
+    assert report["joined"]["keys"] == ["line", "pk"]
+    assert report["joined"]["matched_rows"] == report["rows"] == 160
+    copy = next(d for d in report["derived"] if d["column"] == "design_radius")
+    assert copy["copy_of"] == "radius"
+
+
+def test_quick_scan_file():
+    report = regrex.scan_file(DATA / "invoices.csv", ignore=["invoice"], max_size=3, quick=True)
+    assert report["quick"]["sample_rows"] == 60
+    assert report["quick"]["dropped"] == []
+    assert {d["column"] for d in report["derived"]} >= {"price", "subtotal"}
+
+
+def test_describe_file_gives_the_structure(tmp_path):
+    a, _ = _track(tmp_path)
+    d = regrex.describe_file(a)
+    assert d["describe_schema_version"] == 1
+    assert d["rows"] == 160
+    assert d["structure"]["groups"] == ["line"]
+    assert d["structure"]["order"] == "pk"
+    kinds = {c["name"]: c["kind"] for c in d["columns"]}
+    assert kinds["curve"] == "text" and kinds["radius"] == "number"

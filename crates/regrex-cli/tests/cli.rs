@@ -143,6 +143,8 @@ fn mcp_server_over_stdio() {
         r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#,
         r#"{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"scan_dataset","arguments":{"path":"tests/invoices.csv","ignore":["invoice"],"columns":["vat"]}}}"#,
         r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"check_formula","arguments":{"path":"tests/invoices.csv","target":"vat","formula":"0.21 * net"}}}"#,
+        r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"describe_table","arguments":{"path":"tests/invoices.csv"}}}"#,
+        r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"scan_dataset","arguments":{"path":"tests/invoices.csv","ignore":["invoice"],"quick":true,"sample":20,"max_size":3,"format":"agent"}}}"#,
     ];
     {
         let mut stdin = child.stdin.take().unwrap();
@@ -157,7 +159,7 @@ fn mcp_server_over_stdio() {
         .lines()
         .map(|l| serde_json::from_str(l).expect("one JSON message per line"))
         .collect();
-    assert_eq!(responses.len(), 3, "the notification gets no response");
+    assert_eq!(responses.len(), 5, "the notification gets no response");
     assert_eq!(responses[0]["result"]["protocolVersion"], "2025-06-18");
 
     let scan = &responses[1]["result"]["structuredContent"];
@@ -166,6 +168,34 @@ fn mcp_server_over_stdio() {
     let check = &responses[2]["result"]["structuredContent"];
     assert_eq!(check["exception_rows"], serde_json::json!([42]));
     assert_eq!(check["checked_rows"], 60);
+
+    let described = &responses[3]["result"]["structuredContent"];
+    assert_eq!(described["rows"], 60);
+    assert_eq!(described["structure"]["order"], "invoice");
+    assert!(described.get("derived").is_none(), "nothing is searched");
+
+    let quick = &responses[4]["result"]["structuredContent"];
+    assert_eq!(quick["quick"]["sample_rows"], 20);
+    assert!(quick["structure"]["roles"].as_array().unwrap().len() >= 8);
+    assert!(quick["found"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["formula"] == "price * quantity"));
+}
+
+#[test]
+fn describe_tells_what_each_column_holds() {
+    let (ok, stdout, stderr) = regrex(&["describe", "tests/invoices.csv"]);
+    assert!(ok, "{stderr}");
+    assert!(stdout.contains("60 rows, 9 columns"), "{stdout}");
+    assert!(stdout.contains("Rows in order of invoice."), "{stdout}");
+    assert!(stdout.contains("product       code"), "{stdout}");
+    let (ok, stdout, _) = regrex(&["describe", "tests/invoices.csv", "--json"]);
+    assert!(ok);
+    let d: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(d["describe_schema_version"], 1);
+    assert_eq!(d["columns"][1]["kind"], "text");
 }
 
 #[test]
@@ -428,6 +458,8 @@ fn with_a_second_file_matched_on_shared_columns() {
         "{stderr}"
     );
     let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(report["joined"]["keys"], serde_json::json!(["line", "pk"]));
+    assert_eq!(report["joined"]["matched_rows"], 60);
     let formulas: Vec<String> = report["derived"]
         .as_array()
         .unwrap()

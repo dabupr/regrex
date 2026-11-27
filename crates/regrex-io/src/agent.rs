@@ -13,7 +13,7 @@
 //! Everything in it is computed by Regrex; deciding whether a formula is
 //! plausible is left to the reader.
 
-use crate::report::{DerivedJson, NearMissJson};
+use crate::report::{DerivedJson, NearMissJson, QuickJson, StructureJson, TextRelationJson};
 use crate::Loaded;
 use regrex_core::{find_copies, inputs_tried, DerivedColumn, NearMiss, ScanConfig, Table};
 use serde::Serialize;
@@ -27,7 +27,7 @@ pub const AGENT_SCHEMA_VERSION: u32 = 1;
 pub const MAX_ROWS: usize = 10;
 
 /// Different values counted per column, at most.
-const MAX_DISTINCT: usize = 1000;
+pub const MAX_DISTINCT: usize = 1000;
 
 /// A scan result for AI agents, see the [module](self) documentation.
 #[derive(Debug, Clone, Serialize)]
@@ -40,6 +40,18 @@ pub struct AgentReport {
     pub rows: usize,
     /// Every column of the file, in order.
     pub columns: Vec<AgentColumn>,
+    /// How the table is laid out: groups, order and what each column is
+    /// for, as in the scan report.
+    pub structure: StructureJson,
+    /// Relations between text columns, as in the scan report.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub text_relations: Vec<TextRelationJson>,
+    /// When a second file was given, how its rows were matched.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub joined: Option<crate::JoinedJson>,
+    /// For a quick scan, what was searched on a sample only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quick: Option<QuickJson>,
     /// Columns computed from others.
     pub found: Vec<AgentFormula>,
     /// Formulas found but not reported, most rows matched first.
@@ -74,8 +86,9 @@ pub struct AgentColumn {
     /// Whether the scan looked for a formula for it.
     pub searched: bool,
     /// Why not, when it was not: `text`, `constant`, `flag` (two values),
-    /// `copy` (the same values as another column, see `found`) or
-    /// `not_requested`.
+    /// `copy` (the same values as another column, see `found`),
+    /// `not_requested` or, in a quick scan, `not_on_sample` (no formula on
+    /// the sample, so not searched on all rows).
     pub not_searched: Option<&'static str>,
 }
 
@@ -192,80 +205,7 @@ impl AgentReport {
         let config = ScanConfig::default();
         let copies = find_copies(table, &config);
         let requested = |name: &str| columns.is_empty() || columns.iter().any(|c| c == name);
-        let mut out_columns = Vec::with_capacity(loaded.header.len());
-        for (i, header) in loaded.header.iter().enumerate() {
-            // Text read as categories is still text for the agent.
-            let numeric = table
-                .names
-                .iter()
-                .position(|n| n == header || regrex_core::units::split_header(header).0 == *n)
-                .filter(|&c| !table.is_category(c));
-            out_columns.push(match numeric {
-                Some(c) => {
-                    let values = &table.columns[c];
-                    let finite: Vec<f64> =
-                        values.iter().copied().filter(|v| v.is_finite()).collect();
-                    let distinct = distinct_numbers(&finite);
-                    let not_searched = if copies[c].is_some() {
-                        Some("copy")
-                    } else if distinct <= 1 {
-                        Some("constant")
-                    } else if distinct == 2 {
-                        Some("flag")
-                    } else if !requested(&table.names[c]) {
-                        Some("not_requested")
-                    } else {
-                        None
-                    };
-                    AgentColumn {
-                        name: table.names[c].clone(),
-                        kind: "number",
-                        read_as: loaded
-                            .converted
-                            .iter()
-                            .find(|(h, _)| h == header)
-                            .map(|(_, how)| how.clone()),
-                        distinct,
-                        missing: values.len() - finite.len(),
-                        min: finite.iter().copied().reduce(f64::min),
-                        max: finite.iter().copied().reduce(f64::max),
-                        increasing: finite.len() > 1 && finite.windows(2).all(|w| w[1] > w[0]),
-                        searched: not_searched.is_none(),
-                        not_searched,
-                    }
-                }
-                None => {
-                    let cells: Vec<&str> = loaded
-                        .rows
-                        .iter()
-                        .map(|r| r.get(i).map_or("", |s| s.trim()))
-                        .collect();
-                    let present: Vec<&str> =
-                        cells.iter().copied().filter(|s| !s.is_empty()).collect();
-                    let mut seen: Vec<&str> = Vec::new();
-                    for s in &present {
-                        if seen.len() >= MAX_DISTINCT {
-                            break;
-                        }
-                        if !seen.contains(s) {
-                            seen.push(s);
-                        }
-                    }
-                    AgentColumn {
-                        name: header.clone(),
-                        kind: "text",
-                        read_as: None,
-                        distinct: seen.len(),
-                        missing: cells.len() - present.len(),
-                        min: None,
-                        max: None,
-                        increasing: false,
-                        searched: false,
-                        not_searched: Some("text"),
-                    }
-                }
-            });
-        }
+        let out_columns = agent_columns(loaded, &copies, columns);
         let found = derived.iter().map(|d| formula(table, d, derived)).collect();
         let mut misses: Vec<AgentNearMiss> = near_misses
             .iter()
@@ -301,6 +241,10 @@ impl AgentReport {
             file: file.to_string(),
             rows: table.n_rows(),
             columns: out_columns,
+            structure: StructureJson::new(table),
+            text_relations: TextRelationJson::all(loaded),
+            joined: None,
+            quick: None,
             found,
             near_misses: misses,
             unexplained,
@@ -308,10 +252,118 @@ impl AgentReport {
         }
     }
 
+    /// Adds how the rows of a second file were matched.
+    pub fn with_join(mut self, joined: Option<&crate::JoinedJson>) -> Self {
+        self.joined = joined.cloned();
+        self
+    }
+
+    /// Adds what a quick scan left out: the columns not searched on all
+    /// rows are not listed as unexplained, and their `not_searched` is
+    /// `not_on_sample`.
+    pub fn with_quick(mut self, table: &Table, q: &regrex_core::QuickScan) -> Self {
+        let quick = QuickJson::new(table, q);
+        self.unexplained
+            .retain(|u| !quick.not_searched.contains(&u.column));
+        for c in &mut self.columns {
+            if quick.not_searched.contains(&c.name) {
+                c.searched = false;
+                c.not_searched = Some("not_on_sample");
+            }
+        }
+        self.quick = Some(quick);
+        self
+    }
+
     /// Compact JSON, on one line.
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).expect("report is serializable")
     }
+}
+
+/// What each column of `loaded` holds and whether a scan of `columns`
+/// (all of them when empty) searches it; `copies` is from
+/// [`find_copies`].
+pub(crate) fn agent_columns(
+    loaded: &Loaded,
+    copies: &[Option<DerivedColumn>],
+    columns: &[String],
+) -> Vec<AgentColumn> {
+    let table = &loaded.table;
+    let requested = |name: &str| columns.is_empty() || columns.iter().any(|c| c == name);
+    let mut out_columns = Vec::with_capacity(loaded.header.len());
+    for (i, header) in loaded.header.iter().enumerate() {
+        // Text read as categories is still text for the agent.
+        let numeric = table
+            .names
+            .iter()
+            .position(|n| n == header || regrex_core::units::split_header(header).0 == *n)
+            .filter(|&c| !table.is_category(c));
+        out_columns.push(match numeric {
+            Some(c) => {
+                let values = &table.columns[c];
+                let finite: Vec<f64> = values.iter().copied().filter(|v| v.is_finite()).collect();
+                let distinct = distinct_numbers(&finite);
+                let not_searched = if copies[c].is_some() {
+                    Some("copy")
+                } else if distinct <= 1 {
+                    Some("constant")
+                } else if distinct == 2 {
+                    Some("flag")
+                } else if !requested(&table.names[c]) {
+                    Some("not_requested")
+                } else {
+                    None
+                };
+                AgentColumn {
+                    name: table.names[c].clone(),
+                    kind: "number",
+                    read_as: loaded
+                        .converted
+                        .iter()
+                        .find(|(h, _)| h == header)
+                        .map(|(_, how)| how.clone()),
+                    distinct,
+                    missing: values.len() - finite.len(),
+                    min: finite.iter().copied().reduce(f64::min),
+                    max: finite.iter().copied().reduce(f64::max),
+                    increasing: finite.len() > 1 && finite.windows(2).all(|w| w[1] > w[0]),
+                    searched: not_searched.is_none(),
+                    not_searched,
+                }
+            }
+            None => {
+                let cells: Vec<&str> = loaded
+                    .rows
+                    .iter()
+                    .map(|r| r.get(i).map_or("", |s| s.trim()))
+                    .collect();
+                let present: Vec<&str> = cells.iter().copied().filter(|s| !s.is_empty()).collect();
+                let mut seen: Vec<&str> = Vec::new();
+                for s in &present {
+                    if seen.len() >= MAX_DISTINCT {
+                        break;
+                    }
+                    if !seen.contains(s) {
+                        seen.push(s);
+                    }
+                }
+                AgentColumn {
+                    name: header.clone(),
+                    kind: "text",
+                    read_as: None,
+                    distinct: seen.len(),
+                    missing: cells.len() - present.len(),
+                    min: None,
+                    max: None,
+                    increasing: false,
+                    searched: false,
+                    not_searched: Some("text"),
+                }
+            }
+        });
+    }
+    out_columns
 }
 
 /// [`AgentReport::notes`].

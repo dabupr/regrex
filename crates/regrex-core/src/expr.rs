@@ -494,8 +494,11 @@ pub fn format_number(c: f64) -> String {
     }
     let decimals = (5 - magnitude).clamp(0, 12) as usize;
     let s = format!("{c:.decimals$}");
-    let s = s.trim_end_matches('0').trim_end_matches('.');
-    s.to_string()
+    if !s.contains('.') {
+        // 437029.8 rounds to 437030: its zeros are digits, not padding.
+        return s;
+    }
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
 #[cfg(test)]
@@ -504,6 +507,14 @@ mod tests {
 
     fn v(i: usize) -> Expr {
         Expr::Var(i)
+    }
+
+    #[test]
+    fn rounding_to_a_whole_number_keeps_its_zeros() {
+        assert_eq!(format_number(437029.8), "437030");
+        assert_eq!(format_number(99999.96), "100000");
+        assert_eq!(format_number(2.50), "2.5");
+        assert_eq!(format_number(0.0795775), "0.0795775");
     }
 
     #[test]

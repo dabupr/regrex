@@ -68,6 +68,7 @@ Regimes: product, quantity, discount_pct.
 - Works out what each column is for (group keys, the order of the rows, categories, codes, measurements) and uses it: formulas that change with a text column (`cant` is 0 on straights, constant on each curve and a ramp along the chainage on transitions), formulas between consecutive rows (a running total, a chainage that grows by the distance between points, a gradient as the slope of a height), rates per category (VAT per country), numbers hidden in text (`GIS5550`, `1/8,5`, `POINT (x y)`) and relations between text columns (`key = line + "|" + track`, a code per name).
 - `--with other.csv` reads a second file and matches its rows with those of the first on the columns both have, such as a line, a track and a chainage, so the scan finds the relations between the two files (a measured radius that equals the designed one on circular curves).
 - `--quick` searches every column on a sample of rows (blocks spread over the file), prints each formula as soon as it is found there, and confirms it on all rows: several times faster on large files.
+- `regrex describe data.csv` tells what a table holds without searching: each column's role, values and range, the groups and order of the rows and the relations between text columns, in about the time it takes to read the file.
 - `--json` prints a stable, versioned JSON report for scripts and AI agents ([format](docs/json-output.md)).
 - `--mermaid` prints the dependencies between columns as a diagram.
 - `--agent` prints a compact JSON report for AI agents to judge the results: every column (text or number, distinct values, range), each formula with its errors, the near misses and the inputs tried for the columns left unexplained ([format](docs/json-output.md#agent-report)). The MCP server gives it with `"format": "agent"`.
@@ -85,6 +86,9 @@ import regrex
 report = regrex.scan_file("examples/data/invoices.csv", ignore=["invoice"])
 for d in report["derived"]:
     print(d["column"], "=", d["formula"], d["exception_rows"])
+
+regrex.describe_file("track.parquet")                         # roles, groups, order; no search
+regrex.scan_file("track.parquet", with_="design.csv", quick=True)
 
 best = regrex.search({"m": m, "v": v}, energy)[0]   # also takes pandas DataFrames
 print(best["formula"])                                # 0.5 * m * v^2

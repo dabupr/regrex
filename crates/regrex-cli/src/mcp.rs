@@ -5,7 +5,7 @@
 //! one response per line on stdout. It has no state between calls and only
 //! reads the files it is asked about.
 
-use crate::{column_index, fit_column, load_file, scan_columns};
+use crate::{column_index, fit_column, scan_columns};
 use regrex_core::parse::{parse_expr, parse_template};
 use regrex_core::units::{dimension_of, parse_unit, Dim, Dimension};
 use regrex_core::{fit_shape, search, ScanConfig, SearchConfig};
@@ -119,6 +119,7 @@ fn tools() -> Value {
     let file = json!({
         "path": { "type": "string", "description": "Path to a CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row, a JSON file (.json, .ndjson, .jsonl) with one object per row, a Parquet or Arrow file (.parquet, .arrow, .feather), or a SQLite database (.sqlite, .db). Units can be written in headers, as in \"time (s)\"." },
         "sheet": { "type": "string", "description": "Sheet of a spreadsheet, or table of a SQLite database, to read (default: the first one)." },
+        "with": { "type": "string", "description": "Optional path to a second file whose rows are matched with those of the first on the columns both have (text or whole numbers, such as a line, a track and a chainage), so relations between the two files are found. Its columns get the file name as a prefix when the first file has a column with the same name. How the rows were matched is in `joined`." },
         "ignore": { "type": "array", "items": { "type": "string" }, "description": "Columns to ignore, for example IDs." },
     });
     let with_file = |extra: Value| {
@@ -140,8 +141,21 @@ fn tools() -> Value {
                     "columns": { "type": "array", "items": { "type": "string" }, "description": "Only check these columns (default: all)." },
                     "min_match": { "type": "number", "minimum": 0, "maximum": 1, "description": "Report a column when its formula matches at least this fraction of rows (default 0.9)." },
                     "max_size": { "type": "integer", "minimum": 1, "maximum": 9, "description": "Maximum formula size (default 5); larger is slower." },
-                    "format": { "type": "string", "enum": ["report", "agent"], "description": "report (default): the scan report, as regrex scan --json. agent: a compact report for judging the results: every column (text or number, distinct values, range, whether searched and why not), each formula with its largest and median error, near misses with their reason, and the inputs tried for unexplained columns." },
+                    "format": { "type": "string", "enum": ["report", "agent"], "description": "report (default): the scan report, as regrex scan --json. agent: a compact report for judging the results: every column (text or number, distinct values, range, whether searched and why not), the table structure and text relations, each formula with its largest and median error, near misses with their reason, and the inputs tried for unexplained columns." },
+                    "quick": { "type": "boolean", "description": "Search every column on a sample of rows first and confirm on all rows only the formulas found there. Several times faster on large files (a third of the time on 250,000 rows) with the same formulas in practice; columns without a formula on the sample are not searched again (listed in quick.not_searched), and near misses are not looked for. Cannot be combined with columns." },
+                    "sample": { "type": "integer", "minimum": 1, "description": "Rows in the sample of a quick scan (default: 5% of the rows, at least 2000)." },
                 })),
+                "required": ["path"],
+            },
+            "annotations": { "readOnlyHint": true, "openWorldHint": false },
+        },
+        {
+            "name": "describe_table",
+            "title": "Describe a table",
+            "description": "Tells what a table holds without searching for formulas, in about the time it takes to read it: every column (text or number, distinct values, range, missing cells, how it was read), how the table is laid out (columns that split the rows into groups, the column that orders them, and the role of each column: group key, order, regime, code, identifier, flag, constant or measurement) and the relations between text columns. Call it first on a large or unknown file to decide which columns to scan.",
+            "inputSchema": {
+                "type": "object",
+                "properties": file.clone(),
                 "required": ["path"],
             },
             "annotations": { "readOnlyHint": true, "openWorldHint": false },
@@ -226,41 +240,80 @@ impl From<String> for ToolError {
 fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
     match name {
         "scan_dataset" => {
-            let (path, loaded) = load(args)?;
+            let (path, opened) = load(args)?;
+            let loaded = &opened.loaded;
+            let table = &loaded.table;
             let columns = strings(args, "columns")?;
-            let found = scan_columns(
-                &loaded,
-                &columns,
-                number(args, "min_match")?.unwrap_or(0.9),
-                size(args, "max_size", 5, 9)?,
-                &|_| {},
-            )?;
-            match args.get("format").and_then(Value::as_str) {
-                None | Some("report") => {}
-                Some("agent") => {
-                    return to_value(&regrex_io::agent::AgentReport::new(
-                        &path,
-                        &loaded,
-                        &found.derived,
-                        &found.near_misses,
-                        &columns,
-                    ));
-                }
+            let min_match = number(args, "min_match")?.unwrap_or(0.9);
+            let max_size = size(args, "max_size", 5, 9)?;
+            let agent = match args.get("format").and_then(Value::as_str) {
+                None | Some("report") => false,
+                Some("agent") => true,
                 Some(other) => {
                     return Err(ToolError::Failed(format!(
                         "unknown format {other:?}, expected \"report\" or \"agent\""
                     )))
                 }
+            };
+            let joined = opened.joined.as_ref();
+            if args.get("quick").and_then(Value::as_bool).unwrap_or(false) {
+                if !columns.is_empty() {
+                    return Err("quick cannot be combined with columns".to_string().into());
+                }
+                let mut config = ScanConfig {
+                    min_match,
+                    ..ScanConfig::default()
+                };
+                config.search.max_size = max_size;
+                let default = regrex_io::open::default_sample(table.n_rows());
+                let sample = size(args, "sample", default, 100_000_000)?;
+                let q = regrex_core::scan_quick(table, &config, sample, |_, _| {});
+                return if agent {
+                    to_value(
+                        &regrex_io::agent::AgentReport::new(&path, loaded, &q.derived, &[], &[])
+                            .with_join(joined)
+                            .with_quick(table, &q),
+                    )
+                } else {
+                    to_value(
+                        &ScanReport::new(&path, loaded, &q.derived)
+                            .with_quick(table, &q)
+                            .with_join(joined),
+                    )
+                };
             }
-            let mut report = ScanReport::new(&path, &loaded, &found.derived)
-                .with_near_misses(&loaded.table, &found.near_misses);
+            let found = scan_columns(loaded, &columns, min_match, max_size, &|_| {})?;
+            if agent {
+                return to_value(
+                    &regrex_io::agent::AgentReport::new(
+                        &path,
+                        loaded,
+                        &found.derived,
+                        &found.near_misses,
+                        &columns,
+                    )
+                    .with_join(joined),
+                );
+            }
+            let mut report = ScanReport::new(&path, loaded, &found.derived)
+                .with_near_misses(table, &found.near_misses)
+                .with_join(joined);
             if !columns.is_empty() {
                 report = report.only_columns(&columns);
             }
             to_value(&report)
         }
+        "describe_table" => {
+            let (path, opened) = load(args)?;
+            to_value(&regrex_io::describe::Description::new(
+                &path,
+                &opened.loaded,
+                opened.joined.as_ref(),
+            ))
+        }
         "fit_formula" => {
-            let (_, loaded) = load(args)?;
+            let (_, opened) = load(args)?;
+            let loaded = opened.loaded;
             let report = fit_column(
                 &loaded,
                 &string(args, "target")?,
@@ -272,8 +325,8 @@ fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
         }
         "fit_values" => fit_values(args),
         "check_formula" => {
-            let (_, loaded) = load(args)?;
-            let table = &loaded.table;
+            let (_, opened) = load(args)?;
+            let table = &opened.loaded.table;
             let target = column_index(table, &string(args, "target")?)?;
             let names: Vec<&str> = table.names.iter().map(String::as_str).collect();
             let (shape, params) =
@@ -362,11 +415,12 @@ fn check_units(args: &Value) -> Result<Value, ToolError> {
     Ok(result)
 }
 
-fn load(args: &Value) -> Result<(String, regrex_io::Loaded), ToolError> {
+fn load(args: &Value) -> Result<(String, regrex_io::Opened), ToolError> {
     let path = PathBuf::from(string(args, "path")?);
     let sheet = args.get("sheet").and_then(Value::as_str);
-    let loaded = load_file(&path, sheet, &strings(args, "ignore")?)?;
-    Ok((path.display().to_string(), loaded))
+    let with = args.get("with").and_then(Value::as_str).map(PathBuf::from);
+    let opened = regrex_io::open(&path, sheet, with.as_deref(), &strings(args, "ignore")?)?;
+    Ok((path.display().to_string(), opened))
 }
 
 fn to_value(report: &impl serde::Serialize) -> Result<Value, ToolError> {
@@ -499,6 +553,7 @@ mod tests {
             names,
             [
                 "scan_dataset",
+                "describe_table",
                 "fit_formula",
                 "fit_values",
                 "check_formula",
