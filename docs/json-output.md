@@ -164,3 +164,5 @@ Returned by `regrex fit --json` and the `fit_formula` and `fit_values` tools; `r
 ## Formula syntax
 
 Formulas use `+ - * / ^`, parentheses, `sqrt`, `exp`, `log` (natural logarithm, also `ln`), `sin`, `cos`, the integer division `div` (also `//`, and `floor(a / b)`) and the remainder `mod` (also `%`), and the constants `pi` (`π`) and `e`. `x^2` is also written `x²`. `-x^2` means `-(x^2)`. The same syntax is accepted by `check_formula` and `check_units`.
+
+A fitted constant that is a known number is written as one when the formula with it still matches every row it matched: `1 / (4 * π)` instead of `0.0795775`, `1 / sqrt(2 * π)` instead of `0.398942`, `2 / 3` instead of `0.666667`. The known numbers are small fractions times or divided by `π`, `π^2`, `sqrt(π)`, `sqrt(2)`, `sqrt(3)`, `sqrt(2 * π)` or `e`. Constants with up to four significant digits (`0.21`, `9.81`) are kept as written.

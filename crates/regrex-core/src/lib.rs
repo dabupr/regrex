@@ -34,6 +34,7 @@
 
 #![warn(missing_docs)]
 
+pub mod constants;
 pub mod diagnose;
 pub mod enumerate;
 pub mod error;

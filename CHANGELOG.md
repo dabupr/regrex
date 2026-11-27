@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fitted constants that are known numbers are written as such: Coulomb's law is `target = 1 / (4 * π) * q1 / (epsilon * r^2)` instead of `0.0795775 * q1 / ...`, the Gaussian `1 / sqrt(2 * π) * exp(-0.5 * theta^2)`, and `0.666667` is `2 / 3`. A constant is replaced only when the formula with the exact number still matches every row it matched; short decimals such as `0.21` are kept (`regrex_core::constants`) ([#68](https://github.com/dabupr/regrex/issues/68)).
 - `--with` (and the web app's second file, MCP `with`, Python `with_`) also matches files that share no key column but both give coordinates: each row of the smaller file gets the nearest point of the other, among rows with the same text keys (a line, a track), found with a k-d tree. Switches given only as `POINT (x y)` get the track and chainage they sit on; `joined` gives the coordinates matched and the median distance. The scan benchmark gets a switches file for the synthetic track, and its relations are found ([#114](https://github.com/dabupr/regrex/issues/114)).
 - For AI agents and scripts, the MCP server and the Python package do what the command line does ([#113](https://github.com/dabupr/regrex/issues/113)):
   - a second file matched on the columns both have (MCP `with`, Python `scan_file(..., with_=...)`);

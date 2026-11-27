@@ -247,7 +247,11 @@ impl Tree {
             if best.is_none_or(|b| d < b.1) {
                 *best = Some((row, d));
             }
-            let diff = if depth.is_multiple_of(2) { q.0 - px } else { q.1 - py };
+            let diff = if depth.is_multiple_of(2) {
+                q.0 - px
+            } else {
+                q.1 - py
+            };
             let (near, far) = if diff < 0.0 {
                 (&p[..mid], &p[mid + 1..])
             } else {

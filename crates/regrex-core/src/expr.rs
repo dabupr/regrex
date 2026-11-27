@@ -373,6 +373,7 @@ fn binding(e: &Expr) -> u8 {
         Expr::Binary(op, _, _) => op.precedence(),
         Expr::Unary(UnaryOp::Neg, _) => 2,
         Expr::Const(c) if *c < 0.0 => 2,
+        Expr::Const(c) => crate::constants::symbolic(*c).map_or(5, |(_, b)| b),
         _ => 5,
     }
 }
@@ -398,7 +399,10 @@ fn write_expr(f: &mut fmt::Formatter<'_>, e: &Expr, names: Option<&[String]>) ->
             Some(name) => write!(f, "{name}"),
             None => write!(f, "x{i}"),
         },
-        Expr::Const(c) => write!(f, "{}", format_number(*c)),
+        Expr::Const(c) => match crate::constants::symbolic(*c) {
+            Some((text, _)) => write!(f, "{text}"),
+            None => write!(f, "{}", format_number(*c)),
+        },
         Expr::Param(i) => write!(f, "c{i}"),
         Expr::Unary(UnaryOp::Neg, a) => {
             write!(f, "-")?;
