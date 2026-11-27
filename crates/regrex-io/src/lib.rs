@@ -26,6 +26,8 @@ mod cells;
 #[cfg(any(feature = "parquet", feature = "arrow"))]
 mod columnar;
 mod hidden;
+pub mod join;
+pub use join::{join, Joined};
 pub mod text_relations;
 pub use text_relations::{text_relations, TextRelation};
 mod json;

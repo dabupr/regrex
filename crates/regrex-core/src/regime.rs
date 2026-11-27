@@ -527,11 +527,17 @@ fn pieces_for(
                 .is_some_and(|(p, _)| p.per_run && !p.formula.has_vars());
             if let (true, Some(o)) = (stretches, order) {
                 let have = slot.as_ref().map_or(0, |s| s.1.len());
-                if let Some(better) = slope_piece(table, target, part, config, o, profile, &skip) {
-                    if better.1.len() as f64 >= 0.98 * have as f64 {
-                        *slot = Some(better);
-                        continue;
-                    }
+                // Or simply another column, such as the designed radius
+                // next to the measured one.
+                let enough = |b: &(Piece, Vec<usize>)| b.1.len() as f64 >= 0.98 * have as f64;
+                let better = same_as_piece(table, target, part, config, o, &skip)
+                    .filter(enough)
+                    .or_else(|| {
+                        slope_piece(table, target, part, config, o, profile, &skip).filter(enough)
+                    });
+                if better.is_some() {
+                    *slot = better;
+                    continue;
                 }
             }
             if let Some(better) = explain_part(table, target, part, config, order, &skip, true) {
@@ -586,6 +592,60 @@ fn pieces_for(
         },
         matched,
     ))
+}
+
+/// Another column that `target` equals on nearly all of `part`, as a
+/// piece: one that changes over the part, so that it says more than
+/// "constant along stretches".
+fn same_as_piece(
+    table: &Table,
+    target: usize,
+    part: &[usize],
+    config: &ScanConfig,
+    order: &Order,
+    skip: &[bool],
+) -> Option<(Piece, Vec<usize>)> {
+    let y = &table.columns[target];
+    let tolerance = row_tolerance(table, target, config);
+    let mut best: Option<(usize, Vec<usize>)> = None;
+    for (c, x) in table.columns.iter().enumerate() {
+        let usable = c != target
+            && c != order.column
+            && !table.is_category(c)
+            && !skip.get(c).copied().unwrap_or(false)
+            && base_name(&table.names[c]) != base_name(&table.names[target]);
+        if !usable {
+            continue;
+        }
+        let first = part.iter().map(|&r| x[r]).find(|v| v.is_finite());
+        let changes = first.is_some_and(|f| part.iter().any(|&r| x[r].is_finite() && x[r] != f));
+        if !changes {
+            continue;
+        }
+        let rows: Vec<usize> = part
+            .iter()
+            .copied()
+            .filter(|&r| (y[r] - x[r]).abs() <= tolerance(r))
+            .collect();
+        if best.as_ref().is_none_or(|b| rows.len() > b.1.len()) {
+            best = Some((c, rows));
+        }
+    }
+    let (c, rows) = best?;
+    let piece = Piece {
+        value: f64::NAN,
+        label: String::new(),
+        formula: Expr::Var(c),
+        per_run: false,
+        text: table.names[c].clone(),
+        rows: part.len(),
+        matched: rows.len(),
+        runs: 0,
+        steps: false,
+        inputs: Vec::new(),
+        within: None,
+    };
+    Some((piece, rows))
 }
 
 /// The slope of another column over each stretch of `part` (see
