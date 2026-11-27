@@ -190,6 +190,10 @@ pub struct DerivedColumn {
     /// the formula is that column, maybe shifted or scaled, as in `id`,
     /// `serial + 1` or `1000 * km`.
     pub copy: bool,
+    /// A formula per value of a regime column, when the column has one (see
+    /// [`crate::regime`]). `formula` is then the formula of the largest
+    /// piece with fixed constants, and `formula_text` sums up every piece.
+    pub regime: Option<crate::regime::RegimeFormula>,
 }
 
 /// A second formula for some rows of a derived column.
@@ -277,7 +281,8 @@ pub fn scan(table: &Table, config: &ScanConfig) -> Vec<DerivedColumn> {
     // Copies of other columns are found first, cheaply: they need no search
     // and are left out as inputs, so they do not take the place of others.
     let copies = find_copies(table, config);
-    let explain = |t: usize| explain_column_with_copies(table, t, config, &copies);
+    let profile = crate::profile::profile(table);
+    let explain = |t: usize| explain_column_in(table, t, config, &copies, &profile);
     #[cfg(feature = "parallel")]
     {
         use rayon::prelude::*;
@@ -295,17 +300,36 @@ pub fn scan(table: &Table, config: &ScanConfig) -> Vec<DerivedColumn> {
 /// Like [`explain_column`], with the copies found by [`find_copies`] on the
 /// same table: a copy is returned as is, and copies are not used as inputs
 /// (the column they copy is).
+///
+/// Works out the table's [`crate::profile::Profile`] on every call; when
+/// explaining many columns of one table, compute it once and call
+/// [`explain_column_in`].
 pub fn explain_column_with_copies(
     table: &Table,
     target: usize,
     config: &ScanConfig,
     copies: &[Option<DerivedColumn>],
 ) -> Option<DerivedColumn> {
+    let profile = crate::profile::profile(table);
+    explain_column_in(table, target, config, copies, &profile)
+}
+
+/// Like [`explain_column_with_copies`], with the table's profile: when no
+/// single formula explains the column, a formula per value of a regime
+/// column is tried (see [`crate::regime`]).
+pub fn explain_column_in(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    copies: &[Option<DerivedColumn>],
+    profile: &crate::profile::Profile,
+) -> Option<DerivedColumn> {
     if let Some(copy) = copies.get(target).and_then(Option::as_ref) {
         return Some(copy.clone());
     }
     let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
     explain_column_skipping(table, target, config, &skip)
+        .or_else(|| crate::regime::explain_by_regime(table, target, config, profile, &skip))
 }
 
 /// The columns [`explain_column_with_copies`] tries as inputs of `target`,
@@ -442,7 +466,7 @@ pub fn explain_column(table: &Table, target: usize, config: &ScanConfig) -> Opti
 }
 
 /// [`explain_column`] without the columns marked in `skip` as inputs.
-fn explain_column_skipping(
+pub(crate) fn explain_column_skipping(
     table: &Table,
     target: usize,
     config: &ScanConfig,
@@ -765,7 +789,7 @@ const TINY_SAMPLES: usize = 24;
 
 /// The formula with its constants turned into parameters, except exponents
 /// and small whole numbers (`x^2`, `2 * pi`), which define the shape.
-fn parametrize(e: &Expr) -> Expr {
+pub(crate) fn parametrize(e: &Expr) -> Expr {
     fn go(e: &Expr) -> Expr {
         match e {
             Expr::Const(c) if c.fract() != 0.0 || c.abs() > 10.0 => Expr::Param(0),
@@ -1047,7 +1071,7 @@ fn culprit(
 /// How far a row of column `target` may be from a formula's value and still
 /// match: half a unit in the last written decimal, or a small relative error
 /// (except for dates and times).
-fn row_tolerance<'a>(
+pub(crate) fn row_tolerance<'a>(
     table: &'a Table,
     target: usize,
     config: &'a ScanConfig,
@@ -1104,6 +1128,7 @@ fn derived(
         exceptions,
         other: None,
         copy: false,
+        regime: None,
     }
 }
 
@@ -1269,7 +1294,7 @@ fn search_rows(
 }
 
 /// Rows (from `rows`) where `formula` reproduces `y` within tolerance.
-fn matching_rows(
+pub(crate) fn matching_rows(
     formula: &Expr,
     table: &Table,
     rows: &[usize],
@@ -1417,7 +1442,7 @@ fn input_score(x: &[f64], y: &[f64]) -> f64 {
 /// of the share of the variance of `y` explained by its mean in each
 /// category, less what that many categories explain by chance. 1 when `x`
 /// alone fixes `y`, whatever the shape of the relation.
-fn correlation_ratio(x: &[f64], y: &[f64]) -> f64 {
+pub(crate) fn correlation_ratio(x: &[f64], y: &[f64]) -> f64 {
     let mut groups: Vec<(f64, f64, usize)> = Vec::new(); // value, sum of y, count
     let (mut sum, mut sum2, mut n) = (0.0, 0.0, 0usize);
     for (&a, &b) in x.iter().zip(y) {
@@ -1720,7 +1745,7 @@ fn remap_vars(e: &Expr, map: &[usize]) -> Expr {
     }
 }
 
-fn collect_vars(e: &Expr, out: &mut Vec<usize>) {
+pub(crate) fn collect_vars(e: &Expr, out: &mut Vec<usize>) {
     match e {
         Expr::Var(i) => out.push(*i),
         Expr::Const(_) | Expr::Param(_) => {}

@@ -178,6 +178,40 @@ pub struct DerivedJson {
     /// When the column is a copy of another one (the same values, maybe
     /// shifted or scaled, such as `serial + 1` or `1000 * km`), that column.
     pub copy_of: Option<String>,
+    /// When the formula changes with a regime column (a curve type, a
+    /// region), that column and one piece per value; `formula` then sums
+    /// them up.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub regime: Option<RegimeJson>,
+}
+
+/// A formula per value of a regime column.
+#[derive(Debug, Clone, Serialize)]
+pub struct RegimeJson {
+    /// The regime column.
+    pub column: String,
+    /// One piece per value.
+    pub pieces: Vec<PieceJson>,
+}
+
+/// The formula for the rows with one value of the regime column.
+#[derive(Debug, Clone, Serialize)]
+pub struct PieceJson {
+    /// The value, as written in the file.
+    pub value: String,
+    /// The formula, such as `0`, `0.21 * net`, `constant per run` or
+    /// `c0 + c1 * pk, constants per run`.
+    pub formula: String,
+    /// Whether the constants are fitted again on each run of consecutive
+    /// rows (each curve, each section).
+    pub per_run: bool,
+    /// Rows with this value.
+    pub rows: usize,
+    /// Rows the formula reproduces.
+    pub matched_rows: usize,
+    /// Runs of consecutive rows, for `per_run` pieces.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runs: Option<usize>,
 }
 
 /// A second formula for some rows of a derived column.
@@ -399,10 +433,16 @@ impl DerivedJson {
                 accuracy: split.accuracy,
             }),
         });
+        // A piecewise formula has no single expected value to compare with.
+        let details = if d.regime.is_some() {
+            0
+        } else {
+            MAX_EXCEPTION_DETAILS
+        };
         let exceptions = d
             .exceptions
             .iter()
-            .take(MAX_EXCEPTION_DETAILS)
+            .take(details)
             .map(|&r| {
                 let row: Vec<f64> = table.columns.iter().map(|c| c[r]).collect();
                 let follows_other = other
@@ -441,12 +481,31 @@ impl DerivedJson {
             match_ratio: d.match_ratio(),
             exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
             exceptions,
-            known: if d.copy { None } else { known_column(table, d) },
+            known: if d.copy || d.regime.is_some() {
+                None
+            } else {
+                known_column(table, d)
+            },
             other,
             copy_of: d
                 .copy
                 .then(|| d.inputs.first().map(|&i| names[i].clone()))
                 .flatten(),
+            regime: d.regime.as_ref().map(|g| RegimeJson {
+                column: names[g.column].clone(),
+                pieces: g
+                    .pieces
+                    .iter()
+                    .map(|p| PieceJson {
+                        value: p.label.clone(),
+                        formula: p.text.clone(),
+                        per_run: p.per_run,
+                        rows: p.rows,
+                        matched_rows: p.matched,
+                        runs: p.per_run.then_some(p.runs),
+                    })
+                    .collect(),
+            }),
         }
     }
 }
@@ -598,10 +657,35 @@ impl ScanReport {
             .unwrap_or(0);
         let fwidth = main
             .iter()
+            .filter(|d| d.regime.is_none())
             .map(|d| d.formula.chars().count())
             .max()
             .unwrap_or(0);
         for d in main {
+            if let Some(g) = &d.regime {
+                // One line per piece: `  Clothoid  1 / (c0 + c1 * pk), ...`.
+                let _ = write!(
+                    s,
+                    "  {:<width$} = by {}   {}/{} rows",
+                    d.column, g.column, d.matched_rows, d.checked_rows
+                );
+                let lw = g
+                    .pieces
+                    .iter()
+                    .map(|p| p.value.chars().count())
+                    .max()
+                    .unwrap_or(0);
+                for p in &g.pieces {
+                    let runs = p.runs.map(|n| format!(", {n} runs")).unwrap_or_default();
+                    let _ = write!(
+                        s,
+                        "\n  {:width$}     {:<lw$}  {}   ({}/{} rows{runs})",
+                        "", p.value, p.formula, p.matched_rows, p.rows
+                    );
+                }
+                let _ = writeln!(s);
+                continue;
+            }
             let _ = write!(
                 s,
                 "  {:<width$} = {:<fwidth$}   {}/{} rows",

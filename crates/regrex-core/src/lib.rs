@@ -41,6 +41,7 @@ pub mod expr;
 pub mod fit;
 pub mod parse;
 pub mod profile;
+pub mod regime;
 pub mod scan;
 pub mod search;
 pub mod simplify;
@@ -50,7 +51,8 @@ pub use error::Error;
 pub use expr::{BinaryOp, Expr, UnaryOp};
 pub use profile::{profile, ColumnProfile, Profile, Role};
 pub use scan::{
-    check_formula, diagnose_exception, explain_column, explain_column_with_copies, find_copies,
-    fit_shape, infer_decimals, inputs_tried, scan, DerivedColumn, ScanConfig, Table,
+    check_formula, diagnose_exception, explain_column, explain_column_in,
+    explain_column_with_copies, find_copies, fit_shape, infer_decimals, inputs_tried, scan,
+    DerivedColumn, ScanConfig, Table,
 };
 pub use search::{search, Candidate, SearchConfig};

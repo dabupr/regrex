@@ -127,9 +127,9 @@ path = "data/planets.csv"
 [[file]]
 path = "data/track.csv"
 relations = [
-  { columns = ["radius", "curve_type", "pk"], formula = "0 on Straight, constant per curve on Circular, 1/radius linear in pk on Clothoid", found = false },
-  { columns = ["cant", "radius", "curve_type", "pk"], formula = "0 on Straight, constant per curve on Circular, K / radius on Clothoid", found = false },
-  { columns = ["widening", "cant", "radius", "curve_type", "pk"], formula = "0 on Straight, constant per curve on Circular, W / radius on Clothoid", found = false },
+  { columns = ["radius", "curve_type", "pk"], formula = "0 on Straight, constant per curve on Circular, 1/radius linear in pk on Clothoid" },
+  { columns = ["cant", "radius", "curve_type", "pk"], formula = "0 on Straight, constant per curve on Circular, K / radius on Clothoid" },
+  { columns = ["widening", "cant", "radius", "curve_type", "pk"], formula = "0 on Straight, constant per curve on Circular, W / radius on Clothoid" },
   { columns = ["gradient_pct", "z", "pk", "slope_type"], formula = "100 * slope of z over pk per section; linear in pk on Vertical curve", found = false },
   { columns = ["pk", "x", "y"], formula = "pk = previous pk + distance between consecutive (x, y)", found = false },
   { columns = ["key", "line", "track"], formula = "key = line + \"|\" + track", found = false },

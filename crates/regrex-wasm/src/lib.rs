@@ -249,6 +249,7 @@ impl ReviewItem {
             exceptions: rows(&self.exception_rows),
             other,
             copy: self.copy_of.is_some(),
+            regime: None,
         })
     }
 }
