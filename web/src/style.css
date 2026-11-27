@@ -10,6 +10,10 @@
   --warn: #a35a00;
   --warn-bg: #fff4e5;
   --code: #eef1f8;
+  --accent-2: #7c3aed;
+  --good-bg: #e8f6ee;
+  --c0: #2b59c3; --c1: #c2410c; --c2: #0f766e; --c3: #a21caf; --c4: #b45309;
+  --c5: #0369a1; --c6: #be123c; --c7: #4d7c0f; --c8: #6d28d9; --c9: #0e7490;
   color-scheme: light;
 }
 
@@ -26,6 +30,10 @@
     --warn: #ffb35c;
     --warn-bg: #2d2416;
     --code: #232a37;
+    --accent-2: #b794f6;
+    --good-bg: #16291f;
+    --c0: #7aa2ff; --c1: #fb923c; --c2: #2dd4bf; --c3: #e879f9; --c4: #fbbf24;
+    --c5: #38bdf8; --c6: #fb7185; --c7: #a3e635; --c8: #a78bfa; --c9: #22d3ee;
     color-scheme: dark;
   }
 }
@@ -92,9 +100,30 @@ td.text, th.text { text-align: left; color: var(--muted); }
 tr.bad td { background: var(--warn-bg); }
 td.rownum { color: var(--muted); text-align: right; }
 
-.progress-live { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
-.progress-live li { padding: 4px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
-.progress-live b { color: var(--accent); }
+.progress-live {
+  list-style: none; margin: 12px 0 0; padding: 0; font-size: 14px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 6px;
+}
+.progress-live li {
+  display: grid; grid-template-columns: 20px auto 1fr; gap: 0 8px; align-items: baseline;
+  padding: 6px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);
+  overflow-wrap: anywhere; min-width: 0;
+}
+.progress-live .what { color: var(--muted); min-width: 0; }
+.progress-live code { font-size: 13px; }
+.progress-live .state { text-align: center; font-weight: 700; }
+.progress-live .running { border-color: var(--accent); grid-column: 1 / -1; }
+.progress-live .running b { color: var(--accent); }
+.progress-live .running .state {
+  width: 12px; height: 12px; border-radius: 50%; display: inline-block; align-self: center;
+  border: 2px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite;
+}
+.progress-live .found .state { color: var(--good); }
+.progress-live .found { border-color: color-mix(in srgb, var(--good) 40%, var(--border)); }
+.progress-live .none, .progress-live .todo { opacity: .6; }
+.progress-live .todo b { font-weight: 500; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .progress-live .running .state { animation: none; border-top-color: var(--accent); } }
 .provisional { color: var(--warn); }
 .almost { list-style: none; margin: 8px 0 0; padding: 0; }
 .almost > li { padding: 10px 0; border-top: 1px solid var(--border); }
@@ -226,3 +255,104 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .column-group label { overflow-wrap: anywhere; font-size: 13px; }
 .column-group label[hidden], .column-group[hidden] { display: none; }
 #suggested .reason { display: block; }
+
+/* What Regrex looks for (start page). */
+.how { padding: 24px 0 8px; }
+.how > h2 { text-align: center; font-size: 24px; }
+.how .lead.small { font-size: 16px; margin: 8px auto 20px; text-align: center; }
+.how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.how-grid article {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+}
+.how-grid h3 { font-size: 16px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+.how-grid p { margin: 0; font-size: 14px; color: var(--muted); }
+.how-grid code, .text-list code, .pieces code { background: var(--code); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+.how-icon {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; flex: none;
+  border-radius: 8px; background: var(--code); color: var(--accent); font-weight: 700;
+}
+
+/* How the table is laid out, and the second file. */
+.structure { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 10px 0 0; font-size: 14px; }
+.structure li { background: var(--code); border-radius: 999px; padding: 3px 12px; cursor: help; }
+.join { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+.join button { font-size: 14px; }
+
+/* Formulas per type. */
+.kind-badge { background: var(--code); color: var(--accent); }
+.approx-badge { background: var(--warn-bg); color: var(--warn); }
+.card table.pieces { margin-top: 10px; width: 100%; min-width: 0; border-collapse: collapse; font-size: 14px; }
+.pieces th, .pieces td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+.pieces thead th { border-top: 0; color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+.pieces tbody th { font-weight: 600; white-space: nowrap; }
+.pieces .piece { overflow-wrap: anywhere; }
+.pieces .num { text-align: right; white-space: nowrap; }
+
+/* Relations between text columns. */
+.text-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.text-list li { padding: 6px 0; border-top: 1px solid var(--border); font-size: 14px; }
+
+/* Colour. */
+.top { background: linear-gradient(90deg, var(--surface), color-mix(in srgb, var(--accent) 8%, var(--surface))); }
+.logo { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+h1 {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.drop { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+.drop:hover { border-color: var(--accent); }
+#meter-fill { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.how-grid article:nth-child(6n + 1) .how-icon { color: var(--c0); background: color-mix(in srgb, var(--c0) 14%, transparent); }
+.how-grid article:nth-child(6n + 2) .how-icon { color: var(--c2); background: color-mix(in srgb, var(--c2) 14%, transparent); }
+.how-grid article:nth-child(6n + 3) .how-icon { color: var(--c3); background: color-mix(in srgb, var(--c3) 14%, transparent); }
+.how-grid article:nth-child(6n + 4) .how-icon { color: var(--c1); background: color-mix(in srgb, var(--c1) 14%, transparent); }
+.how-grid article:nth-child(6n + 5) .how-icon { color: var(--c5); background: color-mix(in srgb, var(--c5) 14%, transparent); }
+.how-grid article:nth-child(6n + 6) .how-icon { color: var(--c4); background: color-mix(in srgb, var(--c4) 14%, transparent); }
+
+/* A column in its colour. */
+.col { color: var(--col, var(--accent)); }
+span.col { font-weight: 600; }
+.formula .col, .formula-inline .col, .progress-live .col { color: var(--col, var(--accent)); font-weight: 700; }
+th.colhead { box-shadow: inset 0 3px 0 var(--col); }
+th.colhead label, th.colhead { color: var(--text); }
+.chart.graph .node rect { stroke: var(--col, var(--border)); }
+.chart.graph .node.derived rect { stroke: var(--col, var(--accent)); fill: color-mix(in srgb, var(--col, var(--accent)) 10%, var(--surface)); }
+.chart.graph .node text { fill: var(--text); }
+
+/* Exact, partial and approximate formulas. */
+.card { border-left: 4px solid var(--border); }
+.card.exact { border-left-color: var(--good); }
+.card.partial { border-left-color: var(--warn); }
+.card.approx { border-left-color: var(--accent-2); }
+.partial-note {
+  margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 14px;
+  background: var(--warn-bg); color: var(--text);
+}
+.partial-note b { color: var(--warn); }
+.approx-badge { background: color-mix(in srgb, var(--accent-2) 15%, transparent); color: var(--accent-2); }
+.summary { border-left: 4px solid var(--good); background: var(--good-bg); border-color: transparent; border-left-color: var(--good); }
+.summary.has-warn { border-left: 4px solid var(--warn); }
+
+/* How to read the results. */
+.legend dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin: 12px 0 0; }
+.legend dl > div { border-left: 4px solid var(--border); padding: 4px 10px; }
+.legend dl > .exact { border-left-color: var(--good); }
+.legend dl > .partial { border-left-color: var(--warn); }
+.legend dl > .approx { border-left-color: var(--accent-2); }
+.legend dt { font-weight: 700; font-size: 14px; }
+.legend .exact dt { color: var(--good); }
+.legend .partial dt { color: var(--warn); }
+.legend .approx dt { color: var(--accent-2); }
+.legend dd { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+
+/* A first look on a sample, still being checked. */
+.card.provisional { border-style: dashed; border-left-style: solid; border-left-color: var(--accent-2); opacity: .92; }
+.preview-badge { background: color-mix(in srgb, var(--accent-2) 15%, transparent); color: var(--accent-2); }
+.spinner {
+  display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px;
+  border: 2px solid var(--border); border-top-color: var(--accent-2); animation: spin .8s linear infinite;
+}
+.progress-live .provisional .state { color: var(--accent-2); }
+.progress-live .provisional { border-color: color-mix(in srgb, var(--accent-2) 40%, var(--border)); border-style: dashed; }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.summary:empty { display: none; }

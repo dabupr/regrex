@@ -23,6 +23,41 @@ export interface DatasetInfo {
   categories: string[];
   /** How the table is laid out and what each column is for. */
   structure: Structure;
+  /** Relations between text columns, such as `key = line + "|" + track`. */
+  text_relations: TextRelation[];
+  /** How the rows of a second file were matched, when one was added. */
+  joined: Joined | null;
+}
+
+export interface TextRelation {
+  column: string;
+  /** `line + "|" + track`, `one to one with name` or `set by code`. */
+  formula: string;
+  inputs: string[];
+  matched_rows: number;
+  checked_rows: number;
+}
+
+export interface Joined {
+  file: string;
+  keys: string[];
+  matched: number;
+  rows: number;
+  repeated: number;
+}
+
+/** A formula per value of a text column, such as a curve type. */
+export interface Regime {
+  column: string;
+  pieces: {
+    value: string;
+    formula: string;
+    per_run: boolean;
+    rows: number;
+    matched_rows: number;
+    runs?: number;
+    within?: number;
+  }[];
 }
 
 export interface Structure {
@@ -97,6 +132,8 @@ export interface OtherFormula {
 }
 
 export interface Derived {
+  /** Found on a sample of rows by a quick first look, still to be checked on all rows (set by the page). */
+  provisional?: boolean;
   column: string;
   formula: string;
   inputs: string[];
@@ -110,6 +147,12 @@ export interface Derived {
   other: OtherFormula | null;
   /** The column this one is a copy of (same values, maybe shifted or scaled). */
   copy_of?: string | null;
+  /** A formula per value of a text column. */
+  regime?: Regime;
+  /** Whether the formula links each row to the previous one. */
+  between_rows?: boolean;
+  /** For an approximate relation, its largest error. */
+  within?: number;
 }
 
 /**
@@ -148,6 +191,7 @@ export type SearchEvent =
       /** Rows of the table, when the search only checked a sample of them. */
       rows_total?: number;
     }
+  | { kind: "confirming"; column: string; formula: string; sample: number; rows: number }
   | { kind: "second_formula"; column: string; rows: number }
   | { kind: "done"; column: string; found: boolean; near_misses: number };
 
@@ -177,6 +221,10 @@ export interface FitReport {
 
 export interface ExplainOptions {
   ignore: string[];
+  /** Search a sample of about this many rows first, then check on all rows. */
+  sample?: number;
+  /** With `sample`, only search the sample: a quick first look. */
+  sample_only?: boolean;
   max_size?: number;
   max_params?: number;
   small_samples?: number;
@@ -205,7 +253,7 @@ export interface Domain {
 }
 
 export type Request =
-  | { kind: "load"; name: string; bytes: ArrayBuffer; sheet?: string }
+  | { kind: "load"; name: string; bytes: ArrayBuffer; sheet?: string; with?: { name: string; bytes: ArrayBuffer } }
   | { kind: "explain"; column: string; options: ExplainOptions }
   | { kind: "formula"; column: string; text: string }
   | { kind: "fit"; target: string; options: { inputs: string[] } }

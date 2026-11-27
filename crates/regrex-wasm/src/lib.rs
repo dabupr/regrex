@@ -22,6 +22,9 @@ use wasm_bindgen::prelude::*;
 const PREVIEW_ROWS: usize = 20;
 
 /// A file loaded in memory.
+/// A column, the `ignore` list and the sample size of a search on a sample.
+type SampleKey = (String, Vec<String>, usize);
+
 #[wasm_bindgen]
 pub struct Dataset {
     loaded: Loaded,
@@ -34,6 +37,12 @@ pub struct Dataset {
     /// The table without the last `ignore` list's columns, kept so that
     /// explaining each column of a wide file does not copy the whole table.
     table: RefCell<Option<(Vec<String>, Rc<regrex_core::Table>)>>,
+    /// How a second file was matched with this one, if one was given.
+    joined: Option<JoinedJson>,
+    /// What the search of each column on a sample found, by column, `ignore`
+    /// list and sample size: kept by a `sample_only` search so that
+    /// confirming it on all rows does not search the sample again.
+    sampled: RefCell<std::collections::HashMap<SampleKey, Explanation>>,
 }
 
 /// See [`Dataset::copies`].
@@ -57,6 +66,25 @@ struct Info<'a> {
     categories: &'a [String],
     /// How the table is laid out and what each column is for.
     structure: regrex_io::report::StructureJson,
+    /// Relations between text columns (`key = line + "|" + track`).
+    text_relations: Vec<regrex_io::report::TextRelationJson>,
+    /// How the rows of a second file were matched, when one was given.
+    joined: Option<JoinedJson>,
+}
+
+/// How the rows of a second file were matched with the first.
+#[derive(Serialize, Clone)]
+struct JoinedJson {
+    /// Name of the second file.
+    file: String,
+    /// Columns matched on.
+    keys: Vec<String>,
+    /// Rows of the first file with a match.
+    matched: usize,
+    /// Rows of the first file.
+    rows: usize,
+    /// Rows of the second file left out because their keys repeat.
+    repeated: usize,
 }
 
 #[derive(Serialize)]
@@ -134,6 +162,16 @@ struct ExplainOptions {
     /// column names, as a near miss gives it) does not hold: what the rest
     /// of the rows follow.
     failing: Option<String>,
+    /// Search a sample of about this many rows (blocks spread over the
+    /// file), then check on all rows the formula found there, as
+    /// `regrex scan --quick`. A column without a formula on the sample is
+    /// not searched on all rows. Ignored on small files and with `rows`.
+    sample: Option<usize>,
+    /// With `sample`, only search the sample and answer with what it
+    /// found there, its rows counted on the sample: a quick first look.
+    /// The same search with `sample` and without `sample_only` then
+    /// checks it on all rows, without searching the sample again.
+    sample_only: bool,
 }
 
 impl ExplainOptions {
@@ -259,6 +297,7 @@ impl ReviewItem {
             copy: self.copy_of.is_some(),
             regime: None,
             steps: false,
+            within: None,
         })
     }
 }
@@ -278,15 +317,43 @@ fn js_error(e: impl std::fmt::Display) -> JsError {
 
 #[wasm_bindgen]
 impl Dataset {
-    /// Loads a CSV file or a spreadsheet from its bytes.
+    /// Loads a CSV file or a spreadsheet from its bytes. With a second
+    /// file, its rows are matched with those of the first on the columns
+    /// both have (see [`regrex_io::join()`]).
     #[wasm_bindgen(constructor)]
-    pub fn new(file_name: &str, bytes: &[u8], sheet: Option<String>) -> Result<Dataset, JsError> {
-        let loaded = regrex_io::load_bytes(file_name, bytes, sheet.as_deref()).map_err(js_error)?;
+    pub fn new(
+        file_name: &str,
+        bytes: &[u8],
+        sheet: Option<String>,
+        with_name: Option<String>,
+        with_bytes: Option<Vec<u8>>,
+    ) -> Result<Dataset, JsError> {
+        let mut loaded =
+            regrex_io::load_bytes(file_name, bytes, sheet.as_deref()).map_err(js_error)?;
+        let mut joined = None;
+        if let (Some(name), Some(other)) = (with_name, with_bytes) {
+            let b = regrex_io::load_bytes(&name, &other, None).map_err(js_error)?;
+            let stem = name
+                .rsplit_once('.')
+                .map_or(name.as_str(), |(s, _)| s)
+                .to_string();
+            let (j, how) = regrex_io::join(&loaded, &b, &stem).map_err(js_error)?;
+            loaded = j;
+            joined = Some(JoinedJson {
+                file: name,
+                keys: how.keys,
+                matched: how.matched,
+                rows: how.rows,
+                repeated: how.repeated,
+            });
+        }
         Ok(Dataset {
             loaded,
             found: RefCell::default(),
             copies: RefCell::default(),
             table: RefCell::default(),
+            joined,
+            sampled: RefCell::default(),
         })
     }
 
@@ -324,6 +391,17 @@ impl Dataset {
             skipped: &self.loaded.skipped,
             categories: &self.loaded.categories,
             structure: regrex_io::report::StructureJson::new(t),
+            text_relations: regrex_io::text_relations(&self.loaded)
+                .into_iter()
+                .map(|r| regrex_io::report::TextRelationJson {
+                    column: r.column,
+                    formula: r.formula,
+                    inputs: r.inputs,
+                    matched_rows: r.matched,
+                    checked_rows: r.checked,
+                })
+                .collect(),
+            joined: self.joined.clone(),
         };
         serde_json::to_string(&info).expect("serializable")
     }
@@ -439,6 +517,17 @@ impl Dataset {
         } else {
             self.copies(&options.ignore, table, &config)
         };
+        if let Some(size) = options
+            .sample
+            .filter(|_| wanted.is_none() && !copies.is_empty())
+        {
+            let rows = regrex_core::sample_rows(table.n_rows(), size.max(100));
+            if rows.len() < table.n_rows() && copies[target].is_none() {
+                return self.explain_sample(
+                    &options, column, table, target, &config, &copies, &rows, on_event,
+                );
+            }
+        }
         let explain =
             |config: &ScanConfig| explain_column_detailed(table, target, config, &copies, &event);
         let mut found: Explanation = explain(&config);
@@ -469,6 +558,87 @@ impl Dataset {
             wanted.as_deref(),
         )?;
         Ok((json, misses))
+    }
+
+    /// [`Dataset::explain_with`] on the sample `rows` of `table`, with the
+    /// formula found there checked on all rows.
+    #[allow(clippy::too_many_arguments)]
+    fn explain_sample(
+        &self,
+        options: &ExplainOptions,
+        column: &str,
+        table: &regrex_core::Table,
+        target: usize,
+        config: &ScanConfig,
+        copies: &[Option<DerivedColumn>],
+        rows: &[usize],
+        on_event: &dyn Fn(String),
+    ) -> Result<(String, String), JsError> {
+        let sample = rows_of(table, rows);
+        let names = &table.names;
+        let total = table.n_rows();
+        let event = |e: ScanEvent| {
+            let mut json = EventJson::new(names, &e);
+            if let EventJson::Best { rows_total, .. } = &mut json {
+                *rows_total = Some(total);
+            }
+            on_event(json.to_json());
+        };
+        let key = (column.to_string(), options.ignore.clone(), rows.len());
+        let kept = self.sampled.borrow_mut().remove(&key);
+        let found =
+            kept.unwrap_or_else(|| explain_column_detailed(&sample, target, config, &[], &event));
+        if options.sample_only {
+            let misses = self.sample_misses(&sample, &found.near_misses, rows)?;
+            let json = self.answer(
+                options,
+                column,
+                &sample,
+                target,
+                found.found.clone(),
+                Some(rows),
+            )?;
+            if found.found.is_some() {
+                self.sampled.borrow_mut().insert(key, found);
+            }
+            return Ok((json, misses));
+        }
+        let confirmed = found.found.as_ref().and_then(|d| {
+            on_event(
+                EventJson::Confirming {
+                    column,
+                    formula: d.formula_text.clone(),
+                    sample: rows.len(),
+                    rows: total,
+                }
+                .to_json(),
+            );
+            let profile = regrex_core::profile::profile(table);
+            let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
+            regrex_core::confirm(table, d, config, copies, &profile, &skip)
+        });
+        let misses = self.sample_misses(&sample, &found.near_misses, rows)?;
+        let json = self.answer(options, column, table, target, confirmed, None)?;
+        Ok((json, misses))
+    }
+
+    /// What came close on a sample, as JSON, with its rows numbered as in
+    /// the file.
+    fn sample_misses(
+        &self,
+        sample: &regrex_core::Table,
+        misses: &[NearMiss],
+        rows: &[usize],
+    ) -> Result<String, JsError> {
+        let json: Vec<NearMissJson> = misses
+            .iter()
+            .map(|m| {
+                let mut m = m.clone();
+                m.missed = m.missed.iter().map(|&r| rows[r]).collect();
+                NearMissJson::new(sample, &m)
+            })
+            .collect();
+        serde_json::to_string(&json).map_err(js_error)
     }
 
     /// The values of `column` and those of `formula` (written with column
@@ -714,6 +884,16 @@ enum EventJson<'a> {
         formula: String,
         matched: usize,
         checked: usize,
+        /// Rows of the table, when the search only looks at a sample.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        rows_total: Option<usize>,
+    },
+    /// A formula found on a sample of rows, now checked on all rows.
+    Confirming {
+        column: &'a str,
+        formula: String,
+        sample: usize,
+        rows: usize,
     },
     SecondFormula {
         column: &'a str,
@@ -749,6 +929,7 @@ impl<'a> EventJson<'a> {
                 formula: formula.clone(),
                 matched: *matched,
                 checked: *checked,
+                rows_total: None,
             },
             ScanEvent::SecondFormula { target, rows } => EventJson::SecondFormula {
                 column: name(*target),
@@ -795,7 +976,7 @@ mod tests {
 
     #[test]
     fn info_lists_columns() {
-        let d = Dataset::new("a.csv", CSV.as_bytes(), None).unwrap();
+        let d = Dataset::new("a.csv", CSV.as_bytes(), None, None, None).unwrap();
         let info: serde_json::Value = serde_json::from_str(&d.info()).unwrap();
         assert_eq!(info["rows"], 6);
         assert_eq!(info["columns"][1]["name"], "price");
@@ -804,7 +985,7 @@ mod tests {
 
     #[test]
     fn explain_finds_the_formula() {
-        let d = Dataset::new("a.csv", CSV.as_bytes(), None).unwrap();
+        let d = Dataset::new("a.csv", CSV.as_bytes(), None, None, None).unwrap();
         let out = d.explain("total", r#"{"ignore":["id"]}"#).unwrap();
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["formula"], "price * qty");
@@ -829,7 +1010,7 @@ mod tests {
 
     #[test]
     fn explain_searches_the_rows_a_formula_misses() {
-        let d = Dataset::new("a.csv", two_rates().as_bytes(), None).unwrap();
+        let d = Dataset::new("a.csv", two_rates().as_bytes(), None, None, None).unwrap();
         let events = RefCell::new(Vec::new());
         let options = r#"{"failing":"0.21 * net"}"#;
         let (found, _) = d
@@ -853,14 +1034,14 @@ mod tests {
         let opts = r#"{"ignore":["invoice"]}"#;
         let columns = ["subtotal", "net", "vat", "total"];
         // One worker finds everything and reviews it.
-        let one = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
+        let one = Dataset::new("i.csv", INVOICES.as_bytes(), None, None, None).unwrap();
         for c in columns {
             one.explain(c, opts).unwrap();
         }
         let expected: serde_json::Value = serde_json::from_str(&one.review(opts).unwrap()).unwrap();
         // Two workers share the columns; a third reviews what they found.
-        let a = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
-        let b = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
+        let a = Dataset::new("i.csv", INVOICES.as_bytes(), None, None, None).unwrap();
+        let b = Dataset::new("i.csv", INVOICES.as_bytes(), None, None, None).unwrap();
         let found: Vec<serde_json::Value> = columns
             .iter()
             .enumerate()
@@ -870,7 +1051,7 @@ mod tests {
             })
             .filter(|v: &serde_json::Value| !v.is_null())
             .collect();
-        let main = Dataset::new("i.csv", INVOICES.as_bytes(), None).unwrap();
+        let main = Dataset::new("i.csv", INVOICES.as_bytes(), None, None, None).unwrap();
         let review = serde_json::json!({ "ignore": ["invoice"], "derived": found }).to_string();
         let got: serde_json::Value = serde_json::from_str(&main.review(&review).unwrap()).unwrap();
         let exceptions = |v: &serde_json::Value| -> Vec<serde_json::Value> {
@@ -890,7 +1071,7 @@ mod tests {
 
     #[test]
     fn explain_accepts_advanced_limits() {
-        let d = Dataset::new("a.csv", CSV.as_bytes(), None).unwrap();
+        let d = Dataset::new("a.csv", CSV.as_bytes(), None, None, None).unwrap();
         let opts =
             r#"{"ignore":["id"],"max_size":3,"deepen_to":5,"max_inputs":2,"rel_tolerance":0.001}"#;
         let v: serde_json::Value =
@@ -901,8 +1082,51 @@ mod tests {
     }
 
     #[test]
+    fn a_sample_is_searched_first_then_checked_on_all_rows() {
+        let mut csv = String::from("a,b,sum,noise\n");
+        for i in 0..3000u64 {
+            let (a, b) = ((i * 7919) % 1000, (i * 104_729) % 997);
+            csv += &format!("{a},{b},{},{}\n", a + b, (i * 31) % 101);
+        }
+        let d = Dataset::new("a.csv", csv.as_bytes(), None, None, None).unwrap();
+        let events = RefCell::new(Vec::new());
+        let (found, _) = d
+            .explain_with("sum", r#"{"sample":200}"#, &|e| events.borrow_mut().push(e))
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&found).unwrap();
+        assert_eq!(v["formula"], "a + b");
+        assert_eq!(v["checked_rows"], 3000);
+        let events = events.into_inner();
+        assert!(events
+            .iter()
+            .any(|e| e.contains(r#""kind":"confirming""#) && e.contains(r#""sample":200"#)));
+        assert!(events.iter().any(|e| e.contains(r#""rows_total":3000"#)));
+        // A first look on the sample alone, then the check on all rows.
+        let (quick, _) = d
+            .explain_with("sum", r#"{"sample":200,"sample_only":true}"#, &|_| {})
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&quick).unwrap();
+        assert_eq!(
+            (v["formula"].as_str(), v["checked_rows"].as_u64()),
+            (Some("a + b"), Some(200))
+        );
+        let searched = RefCell::new(false);
+        let (all, _) = d
+            .explain_with("sum", r#"{"sample":200}"#, &|e| {
+                *searched.borrow_mut() |= e.contains(r#""kind":"started""#)
+            })
+            .unwrap();
+        assert!(all.contains(r#""checked_rows":3000"#) && !*searched.borrow());
+        // A column without a formula on the sample is not searched on all rows.
+        let (none, _) = d
+            .explain_with("noise", r#"{"sample":200}"#, &|_| {})
+            .unwrap();
+        assert_eq!(none, "null");
+    }
+
+    #[test]
     fn values_pairs_the_file_with_the_formula() {
-        let d = Dataset::new("a.csv", CSV.as_bytes(), None).unwrap();
+        let d = Dataset::new("a.csv", CSV.as_bytes(), None, None, None).unwrap();
         let v: serde_json::Value =
             serde_json::from_str(&d.values("total", "price * qty").unwrap()).unwrap();
         assert_eq!(v["actual"][2], 9.0);
@@ -912,7 +1136,7 @@ mod tests {
 
     #[test]
     fn fit_lists_candidates() {
-        let d = Dataset::new("a.csv", CSV.as_bytes(), None).unwrap();
+        let d = Dataset::new("a.csv", CSV.as_bytes(), None, None, None).unwrap();
         let out = d.fit("total", r#"{"inputs":["price","qty"]}"#).unwrap();
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["candidates"][0]["formula"], "price * qty");

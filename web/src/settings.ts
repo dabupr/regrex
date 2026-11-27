@@ -27,7 +27,12 @@ export interface Advanced {
   max_inputs: number;
   /** Seconds before the search stops on its own, 0 for no limit. */
   time_limit: number;
+  /** Rows searched first before checking on all rows: 0 never, -1 on large files. */
+  sample: number;
 }
+
+/** Files with more rows than this are searched on a sample first when `sample` is automatic. */
+export const LARGE_FILE = 50_000;
 
 /** How each advanced limit is shown and explained, with its allowed values. */
 export const ADVANCED: {
@@ -84,9 +89,24 @@ export const ADVANCED: {
       { value: 300, label: "5 minutes" },
     ],
   },
+  {
+    key: "sample",
+    label: "Search a sample first",
+    help:
+      "Each column is first searched on a sample of rows taken in blocks from all over the file, and the formula " +
+      "found there is then checked on every row. Much faster on large files; a column with no formula on the " +
+      "sample is not searched again.",
+    choices: [
+      { value: -1, label: `on files over ${LARGE_FILE.toLocaleString("en")} rows` },
+      { value: 0, label: "never" },
+      { value: 2000, label: "always, 2,000 rows" },
+      { value: 5000, label: "always, 5,000 rows" },
+      { value: 20000, label: "always, 20,000 rows" },
+    ],
+  },
 ];
 
-export const ADVANCED_DEFAULTS: Advanced = { min_match: 90, rel_tolerance: 1e-6, max_inputs: 5, time_limit: 0 };
+export const ADVANCED_DEFAULTS: Advanced = { min_match: 90, rel_tolerance: 1e-6, max_inputs: 5, time_limit: 0, sample: -1 };
 
 /** Every operation, with how it is shown on the page. */
 export const OPERATORS: { id: string; label: string }[] = [
@@ -164,9 +184,10 @@ export function saveSettings(settings: Settings) {
 }
 
 /** Search options for the engine (the time limit is applied by the page). */
-export function searchOptions(settings: Settings) {
+export function searchOptions(settings: Settings, rows = 0) {
   const all = settings.operators.length === OPERATORS.length;
   const { min_match, rel_tolerance, max_inputs } = settings.advanced;
+  const sample = sampleSize(settings, rows);
   if (settings.source === "library") {
     return { library_only: true, domain: settings.domain || undefined, min_match: min_match / 100, rel_tolerance };
   }
@@ -176,7 +197,16 @@ export function searchOptions(settings: Settings) {
     min_match: min_match / 100,
     rel_tolerance,
     max_inputs,
+    ...(sample ? { sample } : {}),
   };
+}
+
+/** Rows to search first on a file of `rows` rows, or 0 to search all rows. */
+export function sampleSize(settings: Settings, rows: number): number {
+  const s = settings.advanced.sample;
+  // Automatic: as `regrex scan --quick`, 2,000 rows or 5% of them, whichever is larger.
+  const size = s === -1 ? (rows > LARGE_FILE ? Math.max(2000, Math.round(rows / 20)) : 0) : s;
+  return rows > 2 * size ? size : 0;
 }
 
 /** Advanced limits that differ from the defaults. */

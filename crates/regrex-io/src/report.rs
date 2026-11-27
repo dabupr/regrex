@@ -330,6 +330,10 @@ pub struct DerivedJson {
     /// order of the table (a running total, a chainage along coordinates).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub between_rows: bool,
+    /// For an approximate relation, the largest error on the matched rows;
+    /// absent when the formula holds exactly, up to rounding.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub within: Option<f64>,
 }
 
 /// A formula per value of a regime column.
@@ -359,6 +363,9 @@ pub struct PieceJson {
     /// Runs of consecutive rows, for `per_run` pieces.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub runs: Option<usize>,
+    /// For an approximate piece, its largest error.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub within: Option<f64>,
 }
 
 /// A second formula for some rows of a derived column.
@@ -650,10 +657,12 @@ impl DerivedJson {
                         rows: p.rows,
                         matched_rows: p.matched,
                         runs: p.per_run.then_some(p.runs),
+                        within: p.within,
                     })
                     .collect(),
             }),
             between_rows: d.steps,
+            within: d.within,
         }
     }
 }

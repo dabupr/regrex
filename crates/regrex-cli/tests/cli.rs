@@ -393,3 +393,51 @@ fn a_quick_scan_searches_a_sample_and_confirms_on_all_rows() {
         "{stderr}"
     );
 }
+
+#[test]
+fn with_a_second_file_matched_on_shared_columns() {
+    let dir = std::env::temp_dir().join(format!("regrex-with-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let (mut a, mut b) = (
+        String::from("line,pk,design\n"),
+        String::from("pk,line,measured\n"),
+    );
+    for i in 0..60 {
+        let line = ["L1", "L2"][i % 2];
+        let design = ((i * 37) % 23) as f64 * 1.5 + 0.25;
+        a += &format!("{line},{i}.0,{design}\n");
+        // The second file lists the rows in another order.
+        let j = 59 - i;
+        let line_j = ["L1", "L2"][j % 2];
+        let design_j = ((j * 37) % 23) as f64 * 1.5 + 0.25;
+        b += &format!("{j},{line_j},{}\n", 2.0 * design_j + 1.0);
+    }
+    let (fa, fb) = (dir.join("design.csv"), dir.join("measured.csv"));
+    std::fs::write(&fa, a).unwrap();
+    std::fs::write(&fb, b).unwrap();
+    let (ok, stdout, stderr) = regrex(&[
+        "scan",
+        fa.to_str().unwrap(),
+        "--with",
+        fb.to_str().unwrap(),
+        "--json",
+    ]);
+    assert!(ok, "{stderr}");
+    assert!(
+        stderr.contains("Matched 60 of 60 rows with measured on line, pk."),
+        "{stderr}"
+    );
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    let formulas: Vec<String> = report["derived"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| format!("{} = {}", d["column"], d["formula"]))
+        .collect();
+    assert!(
+        formulas
+            .iter()
+            .any(|f| f.contains("measured") && f.contains("design")),
+        "{formulas:?}"
+    );
+}

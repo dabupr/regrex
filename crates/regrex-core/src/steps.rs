@@ -26,6 +26,10 @@ const STRETCH_MATCH: f64 = 0.9;
 const SAMPLE_STEPS: usize = 2000;
 /// Scales tried for a slope: plain, percent, per mille.
 const SLOPE_SCALES: [f64; 3] = [1.0, 100.0, 1000.0];
+/// Stretches a column is first tried on as the one whose slope is taken.
+const SAMPLE_STRETCHES: usize = 40;
+/// Share of the usual size of a column an approximate slope may be off by.
+const APPROXIMATE: f64 = 0.01;
 
 /// Explains `target` from the previous row: a running total, a distance
 /// between consecutive points or a slope per stretch. `None` without an
@@ -38,6 +42,19 @@ pub(crate) fn explain_by_steps(
     skip: &[bool],
 ) -> Option<DerivedColumn> {
     let order = Order::new(table, profile)?;
+    explain_by_steps_in(table, target, config, profile, skip, &order)
+}
+
+/// [`explain_by_steps`] on the rows of `order` only (the rows of one
+/// regime, see [`Order::within`]).
+pub(crate) fn explain_by_steps_in(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    profile: &Profile,
+    skip: &[bool],
+    order: &Order,
+) -> Option<DerivedColumn> {
     let role = profile.columns.get(target)?.role;
     if table.is_category(target)
         || profile.columns[target].distinct < 3
@@ -55,14 +72,63 @@ pub(crate) fn explain_by_steps(
                 && profile.columns[c].distinct >= 3
         })
         .collect();
-    let steps = steps(table, &order);
+    let steps = steps(table, order);
     distance(table, target, &candidates, &steps, config)
         .or_else(|| running_total(table, target, &candidates, &steps, config))
         .or_else(|| {
             (target != order.column)
-                .then(|| slope(table, target, &candidates, &order, config))
+                .then(|| slope(table, target, &candidates, order, config))
                 .flatten()
         })
+}
+
+/// The derivative of `z` at each row of the stretch `s`, how far it may
+/// be off from rounding alone, and how far `g` may be from it.
+fn fit_stretch<'a>(
+    o: &[f64],
+    z: &[f64],
+    g: &[f64],
+    g_round: f64,
+    s: &'a Vec<usize>,
+) -> Option<(&'a Vec<usize>, Vec<f64>, f64, f64)> {
+    if !s.iter().all(|&r| z[r].is_finite()) {
+        return None;
+    }
+    let curved = s.iter().any(|&r| (g[r] - g[s[0]]).abs() > g_round);
+    // A column may mix values written with 3 decimals and computed ones
+    // with 15: the rounding of the stretch counts.
+    let z_round = written_rounding(z, s).max(1e-12);
+    derivative(o, z, s, curved).map(|d| {
+        let span = o[*s.last().unwrap()] - o[s[0]];
+        // How far a fitted slope can be off from rounding alone.
+        let off = (if curved { 8.0 } else { 4.0 }) * z_round / span;
+        // A slope given per step belongs half a step away.
+        let half = (g[*s.last().unwrap()] - g[s[0]]).abs() / (s.len() - 1) as f64 / 2.0;
+        (s, d, off, half + 2.0 * g_round)
+    })
+}
+
+/// Half a unit of the last decimal the values on `rows` were written
+/// with: the most common number of decimals among them (values that end
+/// in zeros have fewer), up to 12.
+fn written_rounding(v: &[f64], rows: &[usize]) -> f64 {
+    let decimals = |x: f64| {
+        (0..12)
+            .find(|&d| {
+                let scale = 10f64.powi(d);
+                ((x * scale).round() / scale - x).abs() <= 1e-9 * x.abs().max(1e-9)
+            })
+            .unwrap_or(12)
+    };
+    let mut count = [0usize; 13];
+    for &r in rows {
+        if v[r].is_finite() {
+            count[decimals(v[r]) as usize] += 1;
+        }
+    }
+    // The last of the most common, so a tie goes to more decimals.
+    let d = (0..13).max_by_key(|&d| count[d]).unwrap_or(12) as i32;
+    0.5 * 10f64.powi(-d) * 1.000_001
 }
 
 /// Pairs of consecutive rows `(previous, row)` in one group.
@@ -185,29 +251,103 @@ fn distance_rows(
     let mut all = vec![target];
     all.extend_from_slice(cols);
     let t = &table.columns[target];
-    // Each coordinate is off by up to its rounding, at both ends of a
-    // step. A chainage in whole units is taken as exact: rounding it to
-    // the unit would let any column that moves by about one unit pass.
-    let t_round = if table.decimals.get(target).copied().flatten() == Some(0) {
-        0.0
-    } else {
-        rounding(table, target)
-    };
-    let tol = 2.0 * (t_round + cols.iter().map(|&c| rounding(table, c)).sum::<f64>());
-    let (rows, checked) = count_steps(table, &all, steps, config.min_match, |a, b| {
-        let d = cols
-            .iter()
+    let step_distance = |a: usize, b: usize| {
+        cols.iter()
             .map(|&c| {
                 let x = &table.columns[c];
                 (x[b] - x[a]).powi(2)
             })
             .sum::<f64>()
-            .sqrt();
+            .sqrt()
+    };
+    let coords = 2.0 * cols.iter().map(|&c| rounding(table, c)).sum::<f64>();
+    if table.decimals.get(target).copied().flatten() == Some(0) {
+        return whole_distance_rows(table, &all, steps, config, step_distance, coords);
+    }
+    // Each coordinate is off by up to its rounding, at both ends of a
+    // step.
+    let tol = 2.0 * rounding(table, target) + coords;
+    let (rows, checked) = count_steps(table, &all, steps, config.min_match, |a, b| {
+        let d = step_distance(a, b);
         let dt = (t[b] - t[a]).abs();
         // Points that stay put prove nothing.
         dt > tol && (dt - d).abs() <= tol.max(1e-9 * dt)
     })?;
     Some((rows, checked))
+}
+
+/// Steps over which a chainage is compared with the distance travelled,
+/// when the chainage is given in whole units.
+const WHOLE_SPAN: usize = 50;
+
+/// [`distance_rows`] for a chainage in whole units (a metre point every
+/// metre). One step says nothing then: any column that moves by about one
+/// unit would pass once rounded. So each row is checked over the last
+/// [`WHOLE_SPAN`] steps of its run: the chainage must have grown by the
+/// distance travelled to within one unit (its rounding at both ends) and
+/// the rounding of the points along the way.
+fn whole_distance_rows(
+    table: &Table,
+    all: &[usize],
+    steps: &[(usize, usize)],
+    config: &ScanConfig,
+    step_distance: impl Fn(usize, usize) -> f64,
+    coords: f64,
+) -> Option<(Vec<usize>, Vec<usize>)> {
+    let t = &table.columns[all[0]];
+    let known = |r: usize| all.iter().all(|&c| table.columns[c][r].is_finite());
+    // Most columns are ruled out on a sample of single steps first: each
+    // step must be the distance to within the chainage's rounding.
+    let stride = (steps.len() / SAMPLE_STEPS).max(1);
+    let (n, ok) = steps
+        .iter()
+        .step_by(stride)
+        .filter(|&&(a, b)| known(a) && known(b))
+        .fold((0, 0), |(n, ok), &(a, b)| {
+            // Points that stay put prove nothing.
+            let dt = (t[b] - t[a]).abs();
+            let near = dt >= 1.0 && (dt - step_distance(a, b)).abs() <= 1.0 + coords;
+            (n + 1, ok + near as usize)
+        });
+    if n < MIN_STRETCH || (ok as f64) < (config.min_match - 0.05) * n as f64 {
+        return None;
+    }
+    // For the end row of each step: the row WHOLE_SPAN steps back in its
+    // run (or the run's start) and the distance travelled since then.
+    let n = table.n_rows();
+    let mut back = vec![usize::MAX; n];
+    let mut travelled = vec![f64::NAN; n];
+    let mut run: Vec<usize> = Vec::new();
+    let mut cum: Vec<f64> = Vec::new();
+    for &(a, b) in steps {
+        if run.last() != Some(&a) || !known(a) || !known(b) {
+            run.clear();
+            cum.clear();
+            if !(known(a) && known(b)) {
+                continue;
+            }
+            run.push(a);
+            cum.push(0.0);
+        }
+        run.push(b);
+        cum.push(cum.last().copied().unwrap_or(0.0) + step_distance(a, b));
+        let k = run.len() - 1;
+        let from = k.saturating_sub(WHOLE_SPAN);
+        back[b] = run[from];
+        travelled[b] = cum[k] - cum[from];
+    }
+    let holds = |_: usize, b: usize| {
+        let s = back[b];
+        if s == usize::MAX {
+            return false;
+        }
+        let d = travelled[b];
+        let dt = (t[b] - t[s]).abs();
+        let span = (dt.max(d) / 1.0).ceil().max(1.0);
+        // Points that stay put prove nothing.
+        dt >= 1.0 && (dt - d).abs() <= 1.0 + coords * span.sqrt() + 1e-9 * dt
+    };
+    count_steps(table, all, steps, config.min_match, holds)
 }
 
 /// `target = previous target + other` (or the other's previous value).
@@ -272,49 +412,88 @@ fn slope(
         return None;
     }
     let g_round = rounding(table, target);
-    let mut best: Option<(usize, f64, Vec<usize>)> = None;
+    // Each candidate column with its derivative on each long stretch.
+    // Exactly, up to rounding; failing that, within a small share of the
+    // usual size of the target (a gradient given with 4 decimals next to
+    // heights computed with 15).
+    let mut sizes: Vec<f64> = rows
+        .iter()
+        .map(|&r| g[r].abs())
+        .filter(|&v| v > 0.0)
+        .collect();
+    sizes.sort_by(f64::total_cmp);
+    let usual = sizes.get(sizes.len() / 2).copied().unwrap_or(0.0);
+    let long: Vec<&Vec<usize>> = stretches
+        .iter()
+        .filter(|s| s.len() >= MIN_STRETCH)
+        .collect();
+    // A few stretches spread over the table tell most columns apart.
+    let few: Vec<&Vec<usize>> = long
+        .iter()
+        .step_by(long.len().div_ceil(SAMPLE_STRETCHES).max(1))
+        .copied()
+        .collect();
+    let mut fits = Vec::new();
     for &c in candidates {
         let z = &table.columns[c];
-        let z_round = rounding(table, c).max(1e-12);
-        // Derivative of z at each row of each long stretch.
-        let fitted: Vec<(&Vec<usize>, Vec<f64>, f64, f64)> = stretches
+        let sample: Vec<(&Vec<usize>, Vec<f64>, f64, f64)> = few
             .iter()
-            .filter(|s| s.len() >= MIN_STRETCH && s.iter().all(|&r| z[r].is_finite()))
-            .filter_map(|s| {
-                let curved = s.iter().any(|&r| (g[r] - g[s[0]]).abs() > g_round);
-                derivative(o, z, s, curved).map(|d| {
-                    let span = o[*s.last().unwrap()] - o[s[0]];
-                    // How far a fitted slope can be off from rounding alone.
-                    let off = (if curved { 8.0 } else { 4.0 }) * z_round / span;
-                    // A slope given per step belongs half a step away.
-                    let half = (g[*s.last().unwrap()] - g[s[0]]).abs() / (s.len() - 1) as f64 / 2.0;
-                    (s, d, off, half)
-                })
-            })
+            .filter_map(|&s| fit_stretch(o, z, g, g_round, s))
             .collect();
-        let Some(k) = scale(g, &fitted) else {
+        let Some(k) = scale(g, &sample) else {
             continue;
         };
-        let mut matched = Vec::new();
-        for (s, d, off, half) in &fitted {
-            let tol = 2.0 * g_round + k.abs() * off + half;
-            let ok = s
-                .iter()
-                .zip(d)
-                .filter(|&(&r, &d)| (k * d - g[r]).abs() <= tol.max(1e-9))
-                .count();
-            if ok as f64 >= STRETCH_MATCH * s.len() as f64 {
-                matched.extend_from_slice(s);
-            }
-        }
-        if (matched.len() as f64) < config.min_match * rows.len() as f64 {
+        let close = sample
+            .iter()
+            .filter(|(s, d, off, half)| {
+                let m = s.len() / 2;
+                (k * d[m] - g[s[m]]).abs() <= (k.abs() * off + half).max(APPROXIMATE * usual)
+            })
+            .count();
+        if (close as f64) < config.min_match.min(0.9) * sample.len() as f64 {
             continue;
         }
-        if best.as_ref().is_none_or(|b| matched.len() > b.2.len()) {
-            best = Some((c, k, matched));
+        let fitted: Vec<(&Vec<usize>, Vec<f64>, f64, f64)> = long
+            .iter()
+            .filter_map(|&s| fit_stretch(o, z, g, g_round, s))
+            .collect();
+        if let Some(k) = scale(g, &fitted) {
+            fits.push((c, k, fitted));
         }
     }
-    let (c, k, mut matched) = best?;
+    let mut best: Option<(usize, f64, Vec<usize>, f64)> = None;
+    for slack in [0.0, APPROXIMATE * usual] {
+        for (c, k, fitted) in &fits {
+            let mut matched = Vec::new();
+            let mut largest: f64 = 0.0;
+            for (s, d, off, half) in fitted {
+                let tol = (k.abs() * off + half).max(slack).max(1e-9);
+                let errors: Vec<f64> = s
+                    .iter()
+                    .zip(d)
+                    .map(|(&r, &d)| (k * d - g[r]).abs())
+                    .filter(|&e| e <= tol)
+                    .collect();
+                if errors.len() as f64 >= STRETCH_MATCH * s.len() as f64 {
+                    matched.extend_from_slice(s);
+                    largest = errors.iter().copied().fold(largest, f64::max);
+                }
+            }
+            if (matched.len() as f64) < config.min_match * rows.len() as f64 {
+                continue;
+            }
+            if best.as_ref().is_none_or(|b| matched.len() > b.2.len()) {
+                best = Some((*c, *k, matched, largest));
+            }
+        }
+        if let Some(b) = best.as_mut() {
+            if slack == 0.0 {
+                b.3 = 0.0;
+            }
+            break;
+        }
+    }
+    let (c, k, mut matched, largest) = best?;
     matched.sort_unstable();
     let failed: Vec<usize> = rows
         .iter()
@@ -327,16 +506,26 @@ fn slope(
     } else {
         format!("{} * ", crate::expr::format_number(k))
     };
-    Some(derived(
+    let approximate = largest > 0.0;
+    let mut d = derived(
         target,
         format!(
-            "{scale}slope of {} over {} on each stretch",
-            names[c], names[order.column]
+            "{}{scale}slope of {} over {} on each stretch{}",
+            if approximate { "about " } else { "" },
+            names[c],
+            names[order.column],
+            if approximate {
+                format!(" (within {})", crate::expr::format_number(largest))
+            } else {
+                String::new()
+            }
         ),
         vec![c, order.column],
         matched,
         failed,
-    ))
+    );
+    d.within = approximate.then_some(largest);
+    Some(d)
 }
 
 /// Splits `rows` (sorted, with the target known) into stretches of one
@@ -481,6 +670,7 @@ fn derived(
         copy: false,
         regime: None,
         steps: true,
+        within: None,
     }
 }
 
@@ -543,6 +733,41 @@ mod tests {
     }
 
     #[test]
+    fn a_chainage_in_whole_metres_is_the_distance_along_the_points() {
+        // A metre point every metre: the chainage is rounded to the metre,
+        // the points are about 0.997 m apart, so a single step is off by
+        // up to 0.5 m; over 50 steps the two agree to within a metre.
+        let (mut pk, mut x, mut y, mut counter) = (vec![], vec![], vec![], vec![]);
+        let (mut px, mut py, mut s) = (0.0f64, 0.0f64, 0.0f64);
+        for i in 0..2000 {
+            let heading = 0.002 * i as f64;
+            if i > 0 {
+                let step = 0.997;
+                px += step * heading.cos();
+                py += step * heading.sin();
+                s += step;
+            }
+            pk.push(s.round());
+            x.push(round(px, 3));
+            y.push(round(py, 3));
+            // Grows by one a row, but drifts from the distance travelled.
+            counter.push(i as f64 * 1.05_f64.round() + (i / 20) as f64);
+        }
+        let t = table(
+            &["pk", "x", "y", "counter"],
+            vec![pk, x, y, counter],
+            vec![Some(0), Some(3), Some(3), Some(0)],
+        );
+        let d = explain(&t, "pk").expect("pk from the points");
+        assert_eq!(
+            d.formula_text,
+            "previous pk + distance between consecutive (x, y)"
+        );
+        assert_eq!(d.matched, d.checked);
+        assert!(explain(&t, "counter").is_none_or(|d| !d.formula_text.contains("distance")));
+    }
+
+    #[test]
     fn a_running_total() {
         let mut amount = vec![];
         let mut balance = vec![];
@@ -596,5 +821,40 @@ mod tests {
         );
         let d = explain(&t, "gradient").expect("gradient from heights");
         assert_eq!(d.formula_text, "100 * slope of z over pk on each stretch");
+    }
+
+    #[test]
+    fn a_gradient_that_only_nearly_matches_the_heights() {
+        // Heights computed from gradients a few thousandths away from the
+        // ones given with 4 decimals.
+        let (mut pk, mut z, mut grad) = (vec![], vec![], vec![]);
+        let mut h = 10.0;
+        let mut s = 0.0;
+        for (k, given) in [1.5, -0.8, 2.2, 0.4, -1.7, 0.9, 1.2, -0.4]
+            .into_iter()
+            .enumerate()
+        {
+            let off = [0.003, -0.004, 0.002, -0.001][k % 4];
+            for _ in 0..40 + 7 * k {
+                h += (given + off) / 100.0;
+                s += 1.0;
+                pk.push(s);
+                z.push(h);
+                grad.push(given);
+            }
+        }
+        let t = table(
+            &["pk", "z", "gradient"],
+            vec![pk, z, grad],
+            vec![Some(0), None, Some(4)],
+        );
+        let d = explain(&t, "gradient").expect("gradient from heights");
+        assert!(
+            d.formula_text
+                .starts_with("about 100 * slope of z over pk on each stretch (within 0.00"),
+            "{}",
+            d.formula_text
+        );
+        assert!(d.within.is_some_and(|w| w <= 0.005), "{:?}", d.within);
     }
 }

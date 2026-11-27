@@ -200,6 +200,10 @@ pub struct DerivedColumn {
     /// chainage measured along coordinates. `formula` is then no formula of
     /// one row, and `formula_text` says what holds.
     pub steps: bool,
+    /// For an approximate relation, the largest error on the rows it
+    /// matched (a gradient given with 4 decimals next to heights computed
+    /// with 15); `None` when it holds exactly, up to rounding.
+    pub within: Option<f64>,
 }
 
 /// A second formula for some rows of a derived column.
@@ -1513,6 +1517,7 @@ fn derived(
         copy: false,
         regime: None,
         steps: false,
+        within: None,
     }
 }
 

@@ -47,6 +47,45 @@
         <p class="privacy">🔒 Your data never leaves your computer: everything runs in your browser.</p>
       </section>
 
+      <section id="how" class="how" aria-labelledby="how-title">
+        <h2 id="how-title">What Regrex looks for</h2>
+        <p class="lead small">
+          No AI and no guessing: every formula is checked on every row, and you see how many rows follow it.
+        </p>
+        <div class="how-grid">
+          <article>
+            <h3><span class="how-icon">ƒ</span> Formulas between columns</h3>
+            <p><code>subtotal = price × quantity</code>, <code>vat = 0.21 × net</code>. Rows that break the rule are
+              listed with the likely mistake, such as a rate typed as 0.1 instead of 0.21.</p>
+          </article>
+          <article>
+            <h3><span class="how-icon">▤</span> A formula per type</h3>
+            <p>When a text column such as <code>curve_type</code> decides the rule: 0 on straights, constant on each
+              curve, a ramp on each transition curve.</p>
+          </article>
+          <article>
+            <h3><span class="how-icon">↧</span> Between rows</h3>
+            <p>When the rows follow an order: a running total, a chainage that grows by the distance between
+              points, or a gradient that is the slope of the height.</p>
+          </article>
+          <article>
+            <h3><span class="how-icon">Aa</span> Text columns</h3>
+            <p>A key made of two columns (<code>line|track</code>), codes that go with one name, numbers hidden in
+              codes such as <code>GIS5550</code>, and columns that set another (each circuit has one interlocking).</p>
+          </article>
+          <article>
+            <h3><span class="how-icon">⇄</span> Two files together</h3>
+            <p>Add a second file and its rows are matched with the first on the columns both have, so you find
+              that a measured value equals the designed one.</p>
+          </article>
+          <article>
+            <h3><span class="how-icon">≈</span> Almost and approximate</h3>
+            <p>Formulas that hold on part of the rows, and relations that only hold to within a small error, are
+              shown apart, marked as such, with the error.</p>
+          </article>
+        </div>
+      </section>
+
       <p id="error" class="error" role="alert" hidden></p>
 
       <section id="data" hidden>
@@ -59,6 +98,13 @@
             <label id="sheet-wrap" hidden><span id="sheet-label">Sheet</span> <select id="sheet"></select></label>
             <button id="scan" class="primary" type="button">Find derived columns</button>
           </div>
+        </div>
+        <ul id="structure" class="structure" aria-label="How the table is laid out"></ul>
+        <div class="join">
+          <input id="other-file" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm,.xls,.xlsb,.ods,.json,.ndjson,.jsonl,.parquet,.pq,.arrow,.feather,.arrows,.ipc,.sqlite,.sqlite3,.db" hidden />
+          <button id="add-other" type="button">⇄ Match with a second file</button>
+          <span id="joined" class="muted"></span>
+          <button id="remove-other" type="button" class="link" hidden>Use this file alone</button>
         </div>
         <p class="hint muted">Untick columns that are not data, such as IDs or invoice numbers.</p>
         <div class="table-wrap"><table id="preview"></table></div>
@@ -141,6 +187,17 @@
           <button id="download" type="button">Download JSON</button>
         </div>
         <div id="summary" class="summary" role="status"></div>
+        <details class="legend panel">
+          <summary>How to read the results</summary>
+          <dl>
+            <div class="exact"><dt>✓ All rows</dt><dd>The formula gives the value of every row, to the decimals the file is written with.</dd></div>
+            <div class="partial"><dt>Partial</dt><dd>It holds on most rows but not all. A few rows that break it are probably typing or copy mistakes, and are listed with the cell to check. Many rows usually mean a group that follows another rule.</dd></div>
+            <div class="approx"><dt>≈ Approximate</dt><dd>It only holds to within a small error, which is shown. The values were rounded or measured, not computed with this exact formula.</dd></div>
+            <div><dt>Per type</dt><dd>A text column decides the rule: each of its values has its own formula, shown in a table.</dd></div>
+            <div><dt>Between rows</dt><dd>The value depends on the previous row, in the order of the table: a running total, a chainage, a slope.</dd></div>
+            <div><dt>Colours</dt><dd>Each column keeps its colour everywhere: in the preview, the formulas, the tables and the graph.</dd></div>
+          </dl>
+        </details>
         <details id="graph" class="panel" open hidden>
           <summary>How the columns depend on each other</summary>
           <p class="hint muted">An arrow goes from each column to the columns computed from it. Select a computed column to go to its formula.</p>
@@ -151,6 +208,11 @@
           <summary>Copies of other columns <span id="copies-count" class="muted"></span></summary>
           <p class="hint muted">These columns hold the same values as another column, maybe shifted or scaled. They were found before the search and are not used as inputs, so they do not take the place of other columns.</p>
           <ul id="copies-list" class="copies"></ul>
+        </details>
+        <details id="text-relations" class="panel" open hidden>
+          <summary>Relations between text columns <span id="text-count" class="muted"></span></summary>
+          <p class="hint muted">Found on the text as written: keys made of other columns, codes that go with one name, and columns whose value is set by another.</p>
+          <ul id="text-list" class="text-list"></ul>
         </details>
         <details id="almost" class="panel" hidden>
           <summary>Almost: formulas that hold on part of the rows <span id="almost-count" class="muted"></span></summary>
@@ -174,6 +236,7 @@
           typing or copy mistakes. The cell that breaks the rule is highlighted.
         </p>
         <div class="table-wrap"><table id="suspicious-table"></table></div>
+        <button id="suspicious-more" type="button" class="link" hidden></button>
       </section>
     </main>
 

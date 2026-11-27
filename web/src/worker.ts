@@ -10,7 +10,13 @@ function handle(req: Request, id: number): unknown {
   switch (req.kind) {
     case "load":
       dataset?.free();
-      dataset = new Dataset(req.name, new Uint8Array(req.bytes), req.sheet);
+      dataset = new Dataset(
+        req.name,
+        new Uint8Array(req.bytes),
+        req.sheet,
+        req.with?.name,
+        req.with ? new Uint8Array(req.with.bytes) : undefined,
+      );
       return JSON.parse(dataset.info());
     case "explain":
       return JSON.parse(

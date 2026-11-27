@@ -85,6 +85,11 @@ struct FileArgs {
     /// Sheet of a spreadsheet, or table of a SQLite database, to read (default: the first one).
     #[arg(long)]
     sheet: Option<String>,
+    /// A second file whose rows are matched with those of the first on the
+    /// columns both have (a line, a track and a chainage), to find the
+    /// relations between the two files.
+    #[arg(long, value_name = "FILE")]
+    with: Option<PathBuf>,
     /// Columns to ignore (comma separated), for example IDs.
     #[arg(long, value_delimiter = ',')]
     ignore: Vec<String>,
@@ -104,7 +109,36 @@ fn main() -> ExitCode {
 }
 
 fn load(file: &FileArgs) -> Result<regrex_io::Loaded, String> {
-    load_file(&file.file, file.sheet.as_deref(), &file.ignore)
+    let Some(other) = &file.with else {
+        return load_file(&file.file, file.sheet.as_deref(), &file.ignore);
+    };
+    let a = regrex_io::load_path(&file.file, file.sheet.as_deref()).map_err(|e| e.to_string())?;
+    let b = regrex_io::load_path(other, None).map_err(|e| e.to_string())?;
+    let name = other.file_stem().map_or_else(
+        || "second file".to_string(),
+        |s| s.to_string_lossy().into_owned(),
+    );
+    let (mut loaded, how) = regrex_io::join(&a, &b, &name).map_err(|e| e.to_string())?;
+    eprintln!(
+        "Matched {} of {} rows with {} on {}{}.",
+        how.matched,
+        how.rows,
+        name,
+        how.keys.join(", "),
+        if how.repeated > 0 {
+            format!(
+                " ({} rows of {name} repeat an earlier one and were left out)",
+                how.repeated
+            )
+        } else {
+            String::new()
+        }
+    );
+    for n in &file.ignore {
+        let index = column_index(&loaded.table, n)?;
+        loaded.table.remove_column(index);
+    }
+    Ok(loaded)
 }
 
 /// Reads a data file and drops the `ignore`d columns.

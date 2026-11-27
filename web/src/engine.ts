@@ -29,6 +29,8 @@ interface LoadedFile {
   name: string;
   bytes: ArrayBuffer;
   sheet?: string;
+  /** A second file whose rows are matched with this one's. */
+  with?: { name: string; bytes: ArrayBuffer };
 }
 
 /** One worker and its calls in flight. */
@@ -72,8 +74,12 @@ class Slot {
     // The buffer is transferred: send a copy, the original may be needed
     // again (other workers, switching sheets).
     const copy = file.bytes.slice(0);
+    const other = file.with ? { name: file.with.name, bytes: file.with.bytes.slice(0) } : undefined;
     this.file = file;
-    const loading = this.call<T>({ kind: "load", name: file.name, bytes: copy, sheet: file.sheet }, [copy]);
+    const loading = this.call<T>(
+      { kind: "load", name: file.name, bytes: copy, sheet: file.sheet, with: other },
+      other ? [copy, other.bytes] : [copy],
+    );
     this.loading = loading;
     return loading;
   }
@@ -124,9 +130,15 @@ export class Engine {
     return this.slots[0];
   }
 
-  load(name: string, bytes: ArrayBuffer, sheet?: string): Promise<DatasetInfo> {
+  load(
+    name: string,
+    bytes: ArrayBuffer,
+    sheet?: string,
+    other?: { name: string; bytes: ArrayBuffer },
+  ): Promise<DatasetInfo> {
     // Keep a copy: the caller's buffer may be detached later.
-    this.file = { name, bytes: bytes.slice(0), sheet };
+    const withCopy = other ? { name: other.name, bytes: other.bytes.slice(0) } : undefined;
+    this.file = { name, bytes: bytes.slice(0), sheet, with: withCopy };
     // Pool workers load the new file when they are next needed.
     return this.main.load<DatasetInfo>(this.file);
   }
@@ -134,17 +146,23 @@ export class Engine {
   /**
    * Looks for a formula for `column`, on the least busy worker. Several
    * calls run at the same time on different workers. `onEvent` hears what
-   * the search is doing while it runs.
+   * the search is doing while it runs. With `where`, the call runs on
+   * worker `where.slot` when it is given (a worker keeps what a quick look
+   * at a column found, so checking it there skips searching again), and
+   * `where.slot` is set to the worker used.
    */
   async explain(
     column: string,
     options: ExplainOptions,
     onEvent?: (e: SearchEvent) => void,
+    where?: { slot?: number },
   ): Promise<Explained> {
     const file = this.file;
     if (!file) throw new Error("no file loaded");
-    if (this.slots.length < this.size && this.slots.every((s) => s.busy > 0)) this.slots.push(new Slot());
-    const slot = this.slots.reduce((a, b) => (b.busy < a.busy ? b : a));
+    const pinned = where?.slot !== undefined ? this.slots[where.slot] : undefined;
+    if (!pinned && this.slots.length < this.size && this.slots.every((s) => s.busy > 0)) this.slots.push(new Slot());
+    const slot = pinned ?? this.slots.reduce((a, b) => (b.busy < a.busy ? b : a));
+    if (where) where.slot = this.slots.indexOf(slot);
     await slot.ensure(file);
     return slot.call({ kind: "explain", column, options }, [], onEvent);
   }

@@ -82,7 +82,7 @@ test("a group of rows with another rule is not called a mistake", async ({ page 
   await page.getByRole("button", { name: "Find derived columns" }).click();
   const vat = page.locator('article[data-column="vat"]');
   await expect(vat).toContainText("37 of 40 rows", { timeout: 45_000 });
-  await expect(vat.locator(".note")).toContainText("8% of the rows follow another rule");
+  await expect(vat.locator(".partial-note")).toContainText("3 rows (7.5%) do not follow this formula. They may be a separate group");
   await expect(page.locator("#summary")).toContainText("No suspicious rows");
   await expect(page.locator("#suspicious")).toBeHidden();
 });
@@ -379,7 +379,7 @@ test("shows what the search is doing and the formulas it came close to", async (
   await page.locator("#file").setInputFiles({ name: "mixed.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n")) });
   await page.getByRole("button", { name: "Find derived columns" }).click();
   // While it runs, each column says what it is doing.
-  await expect(page.locator("#progress-live li").first()).toContainText(/searching 60 rows with|best so far/);
+  await expect(page.locator("#progress-live li.running").first()).toContainText(/searching 60 rows with|best so far/);
 
   const almost = page.locator("#almost");
   await expect(almost).toBeVisible({ timeout: 45_000 });
@@ -398,4 +398,23 @@ test("shows what the search is doing and the formulas it came close to", async (
   const [file] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download JSON" }).click()]);
   const report = JSON.parse(await (await import("node:fs/promises")).readFile(await file.path(), "utf8"));
   expect(report.near_misses.map((m: { formula: string }) => m.formula)).toContain("0.21 * net");
+});
+
+test("a large file gets a quick look on a sample first, then every formula is checked", async ({ page }) => {
+  const lines = ["a,b,sum,noise"];
+  for (let i = 0; i < 6000; i++) {
+    const a = (i * 7919) % 1000;
+    const b = (i * 104729) % 997;
+    lines.push(`${a},${b},${a + b},${(i * 31) % 101}`);
+  }
+  await page.goto("./");
+  await page.locator("#file").setInputFiles({ name: "big.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n")) });
+  await page.locator("#settings > summary").click();
+  await page.locator("#advanced > summary").click();
+  await page.locator("select[name=sample]").selectOption("2000");
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  const sum = page.locator('article[data-column="sum"]');
+  await expect(sum).toContainText("all 6000 rows", { timeout: 45_000 });
+  await expect(sum).not.toHaveClass(/provisional/);
+  await expect(page.locator("#progress")).toBeHidden({ timeout: 45_000 });
 });

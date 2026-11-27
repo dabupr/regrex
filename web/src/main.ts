@@ -1,8 +1,9 @@
 import { dependencyGraph, scatter, scatterLegend } from "./charts";
 import { Engine } from "./engine";
 import { groups, loadChoice, saveChoice, suggestions } from "./columns";
+import { colorize, columnColor, columnName, setColumns } from "./colors";
 import { columnarFormat, readColumnar } from "./formats";
-import type { DatasetInfo, Derived, Known, NearMiss, SearchEvent } from "./types";
+import type { DatasetInfo, Derived, ExplainOptions, Known, NearMiss, SearchEvent, TextRelation } from "./types";
 import {
   ADVANCED,
   DEFAULTS,
@@ -55,6 +56,7 @@ const ui = {
   summary: $("summary"),
   suspicious: $("suspicious"),
   suspiciousTable: $<HTMLTableElement>("suspicious-table"),
+  suspiciousMore: $<HTMLButtonElement>("suspicious-more"),
   export: $<HTMLButtonElement>("export"),
   settingsSummary: $("settings-summary"),
   only: $<HTMLSelectElement>("only"),
@@ -77,6 +79,15 @@ const ui = {
   untickSuggested: $<HTMLButtonElement>("untick-suggested"),
   suggested: $("suggested"),
   columnGroups: $("column-groups"),
+  how: $("how"),
+  structure: $("structure"),
+  otherFile: $<HTMLInputElement>("other-file"),
+  addOther: $<HTMLButtonElement>("add-other"),
+  joined: $("joined"),
+  removeOther: $<HTMLButtonElement>("remove-other"),
+  textRelations: $<HTMLDetailsElement>("text-relations"),
+  textCount: $("text-count"),
+  textList: $("text-list"),
 };
 
 let settings: Settings = loadSettings();
@@ -109,6 +120,8 @@ interface State {
   suspects: Suspect[];
   /** The sheet or table being shown, when the file has several. */
   sheet?: string;
+  /** A second file whose rows are matched with this one's. */
+  other?: { name: string; bytes: ArrayBuffer };
 }
 let state: State | undefined;
 
@@ -134,26 +147,38 @@ function showError(message: string | null) {
 }
 
 /** Loads one sheet (or SQLite table) of a file into the engine. */
-async function loadSheet(name: string, bytes: ArrayBuffer, sheet?: string): Promise<DatasetInfo> {
+/** A file as the engine reads it: columnar formats are read in the page and handed over as JSON. */
+async function engineFile(name: string, bytes: ArrayBuffer, sheet?: string) {
   const format = columnarFormat(name, bytes);
-  if (!format) return engine.load(name, bytes, sheet);
+  if (!format) return { name, bytes, sheet, sheets: null as string[] | null };
   // Read in the page (the reader is loaded on demand), then handed over as JSON.
   const table = await readColumnar(format, bytes, sheet);
-  const info = await engine.load(`${name}.json`, table.json);
-  return { ...info, sheets: table.sheets };
+  return { name: `${name}.json`, bytes: table.json, sheet: undefined, sheets: table.sheets };
 }
 
-async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
+async function loadSheet(
+  name: string,
+  bytes: ArrayBuffer,
+  sheet?: string,
+  other?: { name: string; bytes: ArrayBuffer },
+): Promise<DatasetInfo> {
+  const first = await engineFile(name, bytes, sheet);
+  const second = other ? await engineFile(other.name, other.bytes) : undefined;
+  const info = await engine.load(first.name, first.bytes, first.sheet, second && { name: second.name, bytes: second.bytes });
+  return first.sheets ? { ...info, sheets: first.sheets } : info;
+}
+
+async function openFile(name: string, bytes: ArrayBuffer, sheet?: string, other?: { name: string; bytes: ArrayBuffer }) {
   showError(null);
   try {
-    let info = await loadSheet(name, bytes, sheet);
+    let info = await loadSheet(name, bytes, sheet, other);
     // Without a choice, skip sheets or tables with no numbers (a list of customers).
     if (info.columns.length === 0 && sheet === undefined) {
-      for (const other of info.sheets.slice(1)) {
-        const next = await loadSheet(name, bytes, other);
+      for (const otherSheet of info.sheets.slice(1)) {
+        const next = await loadSheet(name, bytes, otherSheet, other);
         if (next.columns.length > 0) {
           info = next;
-          sheet = other;
+          sheet = otherSheet;
           break;
         }
       }
@@ -162,10 +187,12 @@ async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
     const suggested = suggestions(info);
     const ignored =
       loadChoice(name, info) ?? new Set([...suggested].filter(([, s]) => s.untick).map(([n]) => n));
-    state = { name, bytes, info, ignored, derived: [], nearMisses: [], suspects: [], sheet };
+    state = { name, bytes, info, ignored, derived: [], nearMisses: [], suspects: [], sheet, other };
+    setColumns([...info.header.map(headerName), ...info.columns.map((c) => c.name)]);
     renderData();
   } catch (e) {
-    showError(`Could not read ${name}: ${(e as Error).message}`);
+    const what = other ? `${name} with ${other.name}` : name;
+    showError(`Could not read ${what}: ${(e as Error).message}`);
   }
 }
 
@@ -173,6 +200,7 @@ function renderData() {
   if (!state) return;
   const { info, name } = state;
   ui.start.hidden = true;
+  ui.how.hidden = true;
   ui.results.hidden = true;
   ui.suspicious.hidden = true;
   ui.data.hidden = false;
@@ -186,11 +214,53 @@ function renderData() {
   ui.sheet.replaceChildren(...info.sheets.map((s) => el("option", { value: s }, s)));
   if (state.sheet && info.sheets.includes(state.sheet)) ui.sheet.value = state.sheet;
 
+  renderStructure();
   renderPreview(false);
   renderColumnPanel();
   renderColumnChoices();
   ui.ownResult.replaceChildren();
   showOwnError(null);
+}
+
+/** What each kind of column is for, in a few words. */
+const ROLE_NAMES: Record<string, string> = {
+  constant: "constant",
+  flag: "yes / no",
+  "group key": "groups rows",
+  order: "order",
+  regime: "type",
+  code: "code",
+  identifier: "ID",
+  measurement: "measurement",
+};
+
+/** The role of each column, by name. */
+function roles(): Map<string, string> {
+  return new Map((state?.info.structure.roles ?? []).map((r) => [r.column, ROLE_NAMES[r.role] ?? r.role]));
+}
+
+/** How the table is laid out, and the second file when one is matched. */
+function renderStructure() {
+  if (!state) return;
+  const { structure, joined } = state.info;
+  const types = structure.roles.filter((r) => r.role === "regime").map((r) => r.column);
+  const chip = (label: string, value: string, tip: string) =>
+    el("li", { title: tip }, el("span", { class: "muted" }, `${label} `), el("b", {}, value));
+  const items: HTMLElement[] = [];
+  if (structure.groups.length)
+    items.push(chip("Rows grouped by", structure.groups.join(", "), "Each group is a separate sequence, such as one track of one line."));
+  if (structure.order)
+    items.push(chip("In order of", structure.order, "Formulas between consecutive rows are looked for along this column."));
+  if (types.length)
+    items.push(chip("Types", types.join(", "), "A formula may change with the value of these columns, such as a curve type."));
+  ui.structure.replaceChildren(...items);
+  ui.structure.hidden = items.length === 0;
+  ui.joined.textContent = joined
+    ? `Matched ${joined.matched} of ${joined.rows} rows with ${joined.file} on ${joined.keys.join(", ")}.` +
+      (joined.repeated ? ` ${joined.repeated} rows of ${joined.file} repeat an earlier one and were left out.` : "")
+    : "Find relations between two files that share columns such as a line and a chainage.";
+  ui.addOther.textContent = joined ? "⇄ Match with another file" : "⇄ Match with a second file";
+  ui.removeOther.hidden = !joined;
 }
 
 /** Columns of the preview shown before "Show all columns" on wide files. */
@@ -207,15 +277,18 @@ function renderPreview(all: boolean) {
   ui.previewMore.onclick = () => renderPreview(!all);
   const numeric = new Set(info.columns.map((c) => c.name));
   const readAs = new Map(info.columns.map((c) => [c.name, c.read_as]));
+  const role = roles();
   const head = el("tr", {}, el("th", { class: "text" }, "#"));
   for (const col of shown) {
     if (!numeric.has(col)) {
-      const kind = info.categories.includes(col) ? "text, category" : "text, skipped";
-      head.append(el("th", { class: "text" }, col, el("span", { class: "kind" }, kind)));
+      const kind = info.categories.includes(col) ? `text, ${role.get(col) ?? "category"}` : "text, skipped";
+      head.append(el("th", { class: "text colhead", style: `--col: ${columnColor(col)}` }, col, el("span", { class: "kind" }, kind)));
       continue;
     }
-    const kind = readAs.get(col) ?? "number";
-    head.append(el("th", {}, el("label", {}, columnBox(col), col), el("span", { class: "kind" }, kind)));
+    const as = readAs.get(col);
+    const r = role.get(col);
+    const kind = as ?? (r && r !== "measurement" ? `number, ${r}` : "number");
+    head.append(el("th", { class: "colhead", style: `--col: ${columnColor(col)}` }, el("label", {}, columnBox(col), col), el("span", { class: "kind" }, kind)));
   }
   const rows = info.preview.map((cells, i) =>
     el(
@@ -390,7 +463,7 @@ async function checkOwnFormula() {
 
 /** The options of a scan with the current settings. */
 function scanOptions(ignore: string[]) {
-  return { ignore, ...searchOptions(settings) };
+  return { ignore, ...searchOptions(settings, state?.info.rows ?? 0) };
 }
 
 /** One line on what the search for a column is doing, from its events. */
@@ -406,11 +479,17 @@ function describeEvent(e: SearchEvent): (Node | string)[] {
           : [];
       return [
         "best so far ",
-        el("code", {}, e.formula),
+        el("code", {}, ...painted(e.formula)),
         ` (${percent(e.matched, e.checked)} of rows)`,
         ...sample,
       ];
     }
+    case "confirming":
+      return [
+        "found ",
+        el("code", {}, ...painted(e.formula)),
+        ` on ${e.sample.toLocaleString()} sample rows, checking all ${e.rows.toLocaleString()} rows`,
+      ];
     case "second_formula":
       return [`looking for a second formula on the ${e.rows.toLocaleString()} rows that break it`];
     case "done":
@@ -445,11 +524,17 @@ async function scanAll() {
   const limit = settings.advanced.time_limit;
   const timer = limit > 0 ? setTimeout(() => stop("time"), limit * 1000) : undefined;
   // Columns are handed out from a queue to one task per worker, so a slow
-  // column does not hold up the others.
+  // column does not hold up the others. On a large file there are two
+  // passes: a quick look at every column on a sample, whose formulas are
+  // shown at once as provisional, then each of them checked on all rows.
+  const sample = (options as ExplainOptions).sample ?? 0;
   const found = new Map<string, Derived>();
+  const provisional = new Map<string, Derived>();
   const near = new Map<string, NearMiss[]>();
   const done = new Set<string>();
+  const dropped = new Set<string>();
   const running = new Set<string>();
+  let phase: "look" | "check" = sample ? "look" : "check";
   // What each running column's search is doing, from its events, redrawn
   // at most once per frame.
   const doing = new Map<string, SearchEvent>();
@@ -459,28 +544,53 @@ async function scanAll() {
     drawing = true;
     requestAnimationFrame(() => {
       drawing = false;
+      // Every column, in order: found, nothing, being searched (with what
+      // the search is doing) or still to do.
       ui.progressLive.replaceChildren(
-        ...[...running].map((c) => {
-          const e = doing.get(c);
-          return el("li", {}, el("b", {}, c), ": ", ...(e ? describeEvent(e) : ["waiting for a worker"]));
+        ...columns.map((c) => {
+          const state = (cls: string, mark: string, ...what: (Node | string)[]) =>
+            el("li", { class: cls }, el("span", { class: "state", "aria-hidden": "true" }, mark), columnName(c), el("span", { class: "what" }, ...what));
+          const formula = (d: Derived) => (d.regime ? ["depends on ", columnName(d.regime.column, "span")] : [el("code", {}, ...painted(d.formula))]);
+          if (running.has(c)) {
+            const e = doing.get(c);
+            const li = state("running", "", ...(e ? describeEvent(e) : [phase === "check" && provisional.has(c) ? "checking on all rows" : "waiting for a worker"]));
+            return li;
+          }
+          const d = found.get(c);
+          if (d) return state("found", "✓", ...formula(d));
+          if (dropped.has(c)) return state("none", "–", "found on the sample, not on all rows");
+          const p = provisional.get(c);
+          if (p) return state("provisional", "≈", ...formula(p), el("span", { class: "muted" }, ` · on ${sample.toLocaleString()} rows, to be checked`));
+          if (done.has(c)) return state("none", "–", "no formula");
+          return el("li", { class: "todo" }, el("span", { class: "state", "aria-hidden": "true" }), columnName(c));
         }),
       );
     });
   };
   ui.progressLive.replaceChildren();
-  let next = 0;
   const started = performance.now();
+  let queue: string[] = columns;
+  let next = 0;
+  let finished = 0;
   const progress = () => {
     const names = [...running].slice(0, 3).join(", ") + (running.size > 3 ? "…" : "");
-    const left = timeLeft(performance.now() - started, done.size, columns.length);
-    ui.progressText.textContent =
-      `Checked ${done.size} of ${columns.length} columns${left ? ` · ${left}` : ""}${names ? ` · now ${names}` : ""}…`;
-    ui.meter.style.width = `${(100 * done.size) / columns.length}%`;
+    const left = timeLeft(performance.now() - started, finished, queue.length);
+    const what =
+      phase === "look"
+        ? `Quick look on ${sample.toLocaleString()} of ${state!.info.rows.toLocaleString()} rows: ${finished} of ${queue.length} columns`
+        : sample
+          ? `Checking on all ${state!.info.rows.toLocaleString()} rows: ${finished} of ${queue.length} formulas`
+          : `Checked ${finished} of ${queue.length} columns`;
+    ui.progressText.textContent = `${what}${left ? ` · ${left}` : ""}${names ? ` · now ${names}` : ""}…`;
+    const share = queue.length ? finished / queue.length : 1;
+    ui.meter.style.width = `${sample ? (phase === "look" ? 50 * share : 50 + 50 * share) : 100 * share}%`;
   };
   const live = liveResults(columns);
-  const work = async () => {
-    while (next < columns.length && !stopped) {
-      const column = columns[next++];
+  // The worker that took a quick look at each column, to check it there.
+  const slots = new Map<string, number | undefined>();
+  const run = async (opts: ExplainOptions, onResult: (column: string, d: Derived | null, misses: NearMiss[]) => void) => {
+    while (next < queue.length && !stopped) {
+      const column = queue[next++];
       running.add(column);
       progress();
       drawLive();
@@ -489,29 +599,55 @@ async function scanAll() {
         doing.set(column, e);
         drawLive();
       };
-      const { found: d, near_misses } = await engine.explain(column, options, onEvent);
+      const where = { slot: slots.get(column) };
+      const { found: d, near_misses } = await engine.explain(column, opts, onEvent, where);
+      slots.set(column, where.slot);
       running.delete(column);
       doing.delete(column);
+      if (!stopped) onResult(column, d, near_misses);
+      finished++;
       drawLive();
-      if (near_misses.length && !stopped) {
-        near.set(column, near_misses);
-        renderNearMisses(nearInOrder());
-      }
-      if (d && !stopped) {
-        found.set(column, d);
-        live.add(d, inOrder());
-      }
-      done.add(column);
       progress();
     }
   };
+  const pass = (opts: ExplainOptions, onResult: Parameters<typeof run>[1]) =>
+    Promise.all(Array.from({ length: Math.min(engine.workers, queue.length) }, () => run(opts, onResult)));
   // In column order, whatever order they were found in.
   const inOrder = () => columns.filter((c) => found.has(c)).map((c) => found.get(c) as Derived);
   const nearInOrder = () =>
     columns.flatMap((c) => near.get(c) ?? []).sort((a, b) => b.matched_rows - a.matched_rows);
+  const keepMisses = (column: string, misses: NearMiss[]) => {
+    if (!misses.length) return;
+    near.set(column, misses);
+    renderNearMisses(nearInOrder());
+  };
   try {
     progress();
-    await Promise.all(Array.from({ length: Math.min(engine.workers, columns.length) }, work));
+    if (sample) {
+      await pass({ ...options, sample_only: true }, (column, d, misses) => {
+        keepMisses(column, misses);
+        if (!d) return done.add(column), undefined;
+        provisional.set(column, d);
+        live.add({ ...d, provisional: true }, [...provisional.values()]);
+      });
+      phase = "check";
+      queue = columns.filter((c) => provisional.has(c));
+      next = 0;
+      finished = 0;
+      progress();
+      drawLive();
+    }
+    await pass(options, (column, d, misses) => {
+      done.add(column);
+      if (!sample) keepMisses(column, misses);
+      if (d) {
+        found.set(column, d);
+        live.add(d, inOrder());
+      } else if (sample) {
+        dropped.add(column);
+        live.remove(column);
+      }
+    });
     ui.meter.style.width = "100%";
     state.derived = inOrder();
     state.nearMisses = nearInOrder();
@@ -538,6 +674,7 @@ async function scanAll() {
       const checked = columns.filter((c) => done.has(c));
       const skipped = columns.filter((c) => !done.has(c));
       renderResults(checked, stopped && { why: stopped, skipped });
+      suspectsShown = SUSPECTS_PAGE;
       renderSuspects();
     }
   } catch (e) {
@@ -566,12 +703,12 @@ function nearMissItem(m: NearMiss): HTMLElement {
   const item = el(
     "li",
     { "data-column": m.column },
-    el("div", { class: "formula" }, el("b", {}, m.column), ` = ${m.formula}`),
+    el("div", { class: "formula" }, columnName(m.column), " = ", ...painted(m.formula)),
     el(
       "div",
       { class: "meta" },
       el("span", { class: "warn" }, `${m.matched_rows.toLocaleString()} of ${m.checked_rows.toLocaleString()} rows (${share})`),
-      el("span", { class: "muted" }, `uses ${m.inputs.join(", ")}`),
+      usesNode(m.inputs),
     ),
     el("p", { class: "why muted" }, `Not reported: ${m.reason_text}.`),
   );
@@ -634,10 +771,20 @@ function liveResults(columns: string[]) {
       ui.independent.textContent = "Still searching: more formulas may appear below.";
       if (d.copy_of) return renderCopies(all.filter((x) => x.copy_of));
       const card = derivedCard(d);
+      const old = ui.cards.querySelector<HTMLElement>(`article[data-column="${CSS.escape(d.column)}"]`);
+      if (old) {
+        old.replaceWith(card);
+        if (!d.provisional) card.classList.add("flash");
+        return;
+      }
       const after = [...ui.cards.querySelectorAll<HTMLElement>("article[data-column]")].find(
         (c) => (position.get(c.dataset.column ?? "") ?? Infinity) > (position.get(d.column) ?? Infinity),
       );
       ui.cards.insertBefore(card, after ?? null);
+    },
+    /** Takes away a provisional formula that did not hold on all rows. */
+    remove(column: string) {
+      ui.cards.querySelector(`article[data-column="${CSS.escape(column)}"]`)?.remove();
     },
   };
 }
@@ -715,7 +862,9 @@ function renderSuspects() {
   if (n === 0) return;
   const columnIndex = new Map(info.header.map((h, i) => [headerName(h), i]));
   const head = el("tr", {}, el("th", { class: "text" }, "Row"), ...info.header.map((h) => el("th", {}, h)), el("th", { class: "text" }, "Why"));
-  const body = suspects.map((s) => {
+  // A long list is shown a page at a time; the CSV export has every row.
+  const shown = suspects.slice(0, suspectsShown);
+  const body = shown.map((s) => {
     const bad = new Set(s.reasons.filter((r) => r.blamed).map((r) => columnIndex.get(r.column)));
     return el(
       "tr",
@@ -726,7 +875,14 @@ function renderSuspects() {
     );
   });
   ui.suspiciousTable.replaceChildren(el("thead", {}, head), el("tbody", {}, ...body));
+  const rest = n - shown.length;
+  ui.suspiciousMore.hidden = rest === 0;
+  ui.suspiciousMore.textContent = `Show ${Math.min(rest, SUSPECTS_PAGE).toLocaleString()} more of ${rest.toLocaleString()} (all are in the CSV export)`;
 }
+
+/** Suspicious rows shown at first, and added by each "Show more". */
+const SUSPECTS_PAGE = 100;
+let suspectsShown = SUSPECTS_PAGE;
 
 /** The column name Regrex uses for a header: `speed (m/s)` is `speed`. */
 function headerName(header: string): string {
@@ -755,8 +911,75 @@ function exportSuspects() {
   URL.revokeObjectURL(a.href);
 }
 
+/** Every column name of the file, to colour them in formulas. */
+function allNames(): string[] {
+  if (!state) return [];
+  return [...state.info.header.map(headerName), ...state.info.columns.map((c) => c.name)];
+}
+
+/** Formula text with its column names in their colours. */
+function painted(text: string): (Node | string)[] {
+  return colorize(text, allNames());
+}
+
+/** "uses a, b": the inputs of a formula, each in its colour. */
+function usesNode(inputs: string[]): HTMLElement {
+  const names = inputs.flatMap((n, i) => (i ? [", ", columnName(n, "span")] : [columnName(n, "span")]));
+  return el("span", { class: "muted" }, "uses ", ...names);
+}
+
 function formulaNode(d: Derived): HTMLElement {
-  return el("div", { class: "formula" }, el("b", {}, d.column), ` = ${d.formula}`);
+  if (d.regime) {
+    return el("div", { class: "formula" }, columnName(d.column), el("span", { class: "muted" }, ` depends on `), columnName(d.regime.column));
+  }
+  return el("div", { class: "formula" }, columnName(d.column), " = ", ...painted(d.formula));
+}
+
+/** Why a formula is partial, in words: how many rows break it and what that may mean. */
+function partialNote(d: Derived, exceptions: number): HTMLElement {
+  const share = (100 * exceptions) / Math.max(1, d.checked_rows);
+  const pct = share < 0.1 ? "less than 0.1%" : `${share < 10 ? share.toFixed(1) : Math.round(share)}%`;
+  const rows = exceptions === 1 ? "1 row does" : `${exceptions.toLocaleString()} rows (${pct}) do`;
+  const why = fewExceptions(d)
+    ? "So few that they are probably typing or copy mistakes: each one is listed below, and under Suspicious rows with the cell to check."
+    : d.regime
+      ? "They are usually where the type changes, or stretches where the value was set by hand."
+      : "They may be a separate group (another rate, product or period) rather than mistakes.";
+  return el("p", { class: "partial-note" }, el("b", {}, "Partial: "), `${rows} not follow this formula. ${why}`);
+}
+
+/** Badges that say what kind of formula it is. */
+function kindBadges(d: Derived): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  if (d.regime) out.push(el("span", { class: "badge kind-badge", title: "A formula for each value of a text column" }, `per ${d.regime.column}`));
+  const steps = d.between_rows || d.regime?.pieces.some((p) => p.formula.includes("slope of"));
+  if (steps) out.push(el("span", { class: "badge kind-badge", title: "Links each row to the previous one, in the order of the table" }, "between rows"));
+  if (d.within !== undefined && d.within !== null)
+    out.push(el("span", { class: "badge approx-badge", title: "Holds only to within this error" }, `≈ approximate, within ${Number(d.within.toPrecision(2))}`));
+  return out;
+}
+
+/** One row per value of the regime column: its formula and how many rows follow it. */
+function regimeTable(d: Derived): HTMLElement {
+  const regime = d.regime as NonNullable<Derived["regime"]>;
+  const rows = regime.pieces.map((p) => {
+    const ok = p.matched_rows === p.rows;
+    const formula = p.formula.replace(/^about /, "≈ ");
+    const runs = p.per_run && p.runs ? el("span", { class: "muted" }, ` · ${p.runs} runs`) : "";
+    return el(
+      "tr",
+      {},
+      el("th", { scope: "row" }, p.value),
+      el("td", { class: "piece" }, el("code", {}, ...painted(formula)), runs),
+      el("td", { class: ok ? "ok num" : "warn num" }, ok ? `✓ ${p.rows}` : `${p.matched_rows} of ${p.rows}`),
+    );
+  });
+  return el(
+    "table",
+    { class: "pieces" },
+    el("thead", {}, el("tr", {}, el("th", {}, columnName(regime.column, "span")), el("th", {}, "formula"), el("th", { class: "num" }, "rows"))),
+    el("tbody", {}, ...rows),
+  );
 }
 
 /** A "Known formula" badge that opens a card about the library formula. */
@@ -810,13 +1033,34 @@ function derivedCard(d: Derived): HTMLElement {
       ? el("span", { class: "ok" }, `✓ all ${d.checked_rows} rows`)
       : d.other
         ? el("span", { class: wrong ? "warn" : "ok" }, `${d.matched_rows} of ${d.checked_rows} rows${wrong ? `, ${wrong} with neither formula` : ", the rest with a second formula"}`)
-        : el("span", { class: "warn" }, `${d.matched_rows} of ${d.checked_rows} rows`);
+        : el("span", { class: "warn", title: "Partial: the formula holds on most rows, not all" }, `Partial · ${d.matched_rows} of ${d.checked_rows} rows`);
+  const state = d.provisional ? "provisional" : exceptions === 0 ? "exact" : d.other && !wrong ? "exact" : "partial";
+  if (d.provisional) {
+    // A quick first look: shown at once, checked on all rows next.
+    return el(
+      "article",
+      { class: "card provisional", "data-column": d.column },
+      formulaNode(d),
+      el(
+        "div",
+        { class: "meta" },
+        el("span", { class: "badge preview-badge" }, "Preview"),
+        el("span", {}, `${d.matched_rows.toLocaleString()} of ${d.checked_rows.toLocaleString()} sample rows`),
+        ...kindBadges(d),
+        usesNode(d.inputs),
+      ),
+      ...(d.regime ? [regimeTable(d)] : []),
+      el("p", { class: "note" }, el("span", { class: "spinner", "aria-hidden": "true" }), " Found on a sample of the rows. Now checking it on every row…"),
+    );
+  }
   const card = el(
     "article",
-    { class: "card", "data-column": d.column },
+    { class: `card ${state}${d.within != null ? " approx" : ""}`, "data-column": d.column },
     formulaNode(d),
-    el("div", { class: "meta" }, status, el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
+    el("div", { class: "meta" }, status, ...kindBadges(d), usesNode(d.inputs)),
   );
+  if (d.regime) card.append(regimeTable(d));
+  if (exceptions > 0 && !d.other) card.append(partialNote(d, exceptions));
   if (d.known) card.append(knownNode(d.known));
   if (d.other) {
     const o = d.other;
@@ -827,22 +1071,13 @@ function derivedCard(d: Derived): HTMLElement {
         { class: "other" },
         el("span", { class: "badge other-badge" }, "Second formula"),
         " ",
-        el("span", { class: "formula-inline" }, el("b", {}, d.column), ` = ${o.formula}`),
+        el("span", { class: "formula-inline" }, columnName(d.column), " = ", ...painted(o.formula)),
         el("span", { class: "muted" }, o.split ? ` for ${n}, where ${o.split.rule}` : ` for ${n}`),
       ),
     );
     if (!o.split) {
       card.append(el("p", { class: "note" }, "No column tells these rows apart; a text column such as a product or region may."));
     }
-  } else if (exceptions > 0 && !fewExceptions(d) && d.matched_rows >= 0.5 * d.checked_rows) {
-    const share = Math.round((100 * exceptions) / d.checked_rows);
-    card.append(
-      el(
-        "p",
-        { class: "note" },
-        `${share}% of the rows follow another rule. They may be a separate group (another rate, product or period) rather than mistakes.`,
-      ),
-    );
   }
   if (exceptions > 0) {
     const rows = d.exceptions.map((x) =>
@@ -855,6 +1090,20 @@ function derivedCard(d: Derived): HTMLElement {
         el("td", { class: "muted" }, x.diagnosis ? x.diagnosis.description : ""),
       ),
     );
+    if (d.exceptions.length === 0) {
+      // A formula per type or between rows has no single expected value per row.
+      const list = d.exception_rows.slice(0, 50).join(", ") + (exceptions > 50 ? ", …" : "");
+      card.append(
+        el(
+          "details",
+          {},
+          el("summary", {}, `${exceptions === 1 ? "1 row breaks" : `${exceptions} rows break`} the rule`),
+          el("p", { class: "muted" }, `Rows ${list}.`),
+        ),
+      );
+      card.append(chartToggle(d));
+      return card;
+    }
     const more = exceptions > d.exceptions.length ? ` (first ${d.exceptions.length} shown)` : "";
     card.append(
       el(
@@ -934,6 +1183,7 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
     ...(cards.length || copies.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
   );
   renderCopies(copies);
+  renderTextRelations();
   renderNearMisses(state.nearMisses);
   renderGraph(main);
   const found = new Set(state.derived.map((d) => d.column));
@@ -944,6 +1194,28 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
     notes.push(`${why} before checking: ${stopped.skipped.join(", ")}.`);
   }
   ui.independent.textContent = notes.join(" ");
+}
+
+/** Relations between text columns, as found when the file was read. */
+function renderTextRelations() {
+  const rels = state?.info.text_relations ?? [];
+  ui.textRelations.hidden = rels.length === 0;
+  ui.textCount.textContent = `(${rels.length})`;
+  const text = (r: TextRelation) => {
+    if (r.formula.startsWith("set by ")) return `each ${r.inputs[0]} has one ${r.column}`;
+    if (r.formula.startsWith("one to one with ")) return `${r.column} and ${r.inputs.join(", ")} go one to one`;
+    return `${r.column} = ${r.formula}`;
+  };
+  ui.textList.replaceChildren(
+    ...rels.map((r) =>
+      el(
+        "li",
+        {},
+        el("code", {}, ...painted(text(r))),
+        r.matched_rows < r.checked_rows ? el("span", { class: "muted" }, ` (${r.matched_rows} of ${r.checked_rows} rows)`) : "",
+      ),
+    ),
+  );
 }
 
 /** One line per copied column: `a = b = c`, then `d = a + 1, e = a + 2`. */
@@ -1040,7 +1312,7 @@ document.addEventListener("paste", (e) => {
   void openFile("pasted cells", new TextEncoder().encode(text).buffer as ArrayBuffer);
 });
 ui.sheet.addEventListener("change", () => {
-  if (state) void openFile(state.name, state.bytes, ui.sheet.value);
+  if (state) void openFile(state.name, state.bytes, ui.sheet.value, state.other);
 });
 ui.scan.addEventListener("click", () => void scanAll());
 ui.columnFilter.addEventListener("input", filterColumnPanel);
@@ -1094,3 +1366,19 @@ ui.ownForm.addEventListener("submit", (e) => {
   void checkOwnFormula();
 });
 renderSettings();
+
+ui.addOther.addEventListener("click", () => ui.otherFile.click());
+ui.otherFile.addEventListener("change", async () => {
+  const file = ui.otherFile.files?.[0];
+  ui.otherFile.value = "";
+  if (!file || !state) return;
+  await openFile(state.name, state.bytes, state.sheet, { name: file.name, bytes: await file.arrayBuffer() });
+});
+ui.removeOther.addEventListener("click", () => {
+  if (state) void openFile(state.name, state.bytes, state.sheet);
+});
+
+ui.suspiciousMore.addEventListener("click", () => {
+  suspectsShown += SUSPECTS_PAGE;
+  renderSuspects();
+});

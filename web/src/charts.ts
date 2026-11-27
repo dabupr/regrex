@@ -1,3 +1,4 @@
+import { columnColor } from "./colors";
 // Small SVG charts for the results: what a column holds against what its
 // formula gives, and how the columns depend on each other. Colours come from
 // CSS classes, so both follow the light and dark themes.
@@ -261,7 +262,7 @@ export function dependencyGraph(derived: Derived[]): SVGSVGElement | null {
     graph.append(
       svg(
         "g",
-        { class: d ? "node derived" : "node", "data-column": n },
+        { class: d ? "node derived" : "node", "data-column": n, style: `--col: ${columnColor(n)}` },
         svg("rect", { x: p.x, y: p.y, width: BW, height: BH, rx: 6 }),
         svg("text", { x: p.x + BW / 2, y: p.y + BH / 2 + 4, "text-anchor": "middle" }, label),
         title(d ? `${n} = ${d.formula}` : `${n}: used by other columns`),
