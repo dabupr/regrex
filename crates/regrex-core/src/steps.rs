@@ -296,6 +296,22 @@ fn whole_distance_rows(
 ) -> Option<(Vec<usize>, Vec<usize>)> {
     let t = &table.columns[all[0]];
     let known = |r: usize| all.iter().all(|&c| table.columns[c][r].is_finite());
+    // Most columns are ruled out on a sample of single steps first: each
+    // step must be the distance to within the chainage's rounding.
+    let stride = (steps.len() / SAMPLE_STEPS).max(1);
+    let (n, ok) = steps
+        .iter()
+        .step_by(stride)
+        .filter(|&&(a, b)| known(a) && known(b))
+        .fold((0, 0), |(n, ok), &(a, b)| {
+            // Points that stay put prove nothing.
+            let dt = (t[b] - t[a]).abs();
+            let near = dt >= 1.0 && (dt - step_distance(a, b)).abs() <= 1.0 + coords;
+            (n + 1, ok + near as usize)
+        });
+    if n < MIN_STRETCH || (ok as f64) < (config.min_match - 0.05) * n as f64 {
+        return None;
+    }
     // For the end row of each step: the row WHOLE_SPAN steps back in its
     // run (or the run's start) and the distance travelled since then.
     let n = table.n_rows();
