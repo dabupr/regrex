@@ -89,6 +89,19 @@ source = { title = "Discounts and allowances (Wikipedia)", url = "https://en.wik
 checks = [{ inputs = [50, 0.2], output = 40 }]
 
 [[formula]]
+id = "discount_percent"
+name = "Discount in percent"
+expr = "100 * (1 - n / p)"
+output = { symbol = "d", name = "discount in percent", unit = "1", aliases = ["discount", "discount_pct", "discount_percent"] }
+variables = [
+  { symbol = "n", name = "price after the discount", unit = "currency", aliases = ["net", "discounted_price"] },
+  { symbol = "p", name = "price before the discount", unit = "currency", aliases = ["subtotal", "original_price", "list_price"] },
+]
+tags = ["sales"]
+source = { title = "Discounts and allowances (Wikipedia)", url = "https://en.wikipedia.org/wiki/Discounts_and_allowances" }
+checks = [{ inputs = [40, 50], output = 20 }]
+
+[[formula]]
 id = "profit"
 name = "Profit"
 expr = "revenue - cost"
