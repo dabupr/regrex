@@ -197,6 +197,19 @@ fn run(base: &Path, case: &Case) -> Result<Outcome, String> {
 
     let mut found = vec![false; case.relations.len()];
     let mut false_positives = Vec::new();
+    for t in regrex_io::text_relations(&loaded) {
+        let used: BTreeSet<String> = std::iter::once(t.column.clone()).chain(t.inputs).collect();
+        let mut explained = false;
+        for (i, rel) in case.relations.iter().enumerate() {
+            if used.is_subset(&rel.columns) {
+                found[i] = true;
+                explained = true;
+            }
+        }
+        if !explained {
+            false_positives.push(format!("{} = {}", t.column, t.formula));
+        }
+    }
     for d in &derived {
         let used = columns_used(d, &names);
         let mut explained = false;

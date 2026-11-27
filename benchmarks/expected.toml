@@ -132,7 +132,7 @@ relations = [
   { columns = ["widening", "cant", "radius", "curve_type", "pk"], formula = "0 on Straight, constant per curve on Circular, W / radius on Clothoid" },
   { columns = ["gradient_pct", "z", "pk", "slope_type"], formula = "100 * slope of z over pk per section; linear in pk on Vertical curve" },
   { columns = ["pk", "x", "y"], formula = "pk = previous pk + distance between consecutive (x, y)" },
-  { columns = ["key", "line", "track"], formula = "key = line + \"|\" + track", found = false },
+  { columns = ["key", "line", "track"], formula = "key = line + \"|\" + track" },
   { columns = ["profile_code", "profile_name"], formula = "one name per code" },
   { columns = ["asset_code", "asset_id"], formula = "asset_code = \"SIG\" + (asset_id - 4835)" },
 ]

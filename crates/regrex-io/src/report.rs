@@ -40,6 +40,25 @@ pub struct ScanReport {
     /// Columns that were searched without finding a formula, with the
     /// columns tried as their inputs.
     pub not_found: Vec<NotFoundJson>,
+    /// Relations between text columns: concatenations and codes that match
+    /// names one to one.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub text_relations: Vec<TextRelationJson>,
+}
+
+/// A relation between text columns (see [`crate::text_relations`]).
+#[derive(Debug, Clone, Serialize)]
+pub struct TextRelationJson {
+    /// The column explained.
+    pub column: String,
+    /// What holds, as in `line + "|" + track`.
+    pub formula: String,
+    /// The other columns of the relation.
+    pub inputs: Vec<String>,
+    /// Rows where it holds.
+    pub matched_rows: usize,
+    /// Rows where every column of the relation has a value.
+    pub checked_rows: usize,
 }
 
 /// How the table is laid out (see [`mod@regrex_core::profile`]).
@@ -576,6 +595,16 @@ impl ScanReport {
                 .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
                 .collect(),
             not_found: not_found(&loaded.table, derived),
+            text_relations: crate::text_relations(loaded)
+                .into_iter()
+                .map(|r| TextRelationJson {
+                    column: r.column,
+                    formula: r.formula,
+                    inputs: r.inputs,
+                    matched_rows: r.matched,
+                    checked_rows: r.checked,
+                })
+                .collect(),
         }
     }
 
@@ -765,6 +794,17 @@ impl ScanReport {
         if !copies.is_empty() {
             let _ = writeln!(s, "\nCopies of other columns:");
             s += &copies_text(&copies);
+        }
+        if !self.text_relations.is_empty() {
+            let _ = writeln!(s, "\nText relations:");
+            for r in &self.text_relations {
+                let rows = if r.matched_rows == r.checked_rows {
+                    String::new()
+                } else {
+                    format!(" ({}/{} rows)", r.matched_rows, r.checked_rows)
+                };
+                let _ = writeln!(s, "  {} = {}{rows}", r.column, r.formula);
+            }
         }
         s
     }

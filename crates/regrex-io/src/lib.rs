@@ -25,6 +25,8 @@ mod cells;
 #[cfg(any(feature = "parquet", feature = "arrow"))]
 mod columnar;
 mod hidden;
+pub mod text_relations;
+pub use text_relations::{text_relations, TextRelation};
 mod json;
 pub mod report;
 #[cfg(feature = "sqlite")]
