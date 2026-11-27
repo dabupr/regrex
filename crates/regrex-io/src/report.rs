@@ -6,7 +6,8 @@
 use crate::Loaded;
 use regrex_core::expr::format_number;
 use regrex_core::{
-    diagnose_exception, find_copies, inputs_tried, Candidate, DerivedColumn, ScanConfig, Table,
+    diagnose_exception, find_copies, inputs_tried, Candidate, DerivedColumn, NearMiss, Rejection,
+    ScanConfig, Table,
 };
 use serde::Serialize;
 use std::fmt::Write;
@@ -35,6 +36,112 @@ pub struct ScanReport {
     /// Columns that were searched without finding a formula, with the
     /// columns tried as their inputs.
     pub not_found: Vec<NotFoundJson>,
+    /// Formulas the scan found but did not report, because they hold on too
+    /// few rows or only within a group: where to look next. Most rows
+    /// matched first.
+    pub near_misses: Vec<NearMissJson>,
+}
+
+/// Rows of a near miss listed in [`NearMissJson::missed_rows`].
+pub const MAX_MISSED_ROWS: usize = 20;
+
+/// A formula found but not reported, see [`regrex_core::NearMiss`].
+#[derive(Debug, Clone, Serialize)]
+pub struct NearMissJson {
+    /// The column it computes.
+    pub column: String,
+    /// The formula, using column names.
+    pub formula: String,
+    /// Columns the formula uses.
+    pub inputs: Vec<String>,
+    /// Weighted complexity of the formula.
+    pub complexity: usize,
+    /// Rows where it holds.
+    pub matched_rows: usize,
+    /// Rows it was checked on.
+    pub checked_rows: usize,
+    /// `matched_rows / checked_rows`.
+    pub match_ratio: f64,
+    /// Why it was not reported: `coverage` (too few rows match),
+    /// `usual_value` (right mostly on the column's most common value) or
+    /// `no_split_rule` (a second formula for the rows that break the first
+    /// one, with no rule on another column to tell them apart) or
+    /// `other_values` (the column holds one value, often 0, on most rows,
+    /// and this formula is for the others).
+    pub reason: String,
+    /// The reason in words.
+    pub reason_text: String,
+    /// A rule on another column that picks out the rows where it holds,
+    /// if one exists: the formula may be right for that group.
+    pub holds_when: Option<SplitJson>,
+    /// The value of the regime column (such as the kind of track section)
+    /// it was searched within, when the scan searched each regime apart.
+    pub regime: Option<String>,
+    /// Number of checked rows where it does not hold.
+    pub missed_count: usize,
+    /// The first [`MAX_MISSED_ROWS`] of them (1 = first row after the
+    /// header).
+    pub missed_rows: Vec<usize>,
+}
+
+impl NearMissJson {
+    /// Builds the JSON for a near miss found in `table`.
+    pub fn new(table: &Table, m: &NearMiss) -> Self {
+        let names = &table.names;
+        let percent = |x: f64| format!("{}%", (100.0 * x).floor());
+        let reason_text = match &m.reason {
+            Rejection::Coverage { needed } => format!(
+                "holds on {} of the rows, {} needed",
+                percent(m.match_ratio()),
+                percent(*needed)
+            ),
+            Rejection::UsualValue => {
+                "right mostly where the column has its most common value".to_string()
+            }
+            Rejection::OtherValues { usual, rows } => format!(
+                "only for the rows that are not {} ({rows} rows are)",
+                format_number(*usual)
+            ),
+            Rejection::NoSplitRule { main } => format!(
+                "fits the rows that break {} = {main}, but no other column tells them apart",
+                names[m.target]
+            ),
+        };
+        NearMissJson {
+            column: names[m.target].clone(),
+            formula: m.formula_text.clone(),
+            inputs: m.inputs.iter().map(|&i| names[i].clone()).collect(),
+            complexity: m.complexity,
+            matched_rows: m.matched,
+            checked_rows: m.checked,
+            match_ratio: m.match_ratio(),
+            reason: m.reason.code().to_string(),
+            reason_text,
+            holds_when: m.holds_when.as_ref().map(|split| SplitJson {
+                column: names[split.column].clone(),
+                rule: split.text(names),
+                accuracy: split.accuracy,
+            }),
+            regime: None,
+            missed_count: m.missed.len(),
+            missed_rows: m
+                .missed
+                .iter()
+                .take(MAX_MISSED_ROWS)
+                .map(|r| r + 1)
+                .collect(),
+        }
+    }
+
+    /// `cant = 120000 / radius   holds on 60% of the rows, 90% needed;
+    /// holds where kind = 1`.
+    pub fn summary(&self) -> String {
+        let mut s = format!("{} = {}   {}", self.column, self.formula, self.reason_text);
+        if let Some(split) = &self.holds_when {
+            let _ = write!(s, "; holds where {}", split.rule);
+        }
+        s
+    }
 }
 
 /// A column searched without finding a formula.
@@ -417,13 +524,26 @@ impl ScanReport {
                 .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
                 .collect(),
             not_found: not_found(&loaded.table, derived),
+            near_misses: Vec::new(),
         }
+    }
+
+    /// Adds the near misses of the scan ([`regrex_core::scan_detailed`]).
+    pub fn with_near_misses(mut self, table: &Table, near_misses: &[NearMiss]) -> Self {
+        self.near_misses = near_misses
+            .iter()
+            .map(|m| NearMissJson::new(table, m))
+            .collect();
+        self.near_misses
+            .sort_by_key(|m| std::cmp::Reverse(m.matched_rows));
+        self
     }
 
     /// Keeps in [`ScanReport::not_found`] only the given columns, when the
     /// scan was limited to them.
     pub fn only_columns(mut self, columns: &[String]) -> Self {
         self.not_found.retain(|m| columns.contains(&m.column));
+        self.near_misses.retain(|m| columns.contains(&m.column));
         self
     }
 
@@ -481,6 +601,7 @@ impl ScanReport {
         let _ = writeln!(s);
         if self.derived.is_empty() {
             let _ = writeln!(s, "No derived columns found.");
+            s += &self.near_misses_text();
             return s;
         }
         let (copies, main): (Vec<&DerivedJson>, Vec<&DerivedJson>) =
@@ -570,6 +691,19 @@ impl ScanReport {
         if !copies.is_empty() {
             let _ = writeln!(s, "\nCopies of other columns:");
             s += &copies_text(&copies);
+        }
+        s += &self.near_misses_text();
+        s
+    }
+
+    /// The near misses, one per line, or nothing when there are none.
+    fn near_misses_text(&self) -> String {
+        if self.near_misses.is_empty() {
+            return String::new();
+        }
+        let mut s = String::from("\nAlmost (not reported, worth a look):\n");
+        for m in &self.near_misses {
+            let _ = writeln!(s, "  {}", m.summary());
         }
         s
     }

@@ -6,14 +6,19 @@ import type { Request, Response } from "./types";
 const ready = init();
 let dataset: Dataset | undefined;
 
-function handle(req: Request): unknown {
+function handle(req: Request, id: number): unknown {
   switch (req.kind) {
     case "load":
       dataset?.free();
       dataset = new Dataset(req.name, new Uint8Array(req.bytes), req.sheet);
       return JSON.parse(dataset.info());
     case "explain":
-      return JSON.parse(need().explain(req.column, JSON.stringify(req.options)));
+      return JSON.parse(
+        need().explain_detailed(req.column, JSON.stringify(req.options), (event: string) => {
+          const res: Response = { id, event: JSON.parse(event) };
+          self.postMessage(res);
+        }),
+      );
     case "fit":
       return JSON.parse(need().fit(req.target, JSON.stringify(req.options)));
     case "formula":
@@ -39,7 +44,7 @@ self.onmessage = async (event: MessageEvent<{ id: number; req: Request }>) => {
   let res: Response;
   try {
     await ready;
-    res = { id, ok: true, value: handle(req) };
+    res = { id, ok: true, value: handle(req, id) };
   } catch (e) {
     res = { id, ok: false, error: e instanceof Error ? e.message : String(e) };
   }

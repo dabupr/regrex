@@ -40,6 +40,7 @@ pub mod error;
 pub mod expr;
 pub mod fit;
 pub mod parse;
+pub mod progress;
 pub mod scan;
 pub mod search;
 pub mod simplify;
@@ -47,8 +48,10 @@ pub mod units;
 
 pub use error::Error;
 pub use expr::{BinaryOp, Expr, UnaryOp};
+pub use progress::{Explanation, NearMiss, Rejection, ScanEvent};
 pub use scan::{
-    check_formula, diagnose_exception, explain_column, explain_column_with_copies, find_copies,
-    fit_shape, infer_decimals, inputs_tried, scan, DerivedColumn, ScanConfig, Table,
+    check_formula, diagnose_exception, explain_column, explain_column_detailed,
+    explain_column_with_copies, find_copies, fit_shape, infer_decimals, inputs_tried, scan,
+    scan_detailed, DerivedColumn, ScanConfig, ScanResult, Table,
 };
 pub use search::{search, Candidate, SearchConfig};

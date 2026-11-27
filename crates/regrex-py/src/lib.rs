@@ -4,7 +4,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use regrex_core::units::parse_unit;
-use regrex_core::{scan, search, ScanConfig, SearchConfig, Table};
+use regrex_core::{scan_detailed, search, ScanConfig, SearchConfig, Table};
 use regrex_io::report::{FitReport, ScanReport};
 
 fn value_error(e: impl std::fmt::Display) -> PyErr {
@@ -151,8 +151,10 @@ fn run_scan(
         ..ScanConfig::default()
     };
     config.search.max_size = max_size;
-    let derived = py.detach(|| scan(&loaded.table, &config));
-    ScanReport::new(source, loaded, &derived).to_json()
+    let found = py.detach(|| scan_detailed(&loaded.table, &config, &|_| {}));
+    ScanReport::new(source, loaded, &found.derived)
+        .with_near_misses(&loaded.table, &found.near_misses)
+        .to_json()
 }
 
 #[pymodule]

@@ -363,3 +363,38 @@ test("draws how the columns depend on each other and each formula against the fi
   await expect(chart.locator('circle.bad[data-row="42"]')).toHaveCount(1);
   await expect(vat.locator(".legend")).toContainText("breaks it");
 });
+
+test("shows what the search is doing and the formulas it came close to", async ({ page }) => {
+  // 36 rows with 21% VAT and 24 with another rule, net * qty / 50, that no
+  // column tells apart: neither formula is reported, both are kept.
+  const lines = ["net,qty,vat"];
+  for (let i = 1; i <= 60; i++) {
+    const net = 10 + i * 7;
+    const qty = 1 + ((i * 5) % 9);
+    const vat = i % 5 === 0 || i % 5 === 3 ? (net * qty) / 50 : net * 0.21;
+    lines.push(`${net},${qty},${vat.toFixed(2)}`);
+  }
+  await page.goto("./?workers=1");
+  await page.locator("#file").setInputFiles({ name: "mixed.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n")) });
+  await page.getByRole("button", { name: "Find derived columns" }).click();
+  // While it runs, each column says what it is doing.
+  await expect(page.locator("#progress-live li").first()).toContainText(/searching 60 rows with|best so far/);
+
+  const almost = page.locator("#almost");
+  await expect(almost).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator("#progress")).toBeHidden({ timeout: 45_000 });
+  await almost.locator("summary").click();
+  const vat = almost
+    .locator('li[data-column="vat"]')
+    .filter({ has: page.locator(".formula", { hasText: /^vat = 0\.21 \* net$/ }) });
+  await expect(vat).toContainText("36 of 60 rows (60%)");
+  await expect(vat).toContainText("holds on 60% of the rows, 90% needed");
+  await vat.getByRole("button", { name: "Search the 24 rows where it fails" }).click();
+  const card = vat.locator("article.card");
+  await expect(card).toContainText("vat = 0.02 * net * qty", { timeout: 45_000 });
+  await expect(card).toContainText("✓ all 24 rows");
+
+  const [file] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download JSON" }).click()]);
+  const report = JSON.parse(await (await import("node:fs/promises")).readFile(await file.path(), "utf8"));
+  expect(report.near_misses.map((m: { formula: string }) => m.formula)).toContain("0.21 * net");
+});

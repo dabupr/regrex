@@ -49,6 +49,8 @@ Skipped (not numeric): product
 - Put units in the headers (`time (s)`, `distance [m]`) and Regrex skips formulas that mix incompatible units, which is faster and avoids nonsense like adding seconds to metres.
 - `--json` prints a stable, versioned JSON report for scripts and AI agents ([format](docs/json-output.md)).
 - `--mermaid` prints the dependencies between columns as a diagram.
+- `--verbose` tells on stderr what the search does for each column: the inputs it tries, the best formula so far and how it ended.
+- Formulas that hold on many rows but not enough to be reported, or only where another column has some values, are listed apart under "Almost" (`near_misses` in the JSON): they often show that a column follows different rules in different groups of rows.
 - `regrex fit data.csv --target y` lists candidate formulas for a single column.
 
 Install from source with `cargo install --path crates/regrex-cli`. From the first release on, prebuilt binaries are attached to each [GitHub release](https://github.com/dabupr/regrex/releases) and `cargo install regrex-cli` works too.

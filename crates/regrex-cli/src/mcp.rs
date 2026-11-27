@@ -133,7 +133,7 @@ fn tools() -> Value {
         {
             "name": "scan_dataset",
             "title": "Find computed columns",
-            "description": "Finds the columns of a table that are computed from other columns, with their formula and the rows that break it (rows are counted from 1 after the header).",
+            "description": "Finds the columns of a table that are computed from other columns, with their formula and the rows that break it (rows are counted from 1 after the header). near_misses lists formulas that hold on many rows but too few to report, or only where another column has some values (holds_when): good places to look next.",
             "inputSchema": {
                 "type": "object",
                 "properties": with_file(json!({
@@ -227,13 +227,15 @@ fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
         "scan_dataset" => {
             let (path, loaded) = load(args)?;
             let columns = strings(args, "columns")?;
-            let derived = scan_columns(
+            let found = scan_columns(
                 &loaded,
                 &columns,
                 number(args, "min_match")?.unwrap_or(0.9),
                 size(args, "max_size", 5, 9)?,
+                &|_| {},
             )?;
-            let mut report = ScanReport::new(&path, &loaded, &derived);
+            let mut report = ScanReport::new(&path, &loaded, &found.derived)
+                .with_near_misses(&loaded.table, &found.near_misses);
             if !columns.is_empty() {
                 report = report.only_columns(&columns);
             }
