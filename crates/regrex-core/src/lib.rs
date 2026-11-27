@@ -45,6 +45,7 @@ pub mod regime;
 pub mod scan;
 pub mod search;
 pub mod simplify;
+pub mod steps;
 pub mod units;
 
 pub use error::Error;

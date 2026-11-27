@@ -250,6 +250,7 @@ impl ReviewItem {
             other,
             copy: self.copy_of.is_some(),
             regime: None,
+            steps: false,
         })
     }
 }

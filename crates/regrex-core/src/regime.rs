@@ -71,6 +71,9 @@ const MAX_RUN_SHAPES: usize = 2;
 /// Average rows per run for a per-run formula: with shorter runs, the
 /// constants fitted on each run explain anything.
 const MIN_MEAN_RUN: f64 = 4.0;
+/// Share of the explained rows that must follow something more than a
+/// constant per run.
+const MIN_INFORMATIVE_SHARE: f64 = 0.2;
 
 /// Explains `target` with a formula per value of a regime column, when no
 /// single formula does. Returns `None` unless the pieces together match
@@ -220,16 +223,16 @@ fn correlation_ratio_many(groups: &[f64], y: &[f64]) -> f64 {
 }
 
 /// The rows of an ordered table, sorted, with the group of each row.
-struct Order {
-    column: usize,
+pub(crate) struct Order {
+    pub(crate) column: usize,
     /// Position of each row in the sorted order (`usize::MAX` if left out).
-    position: Vec<usize>,
-    sorted: Vec<usize>,
-    group_of: Vec<usize>,
+    pub(crate) position: Vec<usize>,
+    pub(crate) sorted: Vec<usize>,
+    pub(crate) group_of: Vec<usize>,
 }
 
 impl Order {
-    fn new(table: &Table, profile: &Profile) -> Option<Order> {
+    pub(crate) fn new(table: &Table, profile: &Profile) -> Option<Order> {
         let column = profile.order?;
         let sorted = profile.sorted_rows(table)?;
         let mut position = vec![usize::MAX; table.n_rows()];
@@ -245,7 +248,7 @@ impl Order {
     }
 
     /// Runs of `rows` (sorted, consecutive in the order and in one group).
-    fn runs(&self, rows: &[usize]) -> Vec<Vec<usize>> {
+    pub(crate) fn runs(&self, rows: &[usize]) -> Vec<Vec<usize>> {
         let mut rows: Vec<usize> = rows
             .iter()
             .copied()
@@ -483,7 +486,7 @@ fn basic_shapes(order: usize) -> Vec<Expr> {
 }
 
 /// Half a unit of the last decimal of the target, when known.
-fn rounding(table: &Table, target: usize) -> f64 {
+pub(crate) fn rounding(table: &Table, target: usize) -> f64 {
     table
         .decimals
         .get(target)
@@ -496,9 +499,6 @@ fn rounding(table: &Table, target: usize) -> f64 {
 /// constants fitted on rounded values carry some of the rounding. Relative
 /// to the range, not to the values, so that a line cannot pass for a short
 /// stretch of a curve of large coordinates.
-/// Share of the explained rows that must follow something more than a
-/// constant per run.
-const MIN_INFORMATIVE_SHARE: f64 = 0.2;
 const RUN_TOLERANCE: f64 = 1e-5;
 
 /// The shapes of the formulas found on the longest runs, with one or two
@@ -729,6 +729,7 @@ fn derived(
         other: None,
         copy: false,
         regime: Some(formula),
+        steps: false,
     }
 }
 

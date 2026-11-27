@@ -194,6 +194,11 @@ pub struct DerivedColumn {
     /// [`crate::regime`]). `formula` is then the formula of the largest
     /// piece with fixed constants, and `formula_text` sums up every piece.
     pub regime: Option<crate::regime::RegimeFormula>,
+    /// Whether the formula links each row to the previous one in the order
+    /// of the table (see [`crate::steps`]), as in a running total or a
+    /// chainage measured along coordinates. `formula` is then no formula of
+    /// one row, and `formula_text` says what holds.
+    pub steps: bool,
 }
 
 /// A second formula for some rows of a derived column.
@@ -329,6 +334,7 @@ pub fn explain_column_in(
     }
     let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
     explain_column_skipping(table, target, config, &skip)
+        .or_else(|| crate::steps::explain_by_steps(table, target, config, profile, &skip))
         .or_else(|| crate::regime::explain_by_regime(table, target, config, profile, &skip))
 }
 
@@ -1129,6 +1135,7 @@ fn derived(
         other: None,
         copy: false,
         regime: None,
+        steps: false,
     }
 }
 

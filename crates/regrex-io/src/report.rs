@@ -183,6 +183,10 @@ pub struct DerivedJson {
     /// them up.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub regime: Option<RegimeJson>,
+    /// Whether the formula links each row to the previous one, in the
+    /// order of the table (a running total, a chainage along coordinates).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub between_rows: bool,
 }
 
 /// A formula per value of a regime column.
@@ -434,7 +438,7 @@ impl DerivedJson {
             }),
         });
         // A piecewise formula has no single expected value to compare with.
-        let details = if d.regime.is_some() {
+        let details = if d.regime.is_some() || d.steps {
             0
         } else {
             MAX_EXCEPTION_DETAILS
@@ -481,7 +485,7 @@ impl DerivedJson {
             match_ratio: d.match_ratio(),
             exception_rows: d.exceptions.iter().map(|r| r + 1).collect(),
             exceptions,
-            known: if d.copy || d.regime.is_some() {
+            known: if d.copy || d.regime.is_some() || d.steps {
                 None
             } else {
                 known_column(table, d)
@@ -506,6 +510,7 @@ impl DerivedJson {
                     })
                     .collect(),
             }),
+            between_rows: d.steps,
         }
     }
 }
