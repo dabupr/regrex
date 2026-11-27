@@ -22,4 +22,4 @@ A reported formula counts for a relation when every column it uses belongs to th
 
 ## Results on 2026-11-27
 
-23 of 27 relations found, 2 false positives (both in `exercise.csv`), 115 s in total on 4 cores (29 s of it on `track.csv`). Missing: four Feynman equations with square roots of differences or sums of terms. The goals for 1.0.0 are in [`docs/ROADMAP.md`](../docs/ROADMAP.md).
+23 of 27 relations found, no false positive, 87 s in total on 4 cores (12 s of it on `track.csv`). Missing: four Feynman equations with square roots of differences or sums of terms. The goals for 1.0.0 are in [`docs/ROADMAP.md`](../docs/ROADMAP.md).

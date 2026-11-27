@@ -1076,6 +1076,11 @@ fn best_formula(
         let zero = |_: usize| 0.0;
         matching_rows(formula, table, matched, y_all, &zero).len() == matched.len()
     };
+    // A row number (0, 1, 2…) holds no information of its own: only an
+    // exact rule (`1 + column1 div 3`) can link it to other columns, not a
+    // formula that stays within rounding of it.
+    let present: Vec<usize> = (0..y_all.len()).filter(|&r| y_all[r].is_finite()).collect();
+    let row_number = evenly_spaced(y_all, &present);
     let consider = |formula: Expr, best: &mut Option<(Expr, Vec<usize>)>| {
         if !plausible_constants(&formula) {
             return;
@@ -1088,6 +1093,12 @@ fn best_formula(
             }
         }
         let matched = matching_rows(&formula, table, &rows, y_all, &tolerance);
+        if !matched.is_empty()
+            && !exact(&formula, &matched)
+            && (row_number || few_values_for(&formula, y_all, &matched))
+        {
+            return;
+        }
         let better = match best {
             None => true,
             Some((f, m)) => {
@@ -1680,6 +1691,54 @@ fn search_rows(
         .into_iter()
         .map(|c| remap_vars(&c.expr, inputs))
         .collect()
+}
+
+/// Rows a column needs to be taken for a row number.
+const MIN_ROW_NUMBERS: usize = 20;
+
+/// Whether the values of `y` in `rows` go up or down by the same step
+/// from each row to the next, as a row number does.
+fn evenly_spaced(y: &[f64], rows: &[usize]) -> bool {
+    if rows.len() < MIN_ROW_NUMBERS {
+        return false;
+    }
+    let step = y[rows[1]] - y[rows[0]];
+    step != 0.0 && rows.windows(2).all(|w| y[w[1]] - y[w[0]] == step)
+}
+
+/// Whether the rows `formula` matches take too few values for its fitted
+/// constants to be believed: with three values (1, 15 and 30 minutes),
+/// two or three constants can stay within rounding of them by chance, as
+/// `time = 44.25 - 43.5 * (id - 0.3334 * column1)` does.
+fn few_values_for(formula: &Expr, y: &[f64], matched: &[usize]) -> bool {
+    let constants = fitted_constants(formula);
+    constants > 0 && distinct_values_in(y, matched, 2 * constants + 2) <= 2 * constants + 1
+}
+
+/// Constants of `formula` that were fitted, not whole numbers or halves
+/// (`100 - 100 * net / subtotal`, `x^0.5`).
+fn fitted_constants(e: &Expr) -> usize {
+    match e {
+        Expr::Const(c) => usize::from((2.0 * c).fract() != 0.0),
+        Expr::Var(_) | Expr::Param(_) => 0,
+        Expr::Unary(_, a) => fitted_constants(a),
+        Expr::Binary(_, a, b) => fitted_constants(a) + fitted_constants(b),
+    }
+}
+
+/// Different values of `y` in `rows`, counting up to `limit`.
+fn distinct_values_in(y: &[f64], rows: &[usize], limit: usize) -> usize {
+    let mut seen: Vec<u64> = Vec::new();
+    for &r in rows {
+        let bits = y[r].to_bits();
+        if !seen.contains(&bits) {
+            seen.push(bits);
+            if seen.len() >= limit {
+                break;
+            }
+        }
+    }
+    seen.len()
 }
 
 /// Rows (from `rows`) where `formula` reproduces `y` within tolerance.
@@ -2745,6 +2804,30 @@ mod tests {
             ..Table::default()
         };
         assert!(scan(&table, &ScanConfig::default()).is_empty());
+    }
+
+    /// `exercise.csv`: a row number, a subject (three rows each) and the
+    /// minute of each measure (1, 15 or 30).
+    fn exercise() -> Table {
+        let n = 90;
+        Table {
+            names: vec!["column1".into(), "id".into(), "time".into()],
+            columns: vec![
+                (0..n).map(|r| r as f64).collect(),
+                (0..n).map(|r| (r / 3 + 1) as f64).collect(),
+                (0..n).map(|r| [1.0, 15.0, 30.0][r % 3]).collect(),
+            ],
+            decimals: vec![Some(0); 3],
+            ..Table::default()
+        }
+    }
+
+    #[test]
+    fn formulas_within_rounding_of_a_row_number_are_flukes() {
+        let table = exercise();
+        let found = scan(&table, &ScanConfig::default());
+        let texts: Vec<&str> = found.iter().map(|d| d.formula_text.as_str()).collect();
+        assert_eq!(texts, ["1 + column1 div 3"], "{texts:?}");
     }
 
     #[test]
