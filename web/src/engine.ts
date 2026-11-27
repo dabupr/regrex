@@ -167,6 +167,11 @@ export class Engine {
     return slot.call({ kind: "explain", column, options }, [], onEvent);
   }
 
+  /** Whether worker `slot` is doing nothing now. */
+  idle(slot: number | undefined): boolean {
+    return slot !== undefined && (this.slots[slot]?.busy ?? 1) === 0;
+  }
+
   /** Checks a formula written by the user; names that are not columns are fitted constants. */
   formula(column: string, text: string): Promise<Derived> {
     return this.main.call({ kind: "formula", column, text });

@@ -539,6 +539,12 @@ fn pieces_for(
                     *slot = better;
                     continue;
                 }
+                // Otherwise the constant along stretches stands, as for
+                // any other piece that holds on nearly every row: no
+                // search of the part.
+                if have as f64 >= 0.98 * part.len() as f64 {
+                    continue;
+                }
             }
             if let Some(better) = explain_part(table, target, part, config, order, &skip, true) {
                 if slot.as_ref().is_none_or(|s| better.1.len() > s.1.len()) {
