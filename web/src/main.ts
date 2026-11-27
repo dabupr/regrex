@@ -113,6 +113,8 @@ interface State {
   info: DatasetInfo;
   ignored: Set<string>;
   derived: Derived[];
+  /** Every formula found, also the other forms of a relation folded into one card. */
+  allForms?: Derived[];
   /** Formulas found but not reported, best first. */
   nearMisses: NearMiss[];
   /** The options of the last scan, to search part of the rows again. */
@@ -510,6 +512,7 @@ async function scanAll() {
   ui.results.hidden = true;
   ui.suspicious.hidden = true;
   state.derived = [];
+  state.allForms = undefined;
   state.suspects = [];
   const { name, bytes } = state;
   const sheet = state.info.sheets.length > 1 ? ui.sheet.value : undefined;
@@ -653,7 +656,14 @@ async function scanAll() {
     state.nearMisses = nearInOrder();
     if (state.derived.length > 1) {
       const reviewed = await engine.review(ignore, state.derived);
-      state.derived = state.derived.map((d, i) => (reviewed[i] ? { ...d, exceptions: reviewed[i].exceptions } : d));
+      state.derived = state.derived.map((d, i) =>
+        reviewed[i] ? { ...d, exceptions: reviewed[i].exceptions, equivalent: reviewed[i].equivalent } : d,
+      );
+      // One card per relation: `m = target / (g * z)` goes with `target = m * g * z`.
+      // Every form still tells which cell of a row is wrong.
+      state.allForms = state.derived;
+      const folded = new Set(state.derived.flatMap((d) => (d.equivalent ?? []).map((e) => e.column)));
+      state.derived = state.derived.filter((d) => !folded.has(d.column));
     }
   } catch (e) {
     if (!stopped) showError(`Something went wrong: ${(e as Error).message}`);
@@ -666,7 +676,7 @@ async function scanAll() {
     // only diagnosed one by one instead of together.
     if (stopped) await engine.load(name, bytes, sheet);
     if (state.name === name) {
-      state.suspects = await findSuspects(state.derived);
+      state.suspects = await findSuspects(stopped ? state.derived : (state.allForms ?? state.derived));
       if (stopped) {
         state.derived = inOrder();
         state.nearMisses = nearInOrder();
@@ -1062,6 +1072,21 @@ function derivedCard(d: Derived): HTMLElement {
   if (d.regime) card.append(regimeTable(d));
   if (exceptions > 0 && !d.other) card.append(partialNote(d, exceptions));
   if (d.known) card.append(knownNode(d.known));
+  if (d.equivalent?.length) {
+    const n = d.equivalent.length;
+    card.append(
+      el(
+        "details",
+        { class: "equivalent" },
+        el("summary", {}, `Also ${n === 1 ? "1 other form" : `${n} other forms`} of the same relation`),
+        el(
+          "ul",
+          {},
+          ...d.equivalent.map((e) => el("li", {}, el("span", { class: "formula-inline" }, columnName(e.column), " = ", ...painted(e.formula)))),
+        ),
+      ),
+    );
+  }
   if (d.other) {
     const o = d.other;
     const n = o.rows.length === 1 ? "1 row" : `${o.rows.length} rows`;
@@ -1186,7 +1211,7 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
   renderTextRelations();
   renderNearMisses(state.nearMisses);
   renderGraph(main);
-  const found = new Set(state.derived.map((d) => d.column));
+  const found = new Set(state.derived.flatMap((d) => [d.column, ...(d.equivalent ?? []).map((e) => e.column)]));
   const rest = columns.filter((c) => !found.has(c));
   const notes = rest.length ? [`No formula found for: ${rest.join(", ")}.`] : [];
   if (stopped) {

@@ -50,13 +50,28 @@ fn scan_csv_finds_formulas_and_exceptions() {
     assert_eq!(why["kind"], "wrong_constant");
     assert_eq!(why["description"], "used 0.1 instead of 0.21");
     assert_eq!(why["formula"], "0.1 * net");
-    // Row 17 has a wrong total, which also breaks net = total - vat.
-    let net = derived(&report, "net");
-    assert_eq!(net["exceptions"][0]["diagnosis"]["kind"], "other_cell");
-
+    // Row 17 has a wrong total. `net = total - vat` is the same relation,
+    // listed with it rather than apart.
     let total = derived(&report, "total");
     assert_eq!(total["formula"], "net + vat");
     assert_eq!(total["exception_rows"], serde_json::json!([17]));
+    assert_eq!(
+        total["equivalent"],
+        serde_json::json!([{ "column": "net", "formula": "total - vat" }])
+    );
+    let listed = |c: &str| {
+        report["derived"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|d| d["column"] == c)
+    };
+    assert!(!listed("net") && !listed("price"));
+    assert!(report["not_found"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|m| m["column"] != "net"));
 }
 
 #[test]
