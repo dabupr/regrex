@@ -5,7 +5,7 @@
 //!   name one code.
 //!
 //! Numbers hidden in text (`GIS5550` = an id − 4835) are read as columns
-//! instead (see [`crate::hidden`]), so the formula search finds those.
+//! instead when the file is loaded, so the formula search finds those.
 
 use crate::{cells::is_missing, Loaded};
 use std::collections::HashMap;

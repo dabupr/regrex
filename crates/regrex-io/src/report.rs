@@ -46,7 +46,7 @@ pub struct ScanReport {
     pub text_relations: Vec<TextRelationJson>,
 }
 
-/// A relation between text columns (see [`crate::text_relations`]).
+/// A relation between text columns (see [`crate::text_relations()`]).
 #[derive(Debug, Clone, Serialize)]
 pub struct TextRelationJson {
     /// The column explained.

@@ -71,6 +71,11 @@ const MAX_RUN_SHAPES: usize = 2;
 /// Average rows per run for a per-run formula: with shorter runs, the
 /// constants fitted on each run explain anything.
 const MIN_MEAN_RUN: f64 = 4.0;
+/// Values a text column that changes from row to row may have to be tried
+/// as a regime (each value is a part to search).
+const MAX_CODE_PARTS: usize = 20;
+/// Rows of a part searched for one formula (a spread sample of larger parts).
+const SEARCH_ROWS: usize = 4000;
 /// Share of the explained rows that must follow something more than a
 /// constant per run.
 const MIN_INFORMATIVE_SHARE: f64 = 0.2;
@@ -101,7 +106,8 @@ pub(crate) fn explain_by_regime(
         return None;
     }
     let order = Order::new(table, profile);
-    let mut regimes: Vec<(f64, usize)> = profile
+    let best = std::cell::OnceCell::new();
+    let mut regimes: Vec<(f64, usize, bool)> = profile
         .columns
         .iter()
         .enumerate()
@@ -109,7 +115,8 @@ pub(crate) fn explain_by_regime(
             c != target
                 // `codi#num` is read out of `codi`: no regime of its own.
                 && base_name(&table.names[c]) != base_name(&table.names[target])
-                && (p.role == Role::Regime || p.role == Role::Flag && p.category)
+                && (p.role == Role::Regime
+                    || p.category && matches!(p.role, Role::Flag | Role::Code))
                 && !skip.get(c).copied().unwrap_or(false)
         })
         // A regime must be known on most rows of the target.
@@ -117,30 +124,47 @@ pub(crate) fn explain_by_regime(
             let r = &table.columns[c];
             present.iter().filter(|&&i| r[i].is_finite()).count() * 10 >= present.len() * 9
         })
-        .map(|(c, _)| (regime_score(table, c, y, order.as_ref()), c))
-        .filter(|&(score, _)| score >= MIN_REGIME_SCORE)
+        .filter_map(|(c, p)| {
+            // A text column that changes from row to row in an ordered
+            // table (a country in invoices sorted by number) has no runs
+            // to fit: its values are the parts, as without an order.
+            let runs = p.mean_run.unwrap_or(0.0) >= MIN_MEAN_RUN;
+            // A code with long runs has too many values for a regime.
+            if p.role == Role::Code && (runs || p.distinct > MAX_CODE_PARTS) {
+                return None;
+            }
+            let o = order.as_ref().filter(|_| runs);
+            let x = if o.is_none() {
+                *best.get_or_init(|| best_input(table, target))
+            } else {
+                None
+            };
+            Some((regime_score(table, c, y, o, x), c, runs))
+        })
+        .filter(|&(score, _, _)| score >= MIN_REGIME_SCORE)
         .collect();
     regimes.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
     regimes.truncate(MAX_REGIMES);
 
-    let mut best: Option<(usize, RegimeFormula, Vec<usize>)> = None;
-    for &(_, regime) in &regimes {
-        let Some((formula, matched)) = pieces_for(
-            table,
-            target,
-            regime,
-            &present,
-            config,
-            order.as_ref(),
-            skip,
-        ) else {
+    let mut best: Option<(usize, RegimeFormula, Vec<usize>, bool)> = None;
+    for &(_, regime, runs) in &regimes {
+        let o = order.as_ref().filter(|_| runs);
+        let res = pieces_for(table, target, regime, &present, config, o, skip);
+        let Some((formula, matched)) = res else {
             continue;
         };
         if best.as_ref().is_none_or(|b| matched.len() > b.0) {
-            best = Some((matched.len(), formula, matched));
+            best = Some((matched.len(), formula, matched, runs));
+        }
+        // The next regime could only explain a few rows more.
+        if best
+            .as_ref()
+            .is_some_and(|b| b.0 as f64 >= 0.99 * present.len() as f64)
+        {
+            break;
         }
     }
-    let (_, formula, matched) = best?;
+    let (_, formula, matched, runs) = best?;
     if (matched.len() as f64) < config.min_match * present.len() as f64 {
         return None;
     }
@@ -150,7 +174,7 @@ pub(crate) fn explain_by_regime(
         formula,
         &present,
         &matched,
-        order.as_ref(),
+        order.as_ref().filter(|_| runs),
     ))
 }
 
@@ -158,7 +182,13 @@ pub(crate) fn explain_by_regime(
 /// runs of equal regime values along the order (each curve is a run), or
 /// on the regime's values when the table has no order. A regime whose
 /// changes line up with the changes of `y` scores high.
-fn regime_score(table: &Table, regime: usize, y: &[f64], order: Option<&Order>) -> f64 {
+fn regime_score(
+    table: &Table,
+    regime: usize,
+    y: &[f64],
+    order: Option<&Order>,
+    x: Option<usize>,
+) -> f64 {
     let r = &table.columns[regime];
     match order {
         Some(o) => {
@@ -183,8 +213,87 @@ fn regime_score(table: &Table, regime: usize, y: &[f64], order: Option<&Order>) 
             }
             correlation_ratio_many(&run_id, y)
         }
-        None => correlation_ratio(r, y),
+        // Without an order, the regime may change the slope rather than the
+        // level (a VAT rate per country), so a line per regime value in the
+        // column most correlated with `y` counts too.
+        None => {
+            let line = x
+                .filter(|&x| x != regime)
+                .map_or(0.0, |x| line_score(r, &table.columns[x], y));
+            correlation_ratio(r, y).max(line)
+        }
     }
+}
+
+/// The numeric column most correlated with `y` (not `y` itself, nor a
+/// copy of it), for [`line_score`].
+fn best_input(table: &Table, target: usize) -> Option<usize> {
+    let y = &table.columns[target];
+    let pearson = |x: &[f64]| {
+        let (mut n, mut sx, mut sy, mut sxx, mut syy, mut sxy) = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        for (&a, &b) in x.iter().zip(y) {
+            if a.is_finite() && b.is_finite() {
+                n += 1.0;
+                sx += a;
+                sy += b;
+                sxx += a * a;
+                syy += b * b;
+                sxy += a * b;
+            }
+        }
+        let cov = sxy - sx * sy / n;
+        let den = ((sxx - sx * sx / n) * (syy - sy * sy / n)).sqrt();
+        if n < 3.0 || den <= 0.0 {
+            0.0
+        } else {
+            (cov / den).abs()
+        }
+    };
+    (0..table.columns.len())
+        .filter(|&c| c != target && !table.is_category(c))
+        .map(|c| (pearson(&table.columns[c]), c))
+        .filter(|(p, _)| *p < 1.0 - 1e-12)
+        .max_by(|a, b| a.0.total_cmp(&b.0))
+        .map(|(_, c)| c)
+}
+
+/// How much better a line in `x` per regime value explains `y` than one
+/// line for all rows: the share of the squared residuals removed, from 0
+/// to 1.
+fn line_score(r: &[f64], x: &[f64], y: &[f64]) -> f64 {
+    // Sums for a least-squares line: n, Σx, Σy, Σxx, Σxy, Σyy.
+    let mut parts: std::collections::HashMap<u64, [f64; 6]> = Default::default();
+    let mut all = [0.0; 6];
+    for ((&g, &a), &b) in r.iter().zip(x).zip(y) {
+        if !(g.is_finite() && a.is_finite() && b.is_finite()) {
+            continue;
+        }
+        for s in [parts.entry(g.to_bits()).or_insert([0.0; 6]), &mut all] {
+            s[0] += 1.0;
+            s[1] += a;
+            s[2] += b;
+            s[3] += a * a;
+            s[4] += a * b;
+            s[5] += b * b;
+        }
+    }
+    let sse = |s: &[f64; 6]| {
+        let [n, sx, sy, sxx, sxy, syy] = *s;
+        if n < 3.0 {
+            return f64::NAN;
+        }
+        let vxx = sxx - sx * sx / n;
+        let vxy = sxy - sx * sy / n;
+        let vyy = syy - sy * sy / n;
+        let fit = if vxx > 0.0 { vxy * vxy / vxx } else { 0.0 };
+        (vyy - fit).max(0.0)
+    };
+    let global = sse(&all);
+    let within: f64 = parts.values().map(sse).filter(|v| v.is_finite()).sum();
+    if global.is_nan() || global <= 1e-12 || parts.len() < 2 {
+        return 0.0;
+    }
+    (1.0 - within / global).clamp(0.0, 1.0)
 }
 
 /// The correlation ratio for a grouping with many groups: the share of the
@@ -327,6 +436,10 @@ fn pieces_for(
         // part has no formula is dropped after one search.
         let mut by_size: Vec<usize> = (0..parts.len()).collect();
         by_size.sort_by_key(|&i| std::cmp::Reverse(parts[i].1.len()));
+        // Once more rows are left unexplained than `min_match` allows, the
+        // other parts are not searched.
+        let allowed = (1.0 - config.min_match) * present.len() as f64;
+        let mut missed = present.len() - parts.iter().map(|p| p.1.len()).sum::<usize>();
         for (k, &i) in by_size.iter().enumerate() {
             let (part, slot) = (&parts[i].1, &mut found[i]);
             let done = slot
@@ -343,6 +456,10 @@ fn pieces_for(
             let covered = slot.as_ref().map_or(0, |s| s.1.len());
             if k == 0 && order.is_none() && (covered as f64) < config.min_match * part.len() as f64
             {
+                return None;
+            }
+            missed += part.len() - covered.min(part.len());
+            if missed as f64 > allowed {
                 return None;
             }
         }
@@ -460,7 +577,11 @@ fn explain_part(
     }
     // One formula for the whole part.
     if !done(&best) {
-        let sub = sub_table(table, part);
+        // A spread sample is searched; the formula is then checked on every
+        // row of the part.
+        let step = part.len().div_ceil(SEARCH_ROWS).max(1);
+        let sample: Vec<usize> = part.iter().copied().step_by(step).collect();
+        let sub = sub_table(table, &sample);
         if let Some(d) = explain_column_skipping(&sub, target, config, skip) {
             if d.other.is_none() {
                 let rows = matching_rows(&d.formula, table, part, y, &tolerance);
@@ -784,6 +905,39 @@ mod tests {
             .collect();
         assert_eq!(texts, ["a: 2 * x", "b: 3 * x + 1", "c: x^2"], "{d:?}");
         assert_eq!(d.matched, n);
+    }
+
+    /// A VAT rate per country, in shuffled rows: the country changes the
+    /// slope, not the level, so its correlation ratio alone is low.
+    #[test]
+    fn a_rate_per_category_in_shuffled_rows() {
+        let n = 200;
+        let net: Vec<f64> = (0..n)
+            .map(|i| (10.0 + ((i * 7919) % 491) as f64 * 1.01).round())
+            .collect();
+        let country: Vec<f64> = (0..n).map(|i| ((i * 13) % 4) as f64).collect();
+        let rates = [0.21, 0.2, 0.19, 0.23];
+        let vat: Vec<f64> = (0..n)
+            .map(|i| (net[i] * rates[country[i] as usize] * 100.0).round() / 100.0)
+            .collect();
+        let table = Table {
+            names: vec!["net".into(), "country".into(), "vat".into()],
+            columns: vec![net, country, vat],
+            labels: vec![
+                None,
+                Some(vec!["ES".into(), "FR".into(), "DE".into(), "PT".into()]),
+                None,
+            ],
+            decimals: vec![Some(0), Some(0), Some(2)],
+            ..Table::default()
+        };
+        let found = scan(&table, &ScanConfig::default());
+        let d = found.iter().find(|d| d.target == 2).expect("vat is found");
+        assert_eq!(
+            d.formula_text,
+            "by country: ES: 0.21 * net; FR: 0.2 * net; DE: 0.19 * net; PT: 0.23 * net",
+            "{d:?}"
+        );
     }
 
     /// Two tracks along a chainage: 0 on straights, constant on each
