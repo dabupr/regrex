@@ -35,6 +35,16 @@ enum Command {
         /// Print the column dependencies as a Mermaid diagram (renders on GitHub).
         #[arg(long, conflicts_with = "json")]
         mermaid: bool,
+        /// Search a sample of rows first (blocks spread over the file), then
+        /// confirm on all rows only the formulas found there. Much faster on
+        /// large files; columns without a formula on the sample are not
+        /// searched again.
+        #[arg(long, conflicts_with = "columns")]
+        quick: bool,
+        /// Rows in the sample of --quick (default: 2000 or 5% of the rows,
+        /// whichever is larger).
+        #[arg(long, requires = "quick")]
+        sample: Option<usize>,
     },
     /// Find formulas for one column.
     Fit {
@@ -230,11 +240,33 @@ fn run(cli: Cli) -> Result<(), String> {
             min_match,
             max_size,
             mermaid,
+            quick,
+            sample,
         } => {
             let loaded = load(&file)?;
-            let derived = scan_columns(&loaded, &columns, min_match, max_size)?;
-            let mut report =
-                output::ScanReport::new(&file.file.display().to_string(), &loaded, &derived);
+            let name = file.file.display().to_string();
+            let mut report = if quick {
+                let mut config = ScanConfig {
+                    min_match,
+                    ..ScanConfig::default()
+                };
+                config.search.max_size = max_size;
+                let rows = loaded.table.n_rows();
+                let size = sample.unwrap_or((rows / 20).max(2000));
+                let names = &loaded.table.names;
+                let q = regrex_core::scan_quick(&loaded.table, &config, size, |d, confirmed| {
+                    let stage = if confirmed {
+                        "confirmed"
+                    } else {
+                        "provisional"
+                    };
+                    eprintln!("{stage}: {} = {}", names[d.target], d.formula_text);
+                });
+                output::ScanReport::new(&name, &loaded, &q.derived).with_quick(&loaded.table, &q)
+            } else {
+                let derived = scan_columns(&loaded, &columns, min_match, max_size)?;
+                output::ScanReport::new(&name, &loaded, &derived)
+            };
             if !columns.is_empty() {
                 report = report.only_columns(&columns);
             }

@@ -276,3 +276,31 @@ fn scan_json_lists_the_inputs_tried_for_columns_without_formula() {
     // Derived columns are not listed.
     assert!(missing.iter().all(|m| m["column"] != "delay_min"));
 }
+
+#[test]
+fn a_quick_scan_searches_a_sample_and_confirms_on_all_rows() {
+    let (ok, stdout, stderr) = regrex(&[
+        "scan",
+        "tests/invoices.csv",
+        "--ignore",
+        "invoice",
+        "--json",
+        "--quick",
+        "--sample",
+        "20",
+    ]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(report["quick"]["sample_rows"], 20);
+    assert_eq!(report["quick"]["max_broken_share"], 0.15);
+    assert_eq!(derived(&report, "subtotal")["formula"], "price * quantity");
+    assert_eq!(derived(&report, "subtotal")["checked_rows"], 60);
+    assert!(
+        stderr.contains("provisional: subtotal = price * quantity"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("confirmed: subtotal = price * quantity"),
+        "{stderr}"
+    );
+}

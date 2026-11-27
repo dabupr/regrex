@@ -44,6 +44,23 @@ pub struct ScanReport {
     /// names one to one.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub text_relations: Vec<TextRelationJson>,
+    /// For a quick scan (`--quick`), what was searched on a sample only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quick: Option<QuickJson>,
+}
+
+/// How a quick scan was done (see [`regrex_core::progressive`]).
+#[derive(Debug, Clone, Serialize)]
+pub struct QuickJson {
+    /// Rows of the sample every column was searched on.
+    pub sample_rows: usize,
+    /// With 95% confidence, a formula that matched every sampled row is
+    /// broken by less than this share of all rows (3 / sample_rows).
+    pub max_broken_share: f64,
+    /// Columns without a formula on the sample, not searched on all rows.
+    pub not_searched: Vec<String>,
+    /// Formulas found on the sample that did not hold on all rows.
+    pub dropped: Vec<String>,
 }
 
 /// A relation between text columns (see [`crate::text_relations()`]).
@@ -605,7 +622,27 @@ impl ScanReport {
                     checked_rows: r.checked,
                 })
                 .collect(),
+            quick: None,
         }
+    }
+
+    /// Adds what a quick scan left out; the columns not searched on all
+    /// rows are not listed as searched without a formula.
+    pub fn with_quick(mut self, table: &regrex_core::Table, q: &regrex_core::QuickScan) -> Self {
+        let names = &table.names;
+        let not_searched: Vec<String> = q.not_searched.iter().map(|&c| names[c].clone()).collect();
+        self.not_found.retain(|m| !not_searched.contains(&m.column));
+        self.quick = Some(QuickJson {
+            sample_rows: q.sample_rows,
+            max_broken_share: q.sample_bound(),
+            not_searched,
+            dropped: q
+                .dropped
+                .iter()
+                .map(|d| format!("{} = {}", names[d.target], d.formula_text))
+                .collect(),
+        });
+        self
     }
 
     /// Keeps in [`ScanReport::not_found`] only the given columns, when the
@@ -668,6 +705,27 @@ impl ScanReport {
         let summary = self.structure.summary();
         if !summary.is_empty() {
             let _ = writeln!(s, "{summary}");
+        }
+        if let Some(q) = &self.quick {
+            let _ = writeln!(
+                s,
+                "Quick scan: every column searched on {} of {} rows, formulas confirmed on all rows.",
+                q.sample_rows, self.rows
+            );
+            if !q.not_searched.is_empty() {
+                let _ = writeln!(
+                    s,
+                    "Not searched on all rows (no formula on the sample): {}",
+                    q.not_searched.join(", ")
+                );
+            }
+            if !q.dropped.is_empty() {
+                let _ = writeln!(
+                    s,
+                    "Found on the sample but not on all rows: {}",
+                    q.dropped.join("; ")
+                );
+            }
         }
         if !self.converted_columns.is_empty() {
             let list: Vec<String> = self

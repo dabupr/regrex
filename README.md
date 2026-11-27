@@ -47,6 +47,8 @@ Skipped (not numeric): product
 - Cells that are not plain numbers are read too: `true`/`false`, times (`08:15`, as minutes), dates (`2026-10-15`, `15/10/2026`, Kibana's `Oct 15, 2026 @ 14:24:47.000`) and numbers with a unit (`24.1 km`); `-`, `NA` and `null` count as empty. So a delay is found as `actual_arrival - arrival`.
 - Codes built from other numbers are found too, with integer division and remainder: `line = service div 100`, `car = 1 + train mod 4`.
 - Put units in the headers (`time (s)`, `distance [m]`) and Regrex skips formulas that mix incompatible units, which is faster and avoids nonsense like adding seconds to metres.
+- Works out what each column is for (group keys, the order of the rows, categories, codes, measurements) and uses it: formulas that change with a text column (`cant` is 0 on straights, constant on each curve and a ramp along the chainage on transitions), formulas between consecutive rows (a running total, a chainage that grows by the distance between points, a gradient as the slope of a height), rates per category (VAT per country), numbers hidden in text (`GIS5550`, `1/8,5`, `POINT (x y)`) and relations between text columns (`key = line + "|" + track`, a code per name).
+- `--quick` searches every column on a sample of rows (blocks spread over the file), prints each formula as soon as it is found there, and confirms it on all rows: several times faster on large files.
 - `--json` prints a stable, versioned JSON report for scripts and AI agents ([format](docs/json-output.md)).
 - `--mermaid` prints the dependencies between columns as a diagram.
 - `regrex fit data.csv --target y` lists candidate formulas for a single column.

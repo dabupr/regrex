@@ -581,7 +581,7 @@ fn explain_part(
         // row of the part.
         let step = part.len().div_ceil(SEARCH_ROWS).max(1);
         let sample: Vec<usize> = part.iter().copied().step_by(step).collect();
-        let sub = sub_table(table, &sample);
+        let sub = crate::progressive::sub_table(table, &sample);
         if let Some(d) = explain_column_skipping(&sub, target, config, skip) {
             if d.other.is_none() {
                 let rows = matching_rows(&d.formula, table, part, y, &tolerance);
@@ -648,7 +648,7 @@ fn searched_shapes(
     let mut longest: Vec<&Vec<usize>> = runs.iter().filter(|r| r.len() >= MIN_SHAPE_RUN).collect();
     longest.sort_by_key(|r| std::cmp::Reverse(r.len()));
     for run in longest.into_iter().take(SHAPE_RUNS) {
-        let sub = sub_table(table, run);
+        let sub = crate::progressive::sub_table(table, run);
         if let Some(d) = explain_column_skipping(&sub, target, config, skip) {
             let shape = parametrize(&d.formula);
             if (1..=2).contains(&shape.num_params()) && !shapes.contains(&shape) {
@@ -788,22 +788,6 @@ fn most_common(y: &[f64], rows: &[usize]) -> f64 {
         .into_values()
         .max_by(|a, b| a.1.cmp(&b.1).then(b.0.total_cmp(&a.0)))
         .map_or(f64::NAN, |(v, _)| v)
-}
-
-/// The table restricted to `rows`, in that order.
-fn sub_table(table: &Table, rows: &[usize]) -> Table {
-    Table {
-        names: table.names.clone(),
-        columns: table
-            .columns
-            .iter()
-            .map(|c| rows.iter().map(|&r| c[r]).collect())
-            .collect(),
-        decimals: table.decimals.clone(),
-        units: table.units.clone(),
-        timestamps: table.timestamps.clone(),
-        labels: table.labels.clone(),
-    }
 }
 
 /// The derived column for a regime formula.
