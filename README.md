@@ -51,6 +51,9 @@ Skipped (not numeric): product
 - `--quick` searches every column on a sample of rows (blocks spread over the file), prints each formula as soon as it is found there, and confirms it on all rows: several times faster on large files.
 - `--json` prints a stable, versioned JSON report for scripts and AI agents ([format](docs/json-output.md)).
 - `--mermaid` prints the dependencies between columns as a diagram.
+- `--agent` prints a compact JSON report for AI agents to judge the results: every column (text or number, distinct values, range), each formula with its errors, the near misses and the inputs tried for the columns left unexplained ([format](docs/json-output.md#agent-report)). The MCP server gives it with `"format": "agent"`.
+- `--verbose` tells on stderr what the search does for each column: the inputs it tries, the best formula so far and how it ended.
+- Formulas that hold on many rows but not enough to be reported, or only where another column has some values, are listed apart under "Almost" (`near_misses` in the JSON): they often show that a column follows different rules in different groups of rows.
 - `regrex fit data.csv --target y` lists candidate formulas for a single column.
 
 Install from source with `cargo install --path crates/regrex-cli`. From the first release on, prebuilt binaries are attached to each [GitHub release](https://github.com/dabupr/regrex/releases) and `cargo install regrex-cli` works too.

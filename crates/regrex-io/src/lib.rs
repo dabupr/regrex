@@ -21,6 +21,7 @@
 
 #![warn(missing_docs)]
 
+pub mod agent;
 mod cells;
 #[cfg(any(feature = "parquet", feature = "arrow"))]
 mod columnar;

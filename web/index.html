@@ -132,6 +132,7 @@
           <p id="progress-text" class="muted"></p>
           <button id="stop" type="button">Stop</button>
         </div>
+        <ul id="progress-live" class="progress-live" aria-live="polite"></ul>
       </section>
 
       <section id="results" hidden>
@@ -150,6 +151,15 @@
           <summary>Copies of other columns <span id="copies-count" class="muted"></span></summary>
           <p class="hint muted">These columns hold the same values as another column, maybe shifted or scaled. They were found before the search and are not used as inputs, so they do not take the place of other columns.</p>
           <ul id="copies-list" class="copies"></ul>
+        </details>
+        <details id="almost" class="panel" hidden>
+          <summary>Almost: formulas that hold on part of the rows <span id="almost-count" class="muted"></span></summary>
+          <p class="hint muted">
+            These formulas were not reported because they hold on too few rows, or only where another column has
+            some values. They often show that the column follows different rules in different groups of rows.
+            Search the rows where one fails to find what those rows follow.
+          </p>
+          <ul id="almost-list" class="almost"></ul>
         </details>
         <p id="independent" class="muted"></p>
       </section>

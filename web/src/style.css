@@ -92,6 +92,15 @@ td.text, th.text { text-align: left; color: var(--muted); }
 tr.bad td { background: var(--warn-bg); }
 td.rownum { color: var(--muted); text-align: right; }
 
+.progress-live { list-style: none; margin: 8px 0 0; padding: 0; font-size: 14px; }
+.progress-live li { padding: 4px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.progress-live b { color: var(--accent); }
+.provisional { color: var(--warn); }
+.almost { list-style: none; margin: 8px 0 0; padding: 0; }
+.almost > li { padding: 10px 0; border-top: 1px solid var(--border); }
+.almost .why { font-size: 14px; margin: 4px 0; }
+.almost button { margin-top: 4px; }
+.almost .rerun { margin-top: 8px; }
 .meter { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
 #meter-fill { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 

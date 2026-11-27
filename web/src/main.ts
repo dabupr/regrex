@@ -2,7 +2,7 @@ import { dependencyGraph, scatter, scatterLegend } from "./charts";
 import { Engine } from "./engine";
 import { groups, loadChoice, saveChoice, suggestions } from "./columns";
 import { columnarFormat, readColumnar } from "./formats";
-import type { DatasetInfo, Derived, Known } from "./types";
+import type { DatasetInfo, Derived, Known, NearMiss, SearchEvent } from "./types";
 import {
   ADVANCED,
   DEFAULTS,
@@ -39,6 +39,10 @@ const ui = {
   progress: $("progress"),
   meter: $("meter-fill"),
   progressText: $("progress-text"),
+  progressLive: $("progress-live"),
+  almost: $<HTMLDetailsElement>("almost"),
+  almostCount: $("almost-count"),
+  almostList: $("almost-list"),
   results: $("results"),
   graph: $<HTMLDetailsElement>("graph"),
   graphWrap: $("graph-wrap"),
@@ -98,6 +102,10 @@ interface State {
   info: DatasetInfo;
   ignored: Set<string>;
   derived: Derived[];
+  /** Formulas found but not reported, best first. */
+  nearMisses: NearMiss[];
+  /** The options of the last scan, to search part of the rows again. */
+  options?: ReturnType<typeof scanOptions>;
   suspects: Suspect[];
   /** The sheet or table being shown, when the file has several. */
   sheet?: string;
@@ -154,7 +162,7 @@ async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
     const suggested = suggestions(info);
     const ignored =
       loadChoice(name, info) ?? new Set([...suggested].filter(([, s]) => s.untick).map(([n]) => n));
-    state = { name, bytes, info, ignored, derived: [], suspects: [], sheet };
+    state = { name, bytes, info, ignored, derived: [], nearMisses: [], suspects: [], sheet };
     renderData();
   } catch (e) {
     showError(`Could not read ${name}: ${(e as Error).message}`);
@@ -380,12 +388,44 @@ async function checkOwnFormula() {
   }
 }
 
+/** The options of a scan with the current settings. */
+function scanOptions(ignore: string[]) {
+  return { ignore, ...searchOptions(settings) };
+}
+
+/** One line on what the search for a column is doing, from its events. */
+function describeEvent(e: SearchEvent): (Node | string)[] {
+  const percent = (matched: number, checked: number) => `${Math.floor((100 * matched) / Math.max(1, checked))}%`;
+  switch (e.kind) {
+    case "started":
+      return [`searching ${e.rows.toLocaleString()} rows with ${e.inputs.join(", ") || "no inputs"}`];
+    case "best": {
+      const sample =
+        e.rows_total && e.checked < e.rows_total
+          ? [" ", el("span", { class: "provisional" }, `provisional, ${e.checked.toLocaleString()} of ${e.rows_total.toLocaleString()} rows checked`)]
+          : [];
+      return [
+        "best so far ",
+        el("code", {}, e.formula),
+        ` (${percent(e.matched, e.checked)} of rows)`,
+        ...sample,
+      ];
+    }
+    case "second_formula":
+      return [`looking for a second formula on the ${e.rows.toLocaleString()} rows that break it`];
+    case "done":
+      return [e.found ? "found" : e.near_misses ? "no formula, kept what came close" : "no formula"];
+  }
+}
+
 async function scanAll() {
   if (!state) return;
   const usable = state.info.columns.map((c) => c.name).filter((n) => !state!.ignored.has(n));
   const columns = usable.includes(ui.only.value) ? [ui.only.value] : usable;
   const ignore = [...state.ignored];
-  const options = { ignore, ...searchOptions(settings) };
+  const options = scanOptions(ignore);
+  state.options = options;
+  state.nearMisses = [];
   ui.scan.disabled = true;
   ui.progress.hidden = false;
   ui.results.hidden = true;
@@ -407,8 +447,27 @@ async function scanAll() {
   // Columns are handed out from a queue to one task per worker, so a slow
   // column does not hold up the others.
   const found = new Map<string, Derived>();
+  const near = new Map<string, NearMiss[]>();
   const done = new Set<string>();
   const running = new Set<string>();
+  // What each running column's search is doing, from its events, redrawn
+  // at most once per frame.
+  const doing = new Map<string, SearchEvent>();
+  let drawing = false;
+  const drawLive = () => {
+    if (drawing) return;
+    drawing = true;
+    requestAnimationFrame(() => {
+      drawing = false;
+      ui.progressLive.replaceChildren(
+        ...[...running].map((c) => {
+          const e = doing.get(c);
+          return el("li", {}, el("b", {}, c), ": ", ...(e ? describeEvent(e) : ["waiting for a worker"]));
+        }),
+      );
+    });
+  };
+  ui.progressLive.replaceChildren();
   let next = 0;
   const started = performance.now();
   const progress = () => {
@@ -424,8 +483,20 @@ async function scanAll() {
       const column = columns[next++];
       running.add(column);
       progress();
-      const d = await engine.explain(column, options);
+      drawLive();
+      const onEvent = (e: SearchEvent) => {
+        if (e.kind === "done") return;
+        doing.set(column, e);
+        drawLive();
+      };
+      const { found: d, near_misses } = await engine.explain(column, options, onEvent);
       running.delete(column);
+      doing.delete(column);
+      drawLive();
+      if (near_misses.length && !stopped) {
+        near.set(column, near_misses);
+        renderNearMisses(nearInOrder());
+      }
       if (d && !stopped) {
         found.set(column, d);
         live.add(d, inOrder());
@@ -436,11 +507,14 @@ async function scanAll() {
   };
   // In column order, whatever order they were found in.
   const inOrder = () => columns.filter((c) => found.has(c)).map((c) => found.get(c) as Derived);
+  const nearInOrder = () =>
+    columns.flatMap((c) => near.get(c) ?? []).sort((a, b) => b.matched_rows - a.matched_rows);
   try {
     progress();
     await Promise.all(Array.from({ length: Math.min(engine.workers, columns.length) }, work));
     ui.meter.style.width = "100%";
     state.derived = inOrder();
+    state.nearMisses = nearInOrder();
     if (state.derived.length > 1) {
       const reviewed = await engine.review(ignore, state.derived);
       state.derived = state.derived.map((d, i) => (reviewed[i] ? { ...d, exceptions: reviewed[i].exceptions } : d));
@@ -457,7 +531,10 @@ async function scanAll() {
     if (stopped) await engine.load(name, bytes, sheet);
     if (state.name === name) {
       state.suspects = await findSuspects(state.derived);
-      if (stopped) state.derived = inOrder();
+      if (stopped) {
+        state.derived = inOrder();
+        state.nearMisses = nearInOrder();
+      }
       const checked = columns.filter((c) => done.has(c));
       const skipped = columns.filter((c) => !done.has(c));
       renderResults(checked, stopped && { why: stopped, skipped });
@@ -468,6 +545,72 @@ async function scanAll() {
   } finally {
     ui.scan.disabled = false;
     ui.progress.hidden = true;
+    ui.progressLive.replaceChildren();
+  }
+}
+
+/**
+ * The formulas found but not reported, best first, each with a button that
+ * searches the rows where it fails.
+ */
+function renderNearMisses(misses: NearMiss[]) {
+  ui.almost.hidden = misses.length === 0;
+  if (misses.length) ui.results.hidden = false;
+  ui.almostCount.textContent = `(${misses.length})`;
+  ui.almostList.replaceChildren(...misses.map(nearMissItem));
+}
+
+function nearMissItem(m: NearMiss): HTMLElement {
+  const share = `${Math.floor(100 * m.match_ratio)}%`;
+  const failing = m.missed_count;
+  const item = el(
+    "li",
+    { "data-column": m.column },
+    el("div", { class: "formula" }, el("b", {}, m.column), ` = ${m.formula}`),
+    el(
+      "div",
+      { class: "meta" },
+      el("span", { class: "warn" }, `${m.matched_rows.toLocaleString()} of ${m.checked_rows.toLocaleString()} rows (${share})`),
+      el("span", { class: "muted" }, `uses ${m.inputs.join(", ")}`),
+    ),
+    el("p", { class: "why muted" }, `Not reported: ${m.reason_text}.`),
+  );
+  if (m.holds_when) {
+    item.append(el("p", { class: "why" }, "Holds where ", el("code", {}, m.holds_when.rule), ` (${Math.round(100 * m.holds_when.accuracy)}% of rows agree).`));
+  }
+  if (m.regime) item.append(el("p", { class: "why" }, `Searched within ${m.regime}.`));
+  if (failing > 0) {
+    const out = el("div", { class: "rerun" });
+    const button = el("button", { type: "button" }, `Search the ${failing.toLocaleString()} rows where it fails`);
+    button.addEventListener("click", () => searchFailingRows(m, button, out));
+    item.append(button, out);
+  }
+  return item;
+}
+
+/** Searches the column again on the rows where a near miss fails. */
+async function searchFailingRows(m: NearMiss, button: HTMLButtonElement, out: HTMLElement) {
+  if (!state) return;
+  button.disabled = true;
+  const options = { ...(state.options ?? scanOptions([...state.ignored])), failing: m.formula };
+  const line = el("p", { class: "muted" }, "Searching…");
+  out.replaceChildren(line);
+  try {
+    const r = await engine.explain(m.column, options, (e) => {
+      if (e.kind !== "done") line.replaceChildren("Searching: ", ...describeEvent(e));
+    });
+    const parts: HTMLElement[] = [];
+    if (r.found) parts.push(derivedCard(r.found));
+    else parts.push(el("p", { class: "muted" }, `No formula holds on ${m.missed_count === 1 ? "that row" : `most of those ${m.missed_count.toLocaleString()} rows`}.`));
+    if (r.near_misses.length) {
+      parts.push(el("p", { class: "why muted" }, "Came close on those rows:"));
+      parts.push(el("ul", { class: "almost" }, ...r.near_misses.map(nearMissItem)));
+    }
+    out.replaceChildren(...parts);
+  } catch (e) {
+    out.replaceChildren(el("p", { class: "error" }, `Something went wrong: ${(e as Error).message}`));
+  } finally {
+    button.disabled = false;
   }
 }
 
@@ -481,6 +624,8 @@ function liveResults(columns: string[]) {
   ui.graph.hidden = true;
   ui.graphWrap.replaceChildren();
   ui.copies.hidden = true;
+  ui.almost.hidden = true;
+  ui.almostList.replaceChildren();
   ui.cards.replaceChildren();
   ui.independent.textContent = "";
   return {
@@ -789,6 +934,7 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
     ...(cards.length || copies.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
   );
   renderCopies(copies);
+  renderNearMisses(state.nearMisses);
   renderGraph(main);
   const found = new Set(state.derived.map((d) => d.column));
   const rest = columns.filter((c) => !found.has(c));
@@ -834,6 +980,7 @@ function download() {
     columns: state.info.columns.map((c) => c.name),
     skipped_columns: state.info.skipped,
     derived: state.derived,
+    near_misses: state.nearMisses,
   };
   const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
   const a = el("a", { href: URL.createObjectURL(blob), download: `${state.name.replace(/\.[^.]+$/, "")}.regrex.json` });

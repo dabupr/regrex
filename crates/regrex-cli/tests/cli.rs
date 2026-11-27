@@ -277,6 +277,95 @@ fn scan_json_lists_the_inputs_tried_for_columns_without_formula() {
     assert!(missing.iter().all(|m| m["column"] != "delay_min"));
 }
 
+/// `vat = 0.21 * net` on 36 rows and `net * qty / 50` on 24 that no column
+/// tells apart: no formula is reported, both are near misses.
+#[test]
+fn scan_keeps_the_formulas_it_came_close_to() {
+    let (ok, stdout, stderr) = regrex(&["scan", "tests/two_rules.csv", "--json", "--verbose"]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(report["derived"].as_array().unwrap().len(), 0);
+    let misses = report["near_misses"].as_array().unwrap();
+    let vat = misses
+        .iter()
+        .find(|m| m["formula"] == "0.21 * net")
+        .expect("0.21 * net kept");
+    assert_eq!(vat["column"], "vat");
+    assert_eq!(vat["reason"], "coverage");
+    assert_eq!(vat["matched_rows"], 36);
+    assert_eq!(vat["missed_count"], 24);
+    assert_eq!(vat["missed_rows"][0], 3);
+    let other = misses
+        .iter()
+        .find(|m| m["formula"] == "0.02 * net * qty")
+        .expect("second formula kept");
+    assert_eq!(other["reason"], "no_split_rule");
+    // --verbose tells what each search does, on stderr.
+    assert!(
+        stderr.contains("vat: searching 60 rows with net, qty"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("vat: best so far 0.21 * net (36/60 rows)"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("vat: no formula, 2 near misses"),
+        "{stderr}"
+    );
+
+    let (_, text, _) = regrex(&["scan", "tests/two_rules.csv"]);
+    assert!(
+        text.contains("Almost (not reported, worth a look):"),
+        "{text}"
+    );
+    assert!(
+        text.contains("vat = 0.21 * net   holds on 60% of the rows, 90% needed"),
+        "{text}"
+    );
+}
+
+#[test]
+fn scan_agent_report_is_compact_and_complete() {
+    let (ok, stdout, stderr) = regrex(&[
+        "scan",
+        "tests/invoices.csv",
+        "--ignore",
+        "invoice",
+        "--agent",
+    ]);
+    assert!(ok, "{stderr}");
+    assert_eq!(stdout.trim().lines().count(), 1, "one line of JSON");
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(report["agent_schema_version"], 1);
+    let column = |name: &str| {
+        report["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap_or_else(|| panic!("{name} listed"))
+            .clone()
+    };
+    let product = column("product");
+    assert_eq!(product["kind"], "text");
+    assert_eq!(product["not_searched"], "text");
+    assert_eq!(column("vat")["kind"], "number");
+    let vat = report["found"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["column"] == "vat")
+        .expect("vat found");
+    assert_eq!(vat["formula"], "0.21 * net");
+    assert_eq!(vat["known"], "tax_amount");
+    assert_eq!(vat["wrong_count"], 1);
+    assert_eq!(vat["wrong"][0]["row"], 42);
+    assert_eq!(vat["wrong"][0]["likely"], "used 0.1 instead of 0.21");
+    assert!(vat["max_error"].as_f64().unwrap() <= 0.005 + 1e-9);
+    assert!(report["notes"].as_array().unwrap().len() >= 3);
+}
+
 #[test]
 fn a_quick_scan_searches_a_sample_and_confirms_on_all_rows() {
     let (ok, stdout, stderr) = regrex(&[
