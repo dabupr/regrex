@@ -33,7 +33,6 @@ export interface Advanced {
 
 /** Files with more rows than this are searched on a sample first when `sample` is automatic. */
 export const LARGE_FILE = 50_000;
-const AUTO_SAMPLE = 5000;
 
 /** How each advanced limit is shown and explained, with its allowed values. */
 export const ADVANCED: {
@@ -205,7 +204,8 @@ export function searchOptions(settings: Settings, rows = 0) {
 /** Rows to search first on a file of `rows` rows, or 0 to search all rows. */
 export function sampleSize(settings: Settings, rows: number): number {
   const s = settings.advanced.sample;
-  const size = s === -1 ? (rows > LARGE_FILE ? AUTO_SAMPLE : 0) : s;
+  // Automatic: as `regrex scan --quick`, 2,000 rows or 5% of them, whichever is larger.
+  const size = s === -1 ? (rows > LARGE_FILE ? Math.max(2000, Math.round(rows / 20)) : 0) : s;
   return rows > 2 * size ? size : 0;
 }
 

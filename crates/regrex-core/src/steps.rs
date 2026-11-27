@@ -251,29 +251,87 @@ fn distance_rows(
     let mut all = vec![target];
     all.extend_from_slice(cols);
     let t = &table.columns[target];
-    // Each coordinate is off by up to its rounding, at both ends of a
-    // step. A chainage in whole units is taken as exact: rounding it to
-    // the unit would let any column that moves by about one unit pass.
-    let t_round = if table.decimals.get(target).copied().flatten() == Some(0) {
-        0.0
-    } else {
-        rounding(table, target)
-    };
-    let tol = 2.0 * (t_round + cols.iter().map(|&c| rounding(table, c)).sum::<f64>());
-    let (rows, checked) = count_steps(table, &all, steps, config.min_match, |a, b| {
-        let d = cols
-            .iter()
+    let step_distance = |a: usize, b: usize| {
+        cols.iter()
             .map(|&c| {
                 let x = &table.columns[c];
                 (x[b] - x[a]).powi(2)
             })
             .sum::<f64>()
-            .sqrt();
+            .sqrt()
+    };
+    let coords = 2.0 * cols.iter().map(|&c| rounding(table, c)).sum::<f64>();
+    if table.decimals.get(target).copied().flatten() == Some(0) {
+        return whole_distance_rows(table, &all, steps, config, step_distance, coords);
+    }
+    // Each coordinate is off by up to its rounding, at both ends of a
+    // step.
+    let tol = 2.0 * rounding(table, target) + coords;
+    let (rows, checked) = count_steps(table, &all, steps, config.min_match, |a, b| {
+        let d = step_distance(a, b);
         let dt = (t[b] - t[a]).abs();
         // Points that stay put prove nothing.
         dt > tol && (dt - d).abs() <= tol.max(1e-9 * dt)
     })?;
     Some((rows, checked))
+}
+
+/// Steps over which a chainage is compared with the distance travelled,
+/// when the chainage is given in whole units.
+const WHOLE_SPAN: usize = 50;
+
+/// [`distance_rows`] for a chainage in whole units (a metre point every
+/// metre). One step says nothing then: any column that moves by about one
+/// unit would pass once rounded. So each row is checked over the last
+/// [`WHOLE_SPAN`] steps of its run: the chainage must have grown by the
+/// distance travelled to within one unit (its rounding at both ends) and
+/// the rounding of the points along the way.
+fn whole_distance_rows(
+    table: &Table,
+    all: &[usize],
+    steps: &[(usize, usize)],
+    config: &ScanConfig,
+    step_distance: impl Fn(usize, usize) -> f64,
+    coords: f64,
+) -> Option<(Vec<usize>, Vec<usize>)> {
+    let t = &table.columns[all[0]];
+    let known = |r: usize| all.iter().all(|&c| table.columns[c][r].is_finite());
+    // For the end row of each step: the row WHOLE_SPAN steps back in its
+    // run (or the run's start) and the distance travelled since then.
+    let n = table.n_rows();
+    let mut back = vec![usize::MAX; n];
+    let mut travelled = vec![f64::NAN; n];
+    let mut run: Vec<usize> = Vec::new();
+    let mut cum: Vec<f64> = Vec::new();
+    for &(a, b) in steps {
+        if run.last() != Some(&a) || !known(a) || !known(b) {
+            run.clear();
+            cum.clear();
+            if !(known(a) && known(b)) {
+                continue;
+            }
+            run.push(a);
+            cum.push(0.0);
+        }
+        run.push(b);
+        cum.push(cum.last().copied().unwrap_or(0.0) + step_distance(a, b));
+        let k = run.len() - 1;
+        let from = k.saturating_sub(WHOLE_SPAN);
+        back[b] = run[from];
+        travelled[b] = cum[k] - cum[from];
+    }
+    let holds = |_: usize, b: usize| {
+        let s = back[b];
+        if s == usize::MAX {
+            return false;
+        }
+        let d = travelled[b];
+        let dt = (t[b] - t[s]).abs();
+        let span = (dt.max(d) / 1.0).ceil().max(1.0);
+        // Points that stay put prove nothing.
+        dt >= 1.0 && (dt - d).abs() <= 1.0 + coords * span.sqrt() + 1e-9 * dt
+    };
+    count_steps(table, all, steps, config.min_match, holds)
 }
 
 /// `target = previous target + other` (or the other's previous value).
@@ -656,6 +714,41 @@ mod tests {
         );
         assert!(d.steps);
         assert!(explain(&t, "noise").is_none());
+    }
+
+    #[test]
+    fn a_chainage_in_whole_metres_is_the_distance_along_the_points() {
+        // A metre point every metre: the chainage is rounded to the metre,
+        // the points are about 0.997 m apart, so a single step is off by
+        // up to 0.5 m; over 50 steps the two agree to within a metre.
+        let (mut pk, mut x, mut y, mut counter) = (vec![], vec![], vec![], vec![]);
+        let (mut px, mut py, mut s) = (0.0f64, 0.0f64, 0.0f64);
+        for i in 0..2000 {
+            let heading = 0.002 * i as f64;
+            if i > 0 {
+                let step = 0.997;
+                px += step * heading.cos();
+                py += step * heading.sin();
+                s += step;
+            }
+            pk.push(s.round());
+            x.push(round(px, 3));
+            y.push(round(py, 3));
+            // Grows by one a row, but drifts from the distance travelled.
+            counter.push(i as f64 * 1.05_f64.round() + (i / 20) as f64);
+        }
+        let t = table(
+            &["pk", "x", "y", "counter"],
+            vec![pk, x, y, counter],
+            vec![Some(0), Some(3), Some(3), Some(0)],
+        );
+        let d = explain(&t, "pk").expect("pk from the points");
+        assert_eq!(
+            d.formula_text,
+            "previous pk + distance between consecutive (x, y)"
+        );
+        assert_eq!(d.matched, d.checked);
+        assert!(explain(&t, "counter").is_none_or(|d| !d.formula_text.contains("distance")));
     }
 
     #[test]

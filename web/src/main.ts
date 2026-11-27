@@ -55,6 +55,7 @@ const ui = {
   summary: $("summary"),
   suspicious: $("suspicious"),
   suspiciousTable: $<HTMLTableElement>("suspicious-table"),
+  suspiciousMore: $<HTMLButtonElement>("suspicious-more"),
   export: $<HTMLButtonElement>("export"),
   settingsSummary: $("settings-summary"),
   only: $<HTMLSelectElement>("only"),
@@ -636,6 +637,7 @@ async function scanAll() {
       const checked = columns.filter((c) => done.has(c));
       const skipped = columns.filter((c) => !done.has(c));
       renderResults(checked, stopped && { why: stopped, skipped });
+      suspectsShown = SUSPECTS_PAGE;
       renderSuspects();
     }
   } catch (e) {
@@ -813,7 +815,9 @@ function renderSuspects() {
   if (n === 0) return;
   const columnIndex = new Map(info.header.map((h, i) => [headerName(h), i]));
   const head = el("tr", {}, el("th", { class: "text" }, "Row"), ...info.header.map((h) => el("th", {}, h)), el("th", { class: "text" }, "Why"));
-  const body = suspects.map((s) => {
+  // A long list is shown a page at a time; the CSV export has every row.
+  const shown = suspects.slice(0, suspectsShown);
+  const body = shown.map((s) => {
     const bad = new Set(s.reasons.filter((r) => r.blamed).map((r) => columnIndex.get(r.column)));
     return el(
       "tr",
@@ -824,7 +828,14 @@ function renderSuspects() {
     );
   });
   ui.suspiciousTable.replaceChildren(el("thead", {}, head), el("tbody", {}, ...body));
+  const rest = n - shown.length;
+  ui.suspiciousMore.hidden = rest === 0;
+  ui.suspiciousMore.textContent = `Show ${Math.min(rest, SUSPECTS_PAGE).toLocaleString()} more of ${rest.toLocaleString()} (all are in the CSV export)`;
 }
+
+/** Suspicious rows shown at first, and added by each "Show more". */
+const SUSPECTS_PAGE = 100;
+let suspectsShown = SUSPECTS_PAGE;
 
 /** The column name Regrex uses for a header: `speed (m/s)` is `speed`. */
 function headerName(header: string): string {
@@ -1277,4 +1288,9 @@ ui.otherFile.addEventListener("change", async () => {
 });
 ui.removeOther.addEventListener("click", () => {
   if (state) void openFile(state.name, state.bytes, state.sheet);
+});
+
+ui.suspiciousMore.addEventListener("click", () => {
+  suspectsShown += SUSPECTS_PAGE;
+  renderSuspects();
 });
