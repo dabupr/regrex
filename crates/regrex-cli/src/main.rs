@@ -2,7 +2,8 @@
 
 use clap::{Args, Parser, Subcommand};
 use regrex_core::{
-    explain_column_with_copies, find_copies, scan, search, ScanConfig, SearchConfig,
+    explain_column_detailed, find_copies, scan_detailed, search, ScanConfig, ScanEvent, ScanResult,
+    SearchConfig, Table,
 };
 use regrex_io::report as output;
 use std::path::{Path, PathBuf};
@@ -35,6 +36,10 @@ enum Command {
         /// Print the column dependencies as a Mermaid diagram (renders on GitHub).
         #[arg(long, conflicts_with = "json")]
         mermaid: bool,
+        /// Tell on stderr what the search is doing, column by column: the
+        /// inputs it tries, the best formula so far and how it ended.
+        #[arg(long, short)]
+        verbose: bool,
     },
     /// Find formulas for one column.
     Fit {
@@ -136,34 +141,79 @@ pub(crate) fn column_index(table: &regrex_core::Table, name: &str) -> Result<usi
         })
 }
 
-/// Runs a scan of every column, or of the given ones.
+/// Runs a scan of every column, or of the given ones, telling `on_event`
+/// what the search is doing.
 pub(crate) fn scan_columns(
     loaded: &regrex_io::Loaded,
     columns: &[String],
     min_match: f64,
     max_size: usize,
-) -> Result<Vec<regrex_core::DerivedColumn>, String> {
+    on_event: &(dyn Fn(ScanEvent) + Sync),
+) -> Result<ScanResult, String> {
     let mut config = ScanConfig {
         min_match,
         ..ScanConfig::default()
     };
     config.search.max_size = max_size;
     if columns.is_empty() {
-        return Ok(scan(&loaded.table, &config));
+        return Ok(scan_detailed(&loaded.table, &config, on_event));
     }
     // As in a full scan: copies are not used as inputs.
     let copies = find_copies(&loaded.table, &config);
-    let mut out = Vec::new();
+    let mut out = ScanResult::default();
     for name in columns {
         let index = column_index(&loaded.table, name)?;
-        out.extend(explain_column_with_copies(
-            &loaded.table,
-            index,
-            &config,
-            &copies,
-        ));
+        let e = explain_column_detailed(&loaded.table, index, &config, &copies, on_event);
+        out.derived.extend(e.found);
+        out.near_misses.extend(e.near_misses);
     }
     Ok(out)
+}
+
+/// One line on stderr per [`ScanEvent`], for `--verbose`.
+fn print_event(table: &Table, event: &ScanEvent) {
+    let name = |c: usize| table.names[c].as_str();
+    let line = match event {
+        ScanEvent::Started {
+            target,
+            inputs,
+            rows,
+        } => {
+            let inputs: Vec<&str> = inputs.iter().map(|&c| name(c)).collect();
+            format!(
+                "{}: searching {rows} rows with {}",
+                name(*target),
+                inputs.join(", ")
+            )
+        }
+        ScanEvent::Best {
+            target,
+            formula,
+            matched,
+            checked,
+        } => format!(
+            "{}: best so far {formula} ({matched}/{checked} rows)",
+            name(*target)
+        ),
+        ScanEvent::SecondFormula { target, rows } => format!(
+            "{}: looking for a second formula on the {rows} rows that break it",
+            name(*target)
+        ),
+        ScanEvent::Done {
+            target,
+            found,
+            near_misses,
+        } => {
+            let what = if *found { "found" } else { "no formula" };
+            let almost = match near_misses {
+                0 => String::new(),
+                1 => ", 1 near miss".to_string(),
+                n => format!(", {n} near misses"),
+            };
+            format!("{}: {what}{almost}", name(*target))
+        }
+    };
+    eprintln!("{line}");
 }
 
 /// Searches formulas for one column, using the rows with no missing values.
@@ -230,11 +280,19 @@ fn run(cli: Cli) -> Result<(), String> {
             min_match,
             max_size,
             mermaid,
+            verbose,
         } => {
             let loaded = load(&file)?;
-            let derived = scan_columns(&loaded, &columns, min_match, max_size)?;
+            let table = &loaded.table;
+            let on_event = |e: ScanEvent| {
+                if verbose {
+                    print_event(table, &e);
+                }
+            };
+            let found = scan_columns(&loaded, &columns, min_match, max_size, &on_event)?;
             let mut report =
-                output::ScanReport::new(&file.file.display().to_string(), &loaded, &derived);
+                output::ScanReport::new(&file.file.display().to_string(), &loaded, &found.derived)
+                    .with_near_misses(table, &found.near_misses);
             if !columns.is_empty() {
                 report = report.only_columns(&columns);
             }

@@ -1138,6 +1138,7 @@ dependencies = [
 name = "regrex-wasm"
 version = "0.1.0"
 dependencies = [
+ "js-sys",
  "regrex-core",
  "regrex-formulas",
  "regrex-io",

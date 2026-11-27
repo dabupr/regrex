@@ -8,10 +8,10 @@ mod library_search;
 
 use regrex_core::parse::{parse_expr, parse_template};
 use regrex_core::{
-    explain_column, explain_column_with_copies, find_copies, fit_shape, search, DerivedColumn,
-    ScanConfig, SearchConfig, UnaryOp,
+    explain_column_detailed, find_copies, fit_shape, search, DerivedColumn, Explanation, NearMiss,
+    ScanConfig, ScanEvent, SearchConfig, UnaryOp,
 };
-use regrex_io::report::{DerivedJson, FitReport};
+use regrex_io::report::{DerivedJson, FitReport, NearMissJson};
 use regrex_io::Loaded;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -121,6 +121,10 @@ struct ExplainOptions {
     /// With `library_only`, only the formulas of this domain (such as
     /// `finance`). Missing means every domain.
     domain: Option<String>,
+    /// Only search these rows (numbered from 1), as when a near miss holds
+    /// on part of the file. Row numbers in the answer are still those of
+    /// the file.
+    rows: Option<Vec<usize>>,
 }
 
 impl ExplainOptions {
@@ -323,11 +327,70 @@ impl Dataset {
     /// Looks for a formula that computes `column` from the other columns.
     /// Returns the derived-column JSON, or `null` when none is found.
     pub fn explain(&self, column: &str, options_json: &str) -> Result<String, JsError> {
+        let (json, _) = self.explain_with(column, options_json, &|_| {})?;
+        Ok(json)
+    }
+
+    /// Like [`Dataset::explain`], telling `on_event` what the search is
+    /// doing (one JSON object per call, see [`EventJson`]) and returning
+    /// `{"found": derived column or null, "near_misses": [...]}`: the
+    /// formulas it found but did not report, as in the command-line JSON.
+    pub fn explain_detailed(
+        &self,
+        column: &str,
+        options_json: &str,
+        on_event: &js_sys::Function,
+    ) -> Result<String, JsError> {
+        let send = |json: String| {
+            let _ = on_event.call1(&JsValue::NULL, &JsValue::from_str(&json));
+        };
+        let (found, near_misses) = self.explain_with(column, options_json, &send)?;
+        Ok(format!(
+            "{{\"found\":{found},\"near_misses\":{near_misses}}}"
+        ))
+    }
+
+    /// [`Dataset::explain_detailed`] with the events as JSON strings: the
+    /// derived column JSON and the near misses JSON.
+    fn explain_with(
+        &self,
+        column: &str,
+        options_json: &str,
+        on_event: &dyn Fn(String),
+    ) -> Result<(String, String), JsError> {
         let options: ExplainOptions = parse_options(options_json)?;
-        let table = self.table_keeping(&options.ignore, column);
-        let table = table.as_ref();
+        let full = self.table_keeping(&options.ignore, column);
+        // Searching part of the rows: a table of those rows, whose row
+        // numbers are mapped back to the file's at the end.
+        let wanted: Option<Vec<usize>> = options.rows.as_ref().map(|rows| {
+            let mut rows: Vec<usize> = rows
+                .iter()
+                .filter_map(|r| r.checked_sub(1))
+                .filter(|&r| r < full.n_rows())
+                .collect();
+            rows.sort_unstable();
+            rows.dedup();
+            rows
+        });
+        let part = wanted.as_ref().map(|rows| rows_of(&full, rows));
+        let table = part.as_ref().unwrap_or(&full);
         let target = index_of(table, column)?;
+        let names = &table.names;
+        let event = |e: ScanEvent| on_event(EventJson::new(names, &e).to_json());
         let mut config = options.scan_config()?;
+        let near = |table: &regrex_core::Table, misses: &[NearMiss]| {
+            let json: Vec<NearMissJson> = misses
+                .iter()
+                .map(|m| {
+                    let mut m = m.clone();
+                    if let Some(rows) = &wanted {
+                        m.missed = m.missed.iter().map(|&r| rows[r]).collect();
+                    }
+                    NearMissJson::new(table, &m)
+                })
+                .collect();
+            serde_json::to_string(&json).map_err(js_error)
+        };
         if options.library_only {
             let domain = options.domain.as_deref().filter(|d| !d.is_empty());
             if let Some(d) = domain {
@@ -336,35 +399,48 @@ impl Dataset {
                 }
             }
             let found = library_search::best_library_formula(table, target, domain, &config);
-            return self.remember(&options.ignore, column, table, target, found);
+            let found = self.answer(&options, column, table, target, found, wanted.as_deref())?;
+            return Ok((found, "[]".to_string()));
         }
         // Copies of other columns are found once for the whole table. An
         // ignored column explained on its own is searched as before (its
-        // table has one more column, so the copies do not line up).
-        let copies = if options.ignore.iter().any(|n| n == column) {
-            None
+        // table has one more column, so the copies do not line up), and so
+        // is a part of the rows.
+        let copies = if options.ignore.iter().any(|n| n == column) || wanted.is_some() {
+            Vec::new()
         } else {
-            Some(self.copies(&options.ignore, table, &config))
+            self.copies(&options.ignore, table, &config)
         };
-        let explain = |config: &ScanConfig| match &copies {
-            Some(copies) => explain_column_with_copies(table, target, config, copies),
-            None => explain_column(table, target, config),
-        };
-        let mut found = explain(&config);
-        if found.as_ref().is_some_and(|d| d.copy) {
-            return self.remember(&options.ignore, column, table, target, found);
+        let explain =
+            |config: &ScanConfig| explain_column_detailed(table, target, config, &copies, &event);
+        let mut found: Explanation = explain(&config);
+        if found.found.as_ref().is_some_and(|d| d.copy) {
+            let json = self.answer(&options, column, table, target, found.found, None)?;
+            return Ok((json, "[]".to_string()));
         }
         if let Some(size) = options.deepen_to.map(|s| s.clamp(1, 9)) {
-            if size > config.search.max_size && !explained_well(found.as_ref()) {
+            if size > config.search.max_size && !explained_well(found.found.as_ref()) {
                 config.search.max_size = size;
                 let deeper = explain(&config);
-                let matched = |d: &Option<DerivedColumn>| d.as_ref().map_or(0, |d| d.matched);
+                let matched = |e: &Explanation| {
+                    e.found.as_ref().map_or(0, |d| d.matched + d.checked)
+                        + e.near_misses.first().map_or(0, |m| m.matched)
+                };
                 if matched(&deeper) > matched(&found) {
                     found = deeper;
                 }
             }
         }
-        self.remember(&options.ignore, column, table, target, found)
+        let misses = near(table, &found.near_misses)?;
+        let json = self.answer(
+            &options,
+            column,
+            table,
+            target,
+            found.found,
+            wanted.as_deref(),
+        )?;
+        Ok((json, misses))
     }
 
     /// The values of `column` and those of `formula` (written with column
@@ -488,6 +564,34 @@ impl Dataset {
 }
 
 impl Dataset {
+    /// The derived column JSON for a search on `table`: kept for
+    /// [`Dataset::review`] when it is on every row, and with the row
+    /// numbers of the file when it is on the `rows` of it.
+    fn answer(
+        &self,
+        options: &ExplainOptions,
+        column: &str,
+        table: &regrex_core::Table,
+        target: usize,
+        found: Option<DerivedColumn>,
+        rows: Option<&[usize]>,
+    ) -> Result<String, JsError> {
+        let Some(rows) = rows else {
+            return self.remember(&options.ignore, column, table, target, found);
+        };
+        let json = found.map(|d| {
+            let mut json = DerivedJson::new(table, &d);
+            let back = |r: &mut usize| *r = rows[*r - 1] + 1;
+            json.exception_rows.iter_mut().for_each(back);
+            json.exceptions.iter_mut().for_each(|x| back(&mut x.row));
+            if let Some(o) = &mut json.other {
+                o.rows.iter_mut().for_each(back);
+            }
+            json
+        });
+        serde_json::to_string(&json).map_err(js_error)
+    }
+
     /// The copies of other columns in `table` (the loaded table without the
     /// `ignore`d columns), found on the first call with these options.
     fn copies(
@@ -560,6 +664,92 @@ impl Dataset {
             }
         }
         out
+    }
+}
+
+/// The given rows (numbered from 0, in increasing order) of `table`.
+fn rows_of(table: &regrex_core::Table, rows: &[usize]) -> regrex_core::Table {
+    regrex_core::Table {
+        names: table.names.clone(),
+        columns: table
+            .columns
+            .iter()
+            .map(|c| rows.iter().map(|&r| c[r]).collect())
+            .collect(),
+        decimals: table.decimals.clone(),
+        units: table.units.clone(),
+        timestamps: table.timestamps.clone(),
+    }
+}
+
+/// A [`ScanEvent`] as sent to the page, with column names.
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum EventJson<'a> {
+    Started {
+        column: &'a str,
+        inputs: Vec<&'a str>,
+        rows: usize,
+    },
+    Best {
+        column: &'a str,
+        formula: String,
+        matched: usize,
+        checked: usize,
+    },
+    SecondFormula {
+        column: &'a str,
+        rows: usize,
+    },
+    Done {
+        column: &'a str,
+        found: bool,
+        near_misses: usize,
+    },
+}
+
+impl<'a> EventJson<'a> {
+    fn new(names: &'a [String], e: &ScanEvent) -> Self {
+        let name = |c: usize| names[c].as_str();
+        match e {
+            ScanEvent::Started {
+                target,
+                inputs,
+                rows,
+            } => EventJson::Started {
+                column: name(*target),
+                inputs: inputs.iter().map(|&c| name(c)).collect(),
+                rows: *rows,
+            },
+            ScanEvent::Best {
+                target,
+                formula,
+                matched,
+                checked,
+            } => EventJson::Best {
+                column: name(*target),
+                formula: formula.clone(),
+                matched: *matched,
+                checked: *checked,
+            },
+            ScanEvent::SecondFormula { target, rows } => EventJson::SecondFormula {
+                column: name(*target),
+                rows: *rows,
+            },
+            ScanEvent::Done {
+                target,
+                found,
+                near_misses,
+            } => EventJson::Done {
+                column: name(*target),
+                found: *found,
+                near_misses: *near_misses,
+            },
+        }
+    }
+
+    fn to_json(&self) -> String {
+        serde_json::to_string(self).expect("serializable")
     }
 }
 

@@ -7,6 +7,7 @@
 //! that matches the most rows, and reports the rows that break it.
 
 use crate::expr::{BinaryOp, Expr};
+use crate::progress::{Explanation, NearMiss, Rejection, ScanEvent};
 use crate::search::{search, SearchConfig};
 use crate::units::Unit;
 
@@ -274,6 +275,69 @@ pub fn explain_column_with_copies(
     explain_column_skipping(table, target, config, &skip)
 }
 
+/// Like [`explain_column_with_copies`], keeping the formulas it rejects
+/// ([`NearMiss`]) and telling `on_event` what the search is doing.
+pub fn explain_column_detailed(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    copies: &[Option<DerivedColumn>],
+    on_event: &dyn Fn(ScanEvent),
+) -> Explanation {
+    if let Some(copy) = copies.get(target).and_then(Option::as_ref) {
+        on_event(ScanEvent::Done {
+            target,
+            found: true,
+            near_misses: 0,
+        });
+        return Explanation {
+            found: Some(copy.clone()),
+            near_misses: Vec::new(),
+        };
+    }
+    let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
+    explain_column_events(table, target, config, &skip, on_event)
+}
+
+/// What [`scan_detailed`] finds.
+#[derive(Debug, Clone, Default)]
+pub struct ScanResult {
+    /// Columns that can be computed from others, by column index.
+    pub derived: Vec<DerivedColumn>,
+    /// Formulas found but not reported, by column index and then most rows
+    /// matched first.
+    pub near_misses: Vec<NearMiss>,
+}
+
+/// Like [`scan`], also keeping the formulas it rejects ([`NearMiss`]) and
+/// telling `on_event` what each search is doing. With the `parallel`
+/// feature, events of different columns arrive interleaved, from several
+/// threads.
+pub fn scan_detailed(
+    table: &Table,
+    config: &ScanConfig,
+    on_event: &(dyn Fn(ScanEvent) + Sync),
+) -> ScanResult {
+    let copies = find_copies(table, config);
+    let explain = |t: usize| explain_column_detailed(table, t, config, &copies, on_event);
+    #[cfg(feature = "parallel")]
+    let all: Vec<Explanation> = {
+        use rayon::prelude::*;
+        (0..table.columns.len())
+            .into_par_iter()
+            .map(explain)
+            .collect()
+    };
+    #[cfg(not(feature = "parallel"))]
+    let all: Vec<Explanation> = (0..table.columns.len()).map(explain).collect();
+    let mut out = ScanResult::default();
+    for e in all {
+        out.derived.extend(e.found);
+        out.near_misses.extend(e.near_misses);
+    }
+    out
+}
+
 /// The columns [`explain_column_with_copies`] tries as inputs of `target`,
 /// in increasing order: empty when the column is not searched at all (a
 /// constant, a flag or a copy). Lets a report answer "why was no formula
@@ -412,6 +476,54 @@ fn explain_column_skipping(
     config: &ScanConfig,
     skip: &[bool],
 ) -> Option<DerivedColumn> {
+    explain_column_events(table, target, config, skip, &|_| {}).found
+}
+
+/// [`explain_column_skipping`] that also keeps the formulas it rejects
+/// ([`NearMiss`]) and tells `on_event` what it is doing.
+fn explain_column_events(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    skip: &[bool],
+    on_event: &dyn Fn(ScanEvent),
+) -> Explanation {
+    let mut near_misses = Vec::new();
+    let found = explain_column_inner(table, target, config, skip, on_event, &mut near_misses);
+    near_misses.sort_by(|a: &NearMiss, b: &NearMiss| {
+        b.match_ratio()
+            .total_cmp(&a.match_ratio())
+            .then(a.complexity.cmp(&b.complexity))
+    });
+    near_misses.truncate(MAX_NEAR_MISSES);
+    on_event(ScanEvent::Done {
+        target,
+        found: found.is_some(),
+        near_misses: near_misses.len(),
+    });
+    Explanation { found, near_misses }
+}
+
+/// Near misses kept per column.
+const MAX_NEAR_MISSES: usize = 3;
+
+/// Share of rows (and of the rows that differ from the column's most
+/// common value) a rejected formula must match to be kept as a near miss.
+const NEAR_MISS_SHARE: f64 = 0.5;
+
+/// Rows of each side compared to find the rule that tells where a near miss
+/// holds: enough to find a category or a threshold, few enough to stay
+/// quick on a large table.
+const NEAR_MISS_SPLIT_ROWS: usize = 200;
+
+fn explain_column_inner(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    skip: &[bool],
+    on_event: &dyn Fn(ScanEvent),
+    near_misses: &mut Vec<NearMiss>,
+) -> Option<DerivedColumn> {
     let y_all = table.columns.get(target)?;
     // Constant columns and flags (two values) are not computed from others,
     // or not in a way a formula can show; any formula would be a fluke.
@@ -434,7 +546,18 @@ fn explain_column_skipping(
     if rows.len() < 3 {
         return None;
     }
+    on_event(ScanEvent::Started {
+        target,
+        inputs: candidates_cols.clone(),
+        rows: rows.len(),
+    });
     let (formula, matched) = best_formula(table, &candidates_cols, target, &rows, config)?;
+    on_event(ScanEvent::Best {
+        target,
+        formula: formula.display_with(&table.names).to_string(),
+        matched: matched.len(),
+        checked: rows.len(),
+    });
     let ratio = matched.len() as f64 / rows.len() as f64;
     let enough = |f: &Expr, m: &[usize]| f.has_vars() && m.len() > f.complexity();
     if !enough(&formula, &matched) {
@@ -444,6 +567,10 @@ fn explain_column_skipping(
     // Rows that break the formula may follow another one: a second tax rate,
     // another product. Look for it when there are enough of them.
     if found.exceptions.len() >= MIN_OTHER_ROWS {
+        on_event(ScanEvent::SecondFormula {
+            target,
+            rows: found.exceptions.len(),
+        });
         if let Some((other, other_rows)) =
             best_formula(table, &candidates_cols, target, &found.exceptions, config)
         {
@@ -461,6 +588,16 @@ fn explain_column_skipping(
                     rows: other_rows,
                     split,
                 });
+            } else if enough(&other, &other_rows) && !plausible {
+                near_misses.extend(near_miss(
+                    table,
+                    target,
+                    config,
+                    &other,
+                    &found.exceptions,
+                    &other_rows,
+                    Rejection::NoSplitRule,
+                ));
             }
         }
     }
@@ -491,11 +628,108 @@ fn explain_column_skipping(
         found.other.as_ref().is_some_and(|o| o.split.is_some()) && ratio >= MIN_SEGMENT_SHARE;
     let accepted = ratio >= config.min_match
         || segmented && covered as f64 >= config.min_match * rows.len() as f64;
-    if accepted && explains_more_than_the_usual_value(table, target, config, &rows, &found) {
-        Some(found)
-    } else {
-        None
+    if !accepted {
+        near_misses.extend(near_miss(
+            table,
+            target,
+            config,
+            &found.formula,
+            &rows,
+            &matched,
+            Rejection::Coverage {
+                needed: config.min_match,
+            },
+        ));
+        return None;
     }
+    if !explains_more_than_the_usual_value(table, target, config, &rows, &found) {
+        near_misses.extend(near_miss(
+            table,
+            target,
+            config,
+            &formula_of(&found),
+            &rows,
+            &matched_of(&found, &rows),
+            Rejection::UsualValue,
+        ));
+        return None;
+    }
+    Some(found)
+}
+
+/// The main formula of a derived column.
+fn formula_of(d: &DerivedColumn) -> Expr {
+    d.formula.clone()
+}
+
+/// The rows (among `rows`) a derived column's main formula matches.
+fn matched_of(d: &DerivedColumn, rows: &[usize]) -> Vec<usize> {
+    let missed: std::collections::HashSet<usize> = d.exceptions.iter().copied().collect();
+    rows.iter()
+        .copied()
+        .filter(|r| !missed.contains(r))
+        .collect()
+}
+
+/// `formula` as a near miss for `target`, if it is worth showing: it uses
+/// other columns, matches at least [`NEAR_MISS_SHARE`] of `rows` and of
+/// the rows that differ from the column's most common value, and more of
+/// them than it has parts.
+fn near_miss(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    formula: &Expr,
+    rows: &[usize],
+    matched: &[usize],
+    reason: Rejection,
+) -> Option<NearMiss> {
+    if !formula.has_vars()
+        || matched.len() <= formula.complexity().max(MIN_UNUSUAL_ROWS)
+        || (matched.len() as f64) < NEAR_MISS_SHARE * rows.len() as f64
+    {
+        return None;
+    }
+    let matched_set: std::collections::HashSet<usize> = matched.iter().copied().collect();
+    let missed: Vec<usize> = rows
+        .iter()
+        .copied()
+        .filter(|r| !matched_set.contains(r))
+        .collect();
+    if let Some((explained, unusual)) = unusual_rows_explained(table, target, config, rows, &missed)
+    {
+        if explained <= formula.complexity().max(MIN_UNUSUAL_ROWS)
+            || (explained as f64) < NEAR_MISS_SHARE * unusual as f64
+        {
+            return None;
+        }
+    }
+    let holds_when = if missed.is_empty() {
+        None
+    } else {
+        split_rule(
+            table,
+            target,
+            &spread(&missed, NEAR_MISS_SPLIT_ROWS),
+            &spread(matched, NEAR_MISS_SPLIT_ROWS),
+        )
+    };
+    let mut inputs = Vec::new();
+    collect_vars(formula, &mut inputs);
+    inputs.sort_unstable();
+    inputs.dedup();
+    Some(NearMiss {
+        target,
+        formula: formula.clone(),
+        formula_text: formula.display_with(&table.names).to_string(),
+        inputs,
+        complexity: formula.complexity(),
+        matched: matched.len(),
+        checked: rows.len(),
+        missed,
+        holds_when,
+        reason,
+    })
 }
 
 /// Whether the formula is right on the rows that differ from the column's
@@ -510,6 +744,32 @@ fn explains_more_than_the_usual_value(
     rows: &[usize],
     found: &DerivedColumn,
 ) -> bool {
+    let exceptions: Vec<usize> = found
+        .exceptions
+        .iter()
+        .copied()
+        .filter(|r| !found.other.as_ref().is_some_and(|o| o.rows.contains(r)))
+        .collect();
+    let Some((explained, unusual)) =
+        unusual_rows_explained(table, target, config, rows, &exceptions)
+    else {
+        return true;
+    };
+    explained > found.complexity.max(MIN_UNUSUAL_ROWS)
+        && explained as f64 >= config.min_match * unusual as f64
+}
+
+/// Among `rows`, those whose value differs from the column's most common
+/// one: how many are not in `exceptions`, and how many there are. `None`
+/// when no value is common (more than half of the rows differ from each
+/// other), so every row counts.
+fn unusual_rows_explained(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    rows: &[usize],
+    exceptions: &[usize],
+) -> Option<(usize, usize)> {
     let y = &table.columns[target];
     let tolerance = row_tolerance(table, target, config);
     let mut counts: Vec<(f64, usize)> = Vec::new();
@@ -523,26 +783,18 @@ fn explains_more_than_the_usual_value(
         }
         if counts.len() > rows.len() / 2 {
             // No value is that common.
-            return true;
+            return None;
         }
     }
-    let Some(&(usual, _)) = counts.iter().max_by_key(|(_, n)| *n) else {
-        return true;
-    };
+    let &(usual, _) = counts.iter().max_by_key(|(_, n)| *n)?;
     let unusual: Vec<usize> = rows
         .iter()
         .copied()
         .filter(|&r| (y[r] - usual).abs() > tolerance(r))
         .collect();
-    let exceptions: std::collections::HashSet<usize> = found
-        .exceptions
-        .iter()
-        .copied()
-        .filter(|r| !found.other.as_ref().is_some_and(|o| o.rows.contains(r)))
-        .collect();
+    let exceptions: std::collections::HashSet<usize> = exceptions.iter().copied().collect();
     let explained = unusual.iter().filter(|r| !exceptions.contains(r)).count();
-    explained > found.complexity.max(MIN_UNUSUAL_ROWS)
-        && explained as f64 >= config.min_match * unusual.len() as f64
+    Some((explained, unusual.len()))
 }
 
 /// Rows that differ from a column's most common value needed to trust a
@@ -1676,6 +1928,88 @@ fn collect_vars(e: &Expr, out: &mut Vec<usize>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Cant of a track: `120 * 1000 / radius` on the curves (kind 1), noise
+    /// on the straight and transition parts (kinds 0 and 2), so no formula
+    /// holds on 90% of the rows.
+    fn curves() -> Table {
+        let n = 200;
+        let kind: Vec<f64> = (0..n).map(|i| [1.0, 1.0, 0.0, 1.0, 2.0][i % 5]).collect();
+        let radius: Vec<f64> = (0..n)
+            .map(|i| 300.0 + ((i * 37) % 23) as f64 * 25.0)
+            .collect();
+        let speed: Vec<f64> = (0..n).map(|i| 40.0 + ((i * 13) % 17) as f64).collect();
+        let cant: Vec<f64> = (0..n)
+            .map(|i| {
+                if kind[i] == 1.0 {
+                    120_000.0 / radius[i]
+                } else {
+                    ((i * 7919) % 97) as f64 + 0.5
+                }
+            })
+            .collect();
+        Table {
+            names: ["kind", "radius", "speed", "cant"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+            columns: vec![kind, radius, speed, cant],
+            decimals: vec![Some(0), Some(0), Some(0), None],
+            ..Table::default()
+        }
+    }
+
+    #[test]
+    fn keeps_a_formula_that_holds_on_a_group_as_a_near_miss() {
+        let table = curves();
+        let config = ScanConfig::default();
+        let events = std::sync::Mutex::new(Vec::new());
+        let e = explain_column_detailed(&table, 3, &config, &[], &|ev| {
+            events.lock().unwrap().push(ev)
+        });
+        assert!(e.found.is_none());
+        let miss = e.near_misses.first().expect("a near miss");
+        assert!(
+            miss.formula_text.contains("120000"),
+            "{}",
+            miss.formula_text
+        );
+        assert!(miss.inputs.contains(&1), "{}", miss.formula_text);
+        assert_eq!(miss.reason, Rejection::Coverage { needed: 0.9 });
+        assert!(
+            (miss.match_ratio() - 0.6).abs() < 0.01,
+            "{}",
+            miss.match_ratio()
+        );
+        let rule = miss.holds_when.as_ref().expect("a rule");
+        assert_eq!(rule.column, 0);
+        assert_eq!(rule.condition, Condition::OneOf(vec![1.0]));
+        let events = events.into_inner().unwrap();
+        assert!(matches!(
+            events.first(),
+            Some(ScanEvent::Started { target: 3, .. })
+        ));
+        assert!(events.iter().any(|e| matches!(e, ScanEvent::Best { .. })));
+        assert!(matches!(
+            events.last(),
+            Some(ScanEvent::Done {
+                target: 3,
+                found: false,
+                near_misses: 1..
+            })
+        ));
+    }
+
+    #[test]
+    fn scan_detailed_finds_what_scan_finds() {
+        let table = invoices();
+        let config = ScanConfig::default();
+        let plain = scan(&table, &config);
+        let detailed = scan_detailed(&table, &config, &|_| {});
+        let text =
+            |d: &[DerivedColumn]| d.iter().map(|d| d.formula_text.clone()).collect::<Vec<_>>();
+        assert_eq!(text(&plain), text(&detailed.derived));
+    }
 
     fn invoices() -> Table {
         // price, quantity, subtotal = price * quantity, total = subtotal * 1.21
