@@ -29,7 +29,7 @@ After 0.2.0 the work goes in three steps: much smarter first, then much faster, 
 
 | Measure | 2026-11-09 | 2026-11-27 | 1.0.0 |
 |---|---|---|---|
-| Scan benchmark relations (Feynman files, planted tables, track table) | 14 of 19 | 23 of 27 | all |
+| Scan benchmark relations (Feynman files, planted tables, track table and switches) | 14 of 19 | 27 of 31 | all |
 | Full Feynman set (100 equations, SRBench) | not measured | not measured | ≥ 75 % clean, ≥ 60 % at 1 % noise |
 | False positives on classic ML datasets | 2 | 2 | 0 |
 | Wide real export (~550 columns), CLI on 4 cores | ~155 s | not measured | < 20 s |
