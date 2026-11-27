@@ -49,6 +49,7 @@ Skipped (not numeric): product
 - Put units in the headers (`time (s)`, `distance [m]`) and Regrex skips formulas that mix incompatible units, which is faster and avoids nonsense like adding seconds to metres.
 - `--json` prints a stable, versioned JSON report for scripts and AI agents ([format](docs/json-output.md)).
 - `--mermaid` prints the dependencies between columns as a diagram.
+- `--agent` prints a compact JSON report for AI agents to judge the results: every column (text or number, distinct values, range), each formula with its errors, the near misses and the inputs tried for the columns left unexplained ([format](docs/json-output.md#agent-report)). The MCP server gives it with `"format": "agent"`.
 - `--verbose` tells on stderr what the search does for each column: the inputs it tries, the best formula so far and how it ended.
 - Formulas that hold on many rows but not enough to be reported, or only where another column has some values, are listed apart under "Almost" (`near_misses` in the JSON): they often show that a column follows different rules in different groups of rows.
 - `regrex fit data.csv --target y` lists candidate formulas for a single column.

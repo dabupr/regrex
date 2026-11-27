@@ -100,6 +100,18 @@ A diagnosis is never a guess: Regrex recomputes the row with the mistake and onl
 
 The `check_formula` MCP tool returns one `derived` entry for the formula it was given, even when few rows match.
 
+## Agent report
+
+Returned by `regrex scan --agent` and the `scan_dataset` tool with `"format": "agent"`. The scan report above is written for a person; this one is for an AI agent that judges the results: whether a formula makes sense for what the columns hold, whether a near miss is a real rule of part of the data, which columns to search again. It is compact JSON on one line, with its own `agent_schema_version` (`1` today), and holds everything needed to judge without searching again. Regrex computes all of it; it does not ask an AI.
+
+| Field | Meaning |
+| --- | --- |
+| `columns[]` | Every column of the file, in order: `name`; `kind`, `number` or `text`; `read_as` when the cells were converted (`times as minutes`); `distinct` values (counted up to 1000); `missing` cells; `min` and `max` for numbers; `increasing` (a row number, an ID or a distance along a line); `searched`, and `not_searched` when it was not: `text`, `constant`, `flag` (two values), `copy` or `not_requested`. |
+| `found[]` | Each formula: `column`, `formula`, `inputs`, `complexity`, `matched_rows`, `checked_rows`; `exact`, whether it gives the exact values rather than values within rounding; `max_error` and `median_error`, the largest and median absolute difference on the matched rows; `copy_of`; `known`, the id of the library formula it is; `other`, a second formula with its number of `rows` and the rule (`when`) that picks them out; `wrong_count`, the rows that follow neither, and `wrong`, the first 10 with `actual`, `expected` and the `likely` mistake. |
+| `near_misses[]` | As in the scan report, with `holds_when` as the rule's text and at most 10 `missed_rows`. |
+| `unexplained[]` | Columns searched without a formula, with the `inputs_tried`. |
+| `notes` | A few sentences on how to read the report. |
+
 ## Fit report
 
 Returned by `regrex fit --json` and the `fit_formula` and `fit_values` tools; `regrex.search()` returns its `candidates` list.

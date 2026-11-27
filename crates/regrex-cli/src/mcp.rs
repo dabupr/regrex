@@ -140,6 +140,7 @@ fn tools() -> Value {
                     "columns": { "type": "array", "items": { "type": "string" }, "description": "Only check these columns (default: all)." },
                     "min_match": { "type": "number", "minimum": 0, "maximum": 1, "description": "Report a column when its formula matches at least this fraction of rows (default 0.9)." },
                     "max_size": { "type": "integer", "minimum": 1, "maximum": 9, "description": "Maximum formula size (default 5); larger is slower." },
+                    "format": { "type": "string", "enum": ["report", "agent"], "description": "report (default): the scan report, as regrex scan --json. agent: a compact report for judging the results: every column (text or number, distinct values, range, whether searched and why not), each formula with its largest and median error, near misses with their reason, and the inputs tried for unexplained columns." },
                 })),
                 "required": ["path"],
             },
@@ -234,6 +235,23 @@ fn call_tool(name: &str, args: &Value) -> Result<Value, ToolError> {
                 size(args, "max_size", 5, 9)?,
                 &|_| {},
             )?;
+            match args.get("format").and_then(Value::as_str) {
+                None | Some("report") => {}
+                Some("agent") => {
+                    return to_value(&regrex_io::agent::AgentReport::new(
+                        &path,
+                        &loaded,
+                        &found.derived,
+                        &found.near_misses,
+                        &columns,
+                    ));
+                }
+                Some(other) => {
+                    return Err(ToolError::Failed(format!(
+                        "unknown format {other:?}, expected \"report\" or \"agent\""
+                    )))
+                }
+            }
             let mut report = ScanReport::new(&path, &loaded, &found.derived)
                 .with_near_misses(&loaded.table, &found.near_misses);
             if !columns.is_empty() {

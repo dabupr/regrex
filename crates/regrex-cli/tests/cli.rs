@@ -323,3 +323,44 @@ fn scan_keeps_the_formulas_it_came_close_to() {
         "{text}"
     );
 }
+
+#[test]
+fn scan_agent_report_is_compact_and_complete() {
+    let (ok, stdout, stderr) = regrex(&[
+        "scan",
+        "tests/invoices.csv",
+        "--ignore",
+        "invoice",
+        "--agent",
+    ]);
+    assert!(ok, "{stderr}");
+    assert_eq!(stdout.trim().lines().count(), 1, "one line of JSON");
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(report["agent_schema_version"], 1);
+    let column = |name: &str| {
+        report["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["name"] == name)
+            .unwrap_or_else(|| panic!("{name} listed"))
+            .clone()
+    };
+    let product = column("product");
+    assert_eq!(product["kind"], "text");
+    assert_eq!(product["not_searched"], "text");
+    assert_eq!(column("vat")["kind"], "number");
+    let vat = report["found"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["column"] == "vat")
+        .expect("vat found");
+    assert_eq!(vat["formula"], "0.21 * net");
+    assert_eq!(vat["known"], "tax_amount");
+    assert_eq!(vat["wrong_count"], 1);
+    assert_eq!(vat["wrong"][0]["row"], 42);
+    assert_eq!(vat["wrong"][0]["likely"], "used 0.1 instead of 0.21");
+    assert!(vat["max_error"].as_f64().unwrap() <= 0.005 + 1e-9);
+    assert!(report["notes"].as_array().unwrap().len() >= 3);
+}
