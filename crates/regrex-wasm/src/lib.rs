@@ -22,6 +22,9 @@ use wasm_bindgen::prelude::*;
 const PREVIEW_ROWS: usize = 20;
 
 /// A file loaded in memory.
+/// A column, the `ignore` list and the sample size of a search on a sample.
+type SampleKey = (String, Vec<String>, usize);
+
 #[wasm_bindgen]
 pub struct Dataset {
     loaded: Loaded,
@@ -36,6 +39,10 @@ pub struct Dataset {
     table: RefCell<Option<(Vec<String>, Rc<regrex_core::Table>)>>,
     /// How a second file was matched with this one, if one was given.
     joined: Option<JoinedJson>,
+    /// What the search of each column on a sample found, by column, `ignore`
+    /// list and sample size: kept by a `sample_only` search so that
+    /// confirming it on all rows does not search the sample again.
+    sampled: RefCell<std::collections::HashMap<SampleKey, Explanation>>,
 }
 
 /// See [`Dataset::copies`].
@@ -160,6 +167,11 @@ struct ExplainOptions {
     /// `regrex scan --quick`. A column without a formula on the sample is
     /// not searched on all rows. Ignored on small files and with `rows`.
     sample: Option<usize>,
+    /// With `sample`, only search the sample and answer with what it
+    /// found there, its rows counted on the sample: a quick first look.
+    /// The same search with `sample` and without `sample_only` then
+    /// checks it on all rows, without searching the sample again.
+    sample_only: bool,
 }
 
 impl ExplainOptions {
@@ -341,6 +353,7 @@ impl Dataset {
             copies: RefCell::default(),
             table: RefCell::default(),
             joined,
+            sampled: RefCell::default(),
         })
     }
 
@@ -571,7 +584,25 @@ impl Dataset {
             }
             on_event(json.to_json());
         };
-        let found = explain_column_detailed(&sample, target, config, &[], &event);
+        let key = (column.to_string(), options.ignore.clone(), rows.len());
+        let kept = self.sampled.borrow_mut().remove(&key);
+        let found =
+            kept.unwrap_or_else(|| explain_column_detailed(&sample, target, config, &[], &event));
+        if options.sample_only {
+            let misses = self.sample_misses(&sample, &found.near_misses, rows)?;
+            let json = self.answer(
+                options,
+                column,
+                &sample,
+                target,
+                found.found.clone(),
+                Some(rows),
+            )?;
+            if found.found.is_some() {
+                self.sampled.borrow_mut().insert(key, found);
+            }
+            return Ok((json, misses));
+        }
         let confirmed = found.found.as_ref().and_then(|d| {
             on_event(
                 EventJson::Confirming {
@@ -586,19 +617,28 @@ impl Dataset {
             let skip: Vec<bool> = copies.iter().map(Option::is_some).collect();
             regrex_core::confirm(table, d, config, copies, &profile, &skip)
         });
-        // What came close on the sample, with its rows numbered as in the file.
-        let misses: Vec<NearMissJson> = found
-            .near_misses
+        let misses = self.sample_misses(&sample, &found.near_misses, rows)?;
+        let json = self.answer(options, column, table, target, confirmed, None)?;
+        Ok((json, misses))
+    }
+
+    /// What came close on a sample, as JSON, with its rows numbered as in
+    /// the file.
+    fn sample_misses(
+        &self,
+        sample: &regrex_core::Table,
+        misses: &[NearMiss],
+        rows: &[usize],
+    ) -> Result<String, JsError> {
+        let json: Vec<NearMissJson> = misses
             .iter()
             .map(|m| {
                 let mut m = m.clone();
                 m.missed = m.missed.iter().map(|&r| rows[r]).collect();
-                NearMissJson::new(&sample, &m)
+                NearMissJson::new(sample, &m)
             })
             .collect();
-        let misses = serde_json::to_string(&misses).map_err(js_error)?;
-        let json = self.answer(options, column, table, target, confirmed, None)?;
-        Ok((json, misses))
+        serde_json::to_string(&json).map_err(js_error)
     }
 
     /// The values of `column` and those of `formula` (written with column
@@ -1061,6 +1101,22 @@ mod tests {
             .iter()
             .any(|e| e.contains(r#""kind":"confirming""#) && e.contains(r#""sample":200"#)));
         assert!(events.iter().any(|e| e.contains(r#""rows_total":3000"#)));
+        // A first look on the sample alone, then the check on all rows.
+        let (quick, _) = d
+            .explain_with("sum", r#"{"sample":200,"sample_only":true}"#, &|_| {})
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&quick).unwrap();
+        assert_eq!(
+            (v["formula"].as_str(), v["checked_rows"].as_u64()),
+            (Some("a + b"), Some(200))
+        );
+        let searched = RefCell::new(false);
+        let (all, _) = d
+            .explain_with("sum", r#"{"sample":200}"#, &|e| {
+                *searched.borrow_mut() |= e.contains(r#""kind":"started""#)
+            })
+            .unwrap();
+        assert!(all.contains(r#""checked_rows":3000"#) && !*searched.borrow());
         // A column without a formula on the sample is not searched on all rows.
         let (none, _) = d
             .explain_with("noise", r#"{"sample":200}"#, &|_| {})

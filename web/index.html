@@ -187,6 +187,17 @@
           <button id="download" type="button">Download JSON</button>
         </div>
         <div id="summary" class="summary" role="status"></div>
+        <details class="legend panel">
+          <summary>How to read the results</summary>
+          <dl>
+            <div class="exact"><dt>✓ All rows</dt><dd>The formula gives the value of every row, to the decimals the file is written with.</dd></div>
+            <div class="partial"><dt>Partial</dt><dd>It holds on most rows but not all. A few rows that break it are probably typing or copy mistakes, and are listed with the cell to check. Many rows usually mean a group that follows another rule.</dd></div>
+            <div class="approx"><dt>≈ Approximate</dt><dd>It only holds to within a small error, which is shown. The values were rounded or measured, not computed with this exact formula.</dd></div>
+            <div><dt>Per type</dt><dd>A text column decides the rule: each of its values has its own formula, shown in a table.</dd></div>
+            <div><dt>Between rows</dt><dd>The value depends on the previous row, in the order of the table: a running total, a chainage, a slope.</dd></div>
+            <div><dt>Colours</dt><dd>Each column keeps its colour everywhere: in the preview, the formulas, the tables and the graph.</dd></div>
+          </dl>
+        </details>
         <details id="graph" class="panel" open hidden>
           <summary>How the columns depend on each other</summary>
           <p class="hint muted">An arrow goes from each column to the columns computed from it. Select a computed column to go to its formula.</p>

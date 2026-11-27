@@ -10,6 +10,10 @@
   --warn: #a35a00;
   --warn-bg: #fff4e5;
   --code: #eef1f8;
+  --accent-2: #7c3aed;
+  --good-bg: #e8f6ee;
+  --c0: #2b59c3; --c1: #c2410c; --c2: #0f766e; --c3: #a21caf; --c4: #b45309;
+  --c5: #0369a1; --c6: #be123c; --c7: #4d7c0f; --c8: #6d28d9; --c9: #0e7490;
   color-scheme: light;
 }
 
@@ -26,6 +30,10 @@
     --warn: #ffb35c;
     --warn-bg: #2d2416;
     --code: #232a37;
+    --accent-2: #b794f6;
+    --good-bg: #16291f;
+    --c0: #7aa2ff; --c1: #fb923c; --c2: #2dd4bf; --c3: #e879f9; --c4: #fbbf24;
+    --c5: #38bdf8; --c6: #fb7185; --c7: #a3e635; --c8: #a78bfa; --c9: #22d3ee;
     color-scheme: dark;
   }
 }
@@ -283,3 +291,68 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 /* Relations between text columns. */
 .text-list { list-style: none; padding: 0; margin: 10px 0 0; }
 .text-list li { padding: 6px 0; border-top: 1px solid var(--border); font-size: 14px; }
+
+/* Colour. */
+.top { background: linear-gradient(90deg, var(--surface), color-mix(in srgb, var(--accent) 8%, var(--surface))); }
+.logo { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+h1 {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.drop { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
+.drop:hover { border-color: var(--accent); }
+#meter-fill { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.how-grid article:nth-child(6n + 1) .how-icon { color: var(--c0); background: color-mix(in srgb, var(--c0) 14%, transparent); }
+.how-grid article:nth-child(6n + 2) .how-icon { color: var(--c2); background: color-mix(in srgb, var(--c2) 14%, transparent); }
+.how-grid article:nth-child(6n + 3) .how-icon { color: var(--c3); background: color-mix(in srgb, var(--c3) 14%, transparent); }
+.how-grid article:nth-child(6n + 4) .how-icon { color: var(--c1); background: color-mix(in srgb, var(--c1) 14%, transparent); }
+.how-grid article:nth-child(6n + 5) .how-icon { color: var(--c5); background: color-mix(in srgb, var(--c5) 14%, transparent); }
+.how-grid article:nth-child(6n + 6) .how-icon { color: var(--c4); background: color-mix(in srgb, var(--c4) 14%, transparent); }
+
+/* A column in its colour. */
+.col { color: var(--col, var(--accent)); }
+span.col { font-weight: 600; }
+.formula .col { font-weight: 700; }
+th.colhead { box-shadow: inset 0 3px 0 var(--col); }
+th.colhead label, th.colhead { color: var(--text); }
+.chart.graph .node rect { stroke: var(--col, var(--border)); }
+.chart.graph .node.derived rect { stroke: var(--col, var(--accent)); fill: color-mix(in srgb, var(--col, var(--accent)) 10%, var(--surface)); }
+.chart.graph .node text { fill: var(--text); }
+
+/* Exact, partial and approximate formulas. */
+.card { border-left: 4px solid var(--border); }
+.card.exact { border-left-color: var(--good); }
+.card.partial { border-left-color: var(--warn); }
+.card.approx { border-left-color: var(--accent-2); }
+.partial-note {
+  margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-size: 14px;
+  background: var(--warn-bg); color: var(--text);
+}
+.partial-note b { color: var(--warn); }
+.approx-badge { background: color-mix(in srgb, var(--accent-2) 15%, transparent); color: var(--accent-2); }
+.summary { border-left: 4px solid var(--good); background: var(--good-bg); border-color: transparent; border-left-color: var(--good); }
+.summary.has-warn { border-left: 4px solid var(--warn); }
+
+/* How to read the results. */
+.legend dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin: 12px 0 0; }
+.legend dl > div { border-left: 4px solid var(--border); padding: 4px 10px; }
+.legend dl > .exact { border-left-color: var(--good); }
+.legend dl > .partial { border-left-color: var(--warn); }
+.legend dl > .approx { border-left-color: var(--accent-2); }
+.legend dt { font-weight: 700; font-size: 14px; }
+.legend .exact dt { color: var(--good); }
+.legend .partial dt { color: var(--warn); }
+.legend .approx dt { color: var(--accent-2); }
+.legend dd { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
+
+/* A first look on a sample, still being checked. */
+.card.provisional { border-style: dashed; border-left-style: solid; border-left-color: var(--accent-2); opacity: .92; }
+.preview-badge { background: color-mix(in srgb, var(--accent-2) 15%, transparent); color: var(--accent-2); }
+.spinner {
+  display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px;
+  border: 2px solid var(--border); border-top-color: var(--accent-2); animation: spin .8s linear infinite;
+}
+.progress-live .provisional .state { color: var(--accent-2); }
+.progress-live .provisional { border-color: color-mix(in srgb, var(--accent-2) 40%, var(--border)); border-style: dashed; }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.summary:empty { display: none; }

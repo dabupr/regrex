@@ -146,17 +146,23 @@ export class Engine {
   /**
    * Looks for a formula for `column`, on the least busy worker. Several
    * calls run at the same time on different workers. `onEvent` hears what
-   * the search is doing while it runs.
+   * the search is doing while it runs. With `where`, the call runs on
+   * worker `where.slot` when it is given (a worker keeps what a quick look
+   * at a column found, so checking it there skips searching again), and
+   * `where.slot` is set to the worker used.
    */
   async explain(
     column: string,
     options: ExplainOptions,
     onEvent?: (e: SearchEvent) => void,
+    where?: { slot?: number },
   ): Promise<Explained> {
     const file = this.file;
     if (!file) throw new Error("no file loaded");
-    if (this.slots.length < this.size && this.slots.every((s) => s.busy > 0)) this.slots.push(new Slot());
-    const slot = this.slots.reduce((a, b) => (b.busy < a.busy ? b : a));
+    const pinned = where?.slot !== undefined ? this.slots[where.slot] : undefined;
+    if (!pinned && this.slots.length < this.size && this.slots.every((s) => s.busy > 0)) this.slots.push(new Slot());
+    const slot = pinned ?? this.slots.reduce((a, b) => (b.busy < a.busy ? b : a));
+    if (where) where.slot = this.slots.indexOf(slot);
     await slot.ensure(file);
     return slot.call({ kind: "explain", column, options }, [], onEvent);
   }

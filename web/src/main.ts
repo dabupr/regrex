@@ -1,8 +1,9 @@
 import { dependencyGraph, scatter, scatterLegend } from "./charts";
 import { Engine } from "./engine";
 import { groups, loadChoice, saveChoice, suggestions } from "./columns";
+import { colorize, columnColor, columnName, setColumns } from "./colors";
 import { columnarFormat, readColumnar } from "./formats";
-import type { DatasetInfo, Derived, Known, NearMiss, SearchEvent, TextRelation } from "./types";
+import type { DatasetInfo, Derived, ExplainOptions, Known, NearMiss, SearchEvent, TextRelation } from "./types";
 import {
   ADVANCED,
   DEFAULTS,
@@ -187,6 +188,7 @@ async function openFile(name: string, bytes: ArrayBuffer, sheet?: string, other?
     const ignored =
       loadChoice(name, info) ?? new Set([...suggested].filter(([, s]) => s.untick).map(([n]) => n));
     state = { name, bytes, info, ignored, derived: [], nearMisses: [], suspects: [], sheet, other };
+    setColumns([...info.header.map(headerName), ...info.columns.map((c) => c.name)]);
     renderData();
   } catch (e) {
     const what = other ? `${name} with ${other.name}` : name;
@@ -280,13 +282,13 @@ function renderPreview(all: boolean) {
   for (const col of shown) {
     if (!numeric.has(col)) {
       const kind = info.categories.includes(col) ? `text, ${role.get(col) ?? "category"}` : "text, skipped";
-      head.append(el("th", { class: "text" }, col, el("span", { class: "kind" }, kind)));
+      head.append(el("th", { class: "text colhead", style: `--col: ${columnColor(col)}` }, col, el("span", { class: "kind" }, kind)));
       continue;
     }
     const as = readAs.get(col);
     const r = role.get(col);
     const kind = as ?? (r && r !== "measurement" ? `number, ${r}` : "number");
-    head.append(el("th", {}, el("label", {}, columnBox(col), col), el("span", { class: "kind" }, kind)));
+    head.append(el("th", { class: "colhead", style: `--col: ${columnColor(col)}` }, el("label", {}, columnBox(col), col), el("span", { class: "kind" }, kind)));
   }
   const rows = info.preview.map((cells, i) =>
     el(
@@ -477,7 +479,7 @@ function describeEvent(e: SearchEvent): (Node | string)[] {
           : [];
       return [
         "best so far ",
-        el("code", {}, e.formula),
+        el("code", {}, ...painted(e.formula)),
         ` (${percent(e.matched, e.checked)} of rows)`,
         ...sample,
       ];
@@ -485,7 +487,7 @@ function describeEvent(e: SearchEvent): (Node | string)[] {
     case "confirming":
       return [
         "found ",
-        el("code", {}, e.formula),
+        el("code", {}, ...painted(e.formula)),
         ` on ${e.sample.toLocaleString()} sample rows, checking all ${e.rows.toLocaleString()} rows`,
       ];
     case "second_formula":
@@ -522,11 +524,17 @@ async function scanAll() {
   const limit = settings.advanced.time_limit;
   const timer = limit > 0 ? setTimeout(() => stop("time"), limit * 1000) : undefined;
   // Columns are handed out from a queue to one task per worker, so a slow
-  // column does not hold up the others.
+  // column does not hold up the others. On a large file there are two
+  // passes: a quick look at every column on a sample, whose formulas are
+  // shown at once as provisional, then each of them checked on all rows.
+  const sample = (options as ExplainOptions).sample ?? 0;
   const found = new Map<string, Derived>();
+  const provisional = new Map<string, Derived>();
   const near = new Map<string, NearMiss[]>();
   const done = new Set<string>();
+  const dropped = new Set<string>();
   const running = new Set<string>();
+  let phase: "look" | "check" = sample ? "look" : "check";
   // What each running column's search is doing, from its events, redrawn
   // at most once per frame.
   const doing = new Map<string, SearchEvent>();
@@ -540,45 +548,49 @@ async function scanAll() {
       // the search is doing) or still to do.
       ui.progressLive.replaceChildren(
         ...columns.map((c) => {
+          const state = (cls: string, mark: string, ...what: (Node | string)[]) =>
+            el("li", { class: cls }, el("span", { class: "state", "aria-hidden": "true" }, mark), columnName(c), el("span", { class: "what" }, ...what));
+          const formula = (d: Derived) => (d.regime ? ["depends on ", columnName(d.regime.column, "span")] : [el("code", {}, ...painted(d.formula))]);
           if (running.has(c)) {
             const e = doing.get(c);
-            return el(
-              "li",
-              { class: "running" },
-              el("span", { class: "state", "aria-hidden": "true" }),
-              el("b", {}, c),
-              el("span", { class: "what" }, ...(e ? describeEvent(e) : ["waiting for a worker"])),
-            );
+            const li = state("running", "", ...(e ? describeEvent(e) : [phase === "check" && provisional.has(c) ? "checking on all rows" : "waiting for a worker"]));
+            return li;
           }
-          if (done.has(c)) {
-            const d = found.get(c);
-            return el(
-              "li",
-              { class: d ? "found" : "none" },
-              el("span", { class: "state", "aria-hidden": "true" }, d ? "✓" : "–"),
-              el("b", {}, c),
-              el("span", { class: "what" }, d ? (d.regime ? `depends on ${d.regime.column}` : el("code", {}, d.formula)) : "no formula"),
-            );
-          }
-          return el("li", { class: "todo" }, el("span", { class: "state", "aria-hidden": "true" }), el("b", {}, c));
+          const d = found.get(c);
+          if (d) return state("found", "✓", ...formula(d));
+          if (dropped.has(c)) return state("none", "–", "found on the sample, not on all rows");
+          const p = provisional.get(c);
+          if (p) return state("provisional", "≈", ...formula(p), el("span", { class: "muted" }, ` · on ${sample.toLocaleString()} rows, to be checked`));
+          if (done.has(c)) return state("none", "–", "no formula");
+          return el("li", { class: "todo" }, el("span", { class: "state", "aria-hidden": "true" }), columnName(c));
         }),
       );
     });
   };
   ui.progressLive.replaceChildren();
-  let next = 0;
   const started = performance.now();
+  let queue: string[] = columns;
+  let next = 0;
+  let finished = 0;
   const progress = () => {
     const names = [...running].slice(0, 3).join(", ") + (running.size > 3 ? "…" : "");
-    const left = timeLeft(performance.now() - started, done.size, columns.length);
-    ui.progressText.textContent =
-      `Checked ${done.size} of ${columns.length} columns${left ? ` · ${left}` : ""}${names ? ` · now ${names}` : ""}…`;
-    ui.meter.style.width = `${(100 * done.size) / columns.length}%`;
+    const left = timeLeft(performance.now() - started, finished, queue.length);
+    const what =
+      phase === "look"
+        ? `Quick look on ${sample.toLocaleString()} of ${state!.info.rows.toLocaleString()} rows: ${finished} of ${queue.length} columns`
+        : sample
+          ? `Checking on all ${state!.info.rows.toLocaleString()} rows: ${finished} of ${queue.length} formulas`
+          : `Checked ${finished} of ${queue.length} columns`;
+    ui.progressText.textContent = `${what}${left ? ` · ${left}` : ""}${names ? ` · now ${names}` : ""}…`;
+    const share = queue.length ? finished / queue.length : 1;
+    ui.meter.style.width = `${sample ? (phase === "look" ? 50 * share : 50 + 50 * share) : 100 * share}%`;
   };
   const live = liveResults(columns);
-  const work = async () => {
-    while (next < columns.length && !stopped) {
-      const column = columns[next++];
+  // The worker that took a quick look at each column, to check it there.
+  const slots = new Map<string, number | undefined>();
+  const run = async (opts: ExplainOptions, onResult: (column: string, d: Derived | null, misses: NearMiss[]) => void) => {
+    while (next < queue.length && !stopped) {
+      const column = queue[next++];
       running.add(column);
       progress();
       drawLive();
@@ -587,30 +599,55 @@ async function scanAll() {
         doing.set(column, e);
         drawLive();
       };
-      const { found: d, near_misses } = await engine.explain(column, options, onEvent);
+      const where = { slot: slots.get(column) };
+      const { found: d, near_misses } = await engine.explain(column, opts, onEvent, where);
+      slots.set(column, where.slot);
       running.delete(column);
       doing.delete(column);
-      drawLive();
-      if (near_misses.length && !stopped) {
-        near.set(column, near_misses);
-        renderNearMisses(nearInOrder());
-      }
-      if (d && !stopped) {
-        found.set(column, d);
-        live.add(d, inOrder());
-      }
-      done.add(column);
+      if (!stopped) onResult(column, d, near_misses);
+      finished++;
       drawLive();
       progress();
     }
   };
+  const pass = (opts: ExplainOptions, onResult: Parameters<typeof run>[1]) =>
+    Promise.all(Array.from({ length: Math.min(engine.workers, queue.length) }, () => run(opts, onResult)));
   // In column order, whatever order they were found in.
   const inOrder = () => columns.filter((c) => found.has(c)).map((c) => found.get(c) as Derived);
   const nearInOrder = () =>
     columns.flatMap((c) => near.get(c) ?? []).sort((a, b) => b.matched_rows - a.matched_rows);
+  const keepMisses = (column: string, misses: NearMiss[]) => {
+    if (!misses.length) return;
+    near.set(column, misses);
+    renderNearMisses(nearInOrder());
+  };
   try {
     progress();
-    await Promise.all(Array.from({ length: Math.min(engine.workers, columns.length) }, work));
+    if (sample) {
+      await pass({ ...options, sample_only: true }, (column, d, misses) => {
+        keepMisses(column, misses);
+        if (!d) return done.add(column), undefined;
+        provisional.set(column, d);
+        live.add({ ...d, provisional: true }, [...provisional.values()]);
+      });
+      phase = "check";
+      queue = columns.filter((c) => provisional.has(c));
+      next = 0;
+      finished = 0;
+      progress();
+      drawLive();
+    }
+    await pass(options, (column, d, misses) => {
+      done.add(column);
+      if (!sample) keepMisses(column, misses);
+      if (d) {
+        found.set(column, d);
+        live.add(d, inOrder());
+      } else if (sample) {
+        dropped.add(column);
+        live.remove(column);
+      }
+    });
     ui.meter.style.width = "100%";
     state.derived = inOrder();
     state.nearMisses = nearInOrder();
@@ -666,12 +703,12 @@ function nearMissItem(m: NearMiss): HTMLElement {
   const item = el(
     "li",
     { "data-column": m.column },
-    el("div", { class: "formula" }, el("b", {}, m.column), ` = ${m.formula}`),
+    el("div", { class: "formula" }, columnName(m.column), " = ", ...painted(m.formula)),
     el(
       "div",
       { class: "meta" },
       el("span", { class: "warn" }, `${m.matched_rows.toLocaleString()} of ${m.checked_rows.toLocaleString()} rows (${share})`),
-      el("span", { class: "muted" }, `uses ${m.inputs.join(", ")}`),
+      usesNode(m.inputs),
     ),
     el("p", { class: "why muted" }, `Not reported: ${m.reason_text}.`),
   );
@@ -734,10 +771,20 @@ function liveResults(columns: string[]) {
       ui.independent.textContent = "Still searching: more formulas may appear below.";
       if (d.copy_of) return renderCopies(all.filter((x) => x.copy_of));
       const card = derivedCard(d);
+      const old = ui.cards.querySelector<HTMLElement>(`article[data-column="${CSS.escape(d.column)}"]`);
+      if (old) {
+        old.replaceWith(card);
+        if (!d.provisional) card.classList.add("flash");
+        return;
+      }
       const after = [...ui.cards.querySelectorAll<HTMLElement>("article[data-column]")].find(
         (c) => (position.get(c.dataset.column ?? "") ?? Infinity) > (position.get(d.column) ?? Infinity),
       );
       ui.cards.insertBefore(card, after ?? null);
+    },
+    /** Takes away a provisional formula that did not hold on all rows. */
+    remove(column: string) {
+      ui.cards.querySelector(`article[data-column="${CSS.escape(column)}"]`)?.remove();
     },
   };
 }
@@ -864,11 +911,41 @@ function exportSuspects() {
   URL.revokeObjectURL(a.href);
 }
 
+/** Every column name of the file, to colour them in formulas. */
+function allNames(): string[] {
+  if (!state) return [];
+  return [...state.info.header.map(headerName), ...state.info.columns.map((c) => c.name)];
+}
+
+/** Formula text with its column names in their colours. */
+function painted(text: string): (Node | string)[] {
+  return colorize(text, allNames());
+}
+
+/** "uses a, b": the inputs of a formula, each in its colour. */
+function usesNode(inputs: string[]): HTMLElement {
+  const names = inputs.flatMap((n, i) => (i ? [", ", columnName(n, "span")] : [columnName(n, "span")]));
+  return el("span", { class: "muted" }, "uses ", ...names);
+}
+
 function formulaNode(d: Derived): HTMLElement {
   if (d.regime) {
-    return el("div", { class: "formula" }, el("b", {}, d.column), el("span", { class: "muted" }, ` depends on `), el("b", {}, d.regime.column));
+    return el("div", { class: "formula" }, columnName(d.column), el("span", { class: "muted" }, ` depends on `), columnName(d.regime.column));
   }
-  return el("div", { class: "formula" }, el("b", {}, d.column), ` = ${d.formula}`);
+  return el("div", { class: "formula" }, columnName(d.column), " = ", ...painted(d.formula));
+}
+
+/** Why a formula is partial, in words: how many rows break it and what that may mean. */
+function partialNote(d: Derived, exceptions: number): HTMLElement {
+  const share = (100 * exceptions) / Math.max(1, d.checked_rows);
+  const pct = share < 0.1 ? "less than 0.1%" : `${share < 10 ? share.toFixed(1) : Math.round(share)}%`;
+  const rows = exceptions === 1 ? "1 row does" : `${exceptions.toLocaleString()} rows (${pct}) do`;
+  const why = fewExceptions(d)
+    ? "So few that they are probably typing or copy mistakes: each one is listed below, and under Suspicious rows with the cell to check."
+    : d.regime
+      ? "They are usually where the type changes, or stretches where the value was set by hand."
+      : "They may be a separate group (another rate, product or period) rather than mistakes.";
+  return el("p", { class: "partial-note" }, el("b", {}, "Partial: "), `${rows} not follow this formula. ${why}`);
 }
 
 /** Badges that say what kind of formula it is. */
@@ -893,14 +970,14 @@ function regimeTable(d: Derived): HTMLElement {
       "tr",
       {},
       el("th", { scope: "row" }, p.value),
-      el("td", { class: "piece" }, el("code", {}, formula), runs),
+      el("td", { class: "piece" }, el("code", {}, ...painted(formula)), runs),
       el("td", { class: ok ? "ok num" : "warn num" }, ok ? `✓ ${p.rows}` : `${p.matched_rows} of ${p.rows}`),
     );
   });
   return el(
     "table",
     { class: "pieces" },
-    el("thead", {}, el("tr", {}, el("th", {}, regime.column), el("th", {}, "formula"), el("th", { class: "num" }, "rows"))),
+    el("thead", {}, el("tr", {}, el("th", {}, columnName(regime.column, "span")), el("th", {}, "formula"), el("th", { class: "num" }, "rows"))),
     el("tbody", {}, ...rows),
   );
 }
@@ -956,14 +1033,34 @@ function derivedCard(d: Derived): HTMLElement {
       ? el("span", { class: "ok" }, `✓ all ${d.checked_rows} rows`)
       : d.other
         ? el("span", { class: wrong ? "warn" : "ok" }, `${d.matched_rows} of ${d.checked_rows} rows${wrong ? `, ${wrong} with neither formula` : ", the rest with a second formula"}`)
-        : el("span", { class: "warn" }, `${d.matched_rows} of ${d.checked_rows} rows`);
+        : el("span", { class: "warn", title: "Partial: the formula holds on most rows, not all" }, `Partial · ${d.matched_rows} of ${d.checked_rows} rows`);
+  const state = d.provisional ? "provisional" : exceptions === 0 ? "exact" : d.other && !wrong ? "exact" : "partial";
+  if (d.provisional) {
+    // A quick first look: shown at once, checked on all rows next.
+    return el(
+      "article",
+      { class: "card provisional", "data-column": d.column },
+      formulaNode(d),
+      el(
+        "div",
+        { class: "meta" },
+        el("span", { class: "badge preview-badge" }, "Preview"),
+        el("span", {}, `${d.matched_rows.toLocaleString()} of ${d.checked_rows.toLocaleString()} sample rows`),
+        ...kindBadges(d),
+        usesNode(d.inputs),
+      ),
+      ...(d.regime ? [regimeTable(d)] : []),
+      el("p", { class: "note" }, el("span", { class: "spinner", "aria-hidden": "true" }), " Found on a sample of the rows. Now checking it on every row…"),
+    );
+  }
   const card = el(
     "article",
-    { class: "card", "data-column": d.column },
+    { class: `card ${state}${d.within != null ? " approx" : ""}`, "data-column": d.column },
     formulaNode(d),
-    el("div", { class: "meta" }, status, ...kindBadges(d), el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
+    el("div", { class: "meta" }, status, ...kindBadges(d), usesNode(d.inputs)),
   );
   if (d.regime) card.append(regimeTable(d));
+  if (exceptions > 0 && !d.other) card.append(partialNote(d, exceptions));
   if (d.known) card.append(knownNode(d.known));
   if (d.other) {
     const o = d.other;
@@ -974,22 +1071,13 @@ function derivedCard(d: Derived): HTMLElement {
         { class: "other" },
         el("span", { class: "badge other-badge" }, "Second formula"),
         " ",
-        el("span", { class: "formula-inline" }, el("b", {}, d.column), ` = ${o.formula}`),
+        el("span", { class: "formula-inline" }, columnName(d.column), " = ", ...painted(o.formula)),
         el("span", { class: "muted" }, o.split ? ` for ${n}, where ${o.split.rule}` : ` for ${n}`),
       ),
     );
     if (!o.split) {
       card.append(el("p", { class: "note" }, "No column tells these rows apart; a text column such as a product or region may."));
     }
-  } else if (exceptions > 0 && !fewExceptions(d) && d.matched_rows >= 0.5 * d.checked_rows) {
-    const share = Math.round((100 * exceptions) / d.checked_rows);
-    card.append(
-      el(
-        "p",
-        { class: "note" },
-        `${share}% of the rows follow another rule. They may be a separate group (another rate, product or period) rather than mistakes.`,
-      ),
-    );
   }
   if (exceptions > 0) {
     const rows = d.exceptions.map((x) =>
@@ -1123,7 +1211,7 @@ function renderTextRelations() {
       el(
         "li",
         {},
-        el("code", {}, text(r)),
+        el("code", {}, ...painted(text(r))),
         r.matched_rows < r.checked_rows ? el("span", { class: "muted" }, ` (${r.matched_rows} of ${r.checked_rows} rows)`) : "",
       ),
     ),

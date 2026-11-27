@@ -132,6 +132,8 @@ export interface OtherFormula {
 }
 
 export interface Derived {
+  /** Found on a sample of rows by a quick first look, still to be checked on all rows (set by the page). */
+  provisional?: boolean;
   column: string;
   formula: string;
   inputs: string[];
@@ -219,6 +221,10 @@ export interface FitReport {
 
 export interface ExplainOptions {
   ignore: string[];
+  /** Search a sample of about this many rows first, then check on all rows. */
+  sample?: number;
+  /** With `sample`, only search the sample: a quick first look. */
+  sample_only?: boolean;
   max_size?: number;
   max_params?: number;
   small_samples?: number;
