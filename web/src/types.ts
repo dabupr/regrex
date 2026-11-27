@@ -114,7 +114,7 @@ export interface NearMiss {
   matched_rows: number;
   checked_rows: number;
   match_ratio: number;
-  /** `coverage`, `usual_value` or `no_split_rule`. */
+  /** `coverage`, `usual_value`, `no_split_rule` or `other_values`. */
   reason: string;
   reason_text: string;
   /** A rule on another column that picks out the rows where it holds. */

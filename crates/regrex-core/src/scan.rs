@@ -560,6 +560,39 @@ fn explain_column_inner(
     });
     let ratio = matched.len() as f64 / rows.len() as f64;
     let enough = |f: &Expr, m: &[usize]| f.has_vars() && m.len() > f.complexity();
+    if !formula.has_vars() && !matched.is_empty() {
+        // The column mostly holds one value (0 on the straight parts of a
+        // track, where a curve's cant is undefined): what do the others
+        // follow?
+        let usual = y_all[matched[0]];
+        let others: Vec<usize> = rows
+            .iter()
+            .copied()
+            .filter(|&r| matched.binary_search(&r).is_err())
+            .collect();
+        if others.len() > MIN_UNUSUAL_ROWS {
+            on_event(ScanEvent::SecondFormula {
+                target,
+                rows: others.len(),
+            });
+            if let Some((other, other_rows)) =
+                best_formula(table, &candidates_cols, target, &others, config)
+            {
+                near_misses.extend(near_miss(
+                    table,
+                    target,
+                    config,
+                    &other,
+                    &others,
+                    &other_rows,
+                    Rejection::OtherValues {
+                        usual,
+                        rows: matched.len(),
+                    },
+                ));
+            }
+        }
+    }
     if !enough(&formula, &matched) {
         return None;
     }
@@ -2058,6 +2091,46 @@ mod tests {
                 near_misses: 1..
             })
         ));
+    }
+
+    #[test]
+    fn searches_the_rows_that_differ_from_the_usual_value() {
+        // Zero on 7 rows in 10 (a cant on straight track), 3 * a + 1 on the
+        // others, with nothing in the table to tell them apart.
+        let n = 300;
+        let a: Vec<f64> = (0..n).map(|i| ((i * 37) % 101) as f64 + 2.0).collect();
+        let b: Vec<f64> = (0..n).map(|i| ((i * 53) % 89) as f64).collect();
+        let y: Vec<f64> = (0..n)
+            .map(|i| {
+                if (i * 7) % 10 < 7 {
+                    0.0
+                } else {
+                    3.0 * a[i] + 1.0
+                }
+            })
+            .collect();
+        let table = Table {
+            names: ["a", "b", "y"].iter().map(|s| s.to_string()).collect(),
+            columns: vec![a, b, y],
+            decimals: vec![Some(0), Some(0), Some(0)],
+            ..Table::default()
+        };
+        let e = explain_column_detailed(&table, 2, &ScanConfig::default(), &[], &|_| {});
+        assert!(e.found.is_none());
+        let miss = e
+            .near_misses
+            .iter()
+            .find(|m| m.reason.code() == "other_values")
+            .expect("a formula for the other rows");
+        assert_eq!(miss.formula_text, "3 * a + 1");
+        assert_eq!((miss.matched, miss.checked), (90, 90));
+        assert_eq!(
+            miss.reason,
+            Rejection::OtherValues {
+                usual: 0.0,
+                rows: 210
+            }
+        );
     }
 
     #[test]

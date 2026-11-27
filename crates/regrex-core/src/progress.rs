@@ -33,16 +33,25 @@ pub enum Rejection {
         /// The formula whose broken rows it fits.
         main: String,
     },
+    /// The column holds the same value (`usual`, often 0) on most rows
+    /// (`rows` of them); this formula is for the others only.
+    OtherValues {
+        /// The value most rows hold.
+        usual: f64,
+        /// Rows holding it.
+        rows: usize,
+    },
 }
 
 impl Rejection {
-    /// A short name, stable for JSON: `coverage`, `usual_value`
-    /// or `no_split_rule`.
+    /// A short name, stable for JSON: `coverage`, `usual_value`,
+    /// `no_split_rule` or `other_values`.
     pub fn code(&self) -> &'static str {
         match self {
             Rejection::Coverage { .. } => "coverage",
             Rejection::UsualValue => "usual_value",
             Rejection::NoSplitRule { .. } => "no_split_rule",
+            Rejection::OtherValues { .. } => "other_values",
         }
     }
 }

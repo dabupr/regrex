@@ -65,7 +65,9 @@ pub struct NearMissJson {
     /// Why it was not reported: `coverage` (too few rows match),
     /// `usual_value` (right mostly on the column's most common value) or
     /// `no_split_rule` (a second formula for the rows that break the first
-    /// one, with no rule on another column to tell them apart).
+    /// one, with no rule on another column to tell them apart) or
+    /// `other_values` (the column holds one value, often 0, on most rows,
+    /// and this formula is for the others).
     pub reason: String,
     /// The reason in words.
     pub reason_text: String,
@@ -96,6 +98,10 @@ impl NearMissJson {
             Rejection::UsualValue => {
                 "right mostly where the column has its most common value".to_string()
             }
+            Rejection::OtherValues { usual, rows } => format!(
+                "only for the rows that are not {} ({rows} rows are)",
+                format_number(*usual)
+            ),
             Rejection::NoSplitRule { main } => format!(
                 "fits the rows that break {} = {main}, but no other column tells them apart",
                 names[m.target]
