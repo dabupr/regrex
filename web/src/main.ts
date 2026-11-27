@@ -169,7 +169,8 @@ function renderData() {
   ui.suspicious.hidden = true;
   ui.data.hidden = false;
   ui.fileName.textContent = name;
-  const text = info.skipped.length ? `, ${info.skipped.length} text` : "";
+  const texts = info.skipped.length + info.categories.length;
+  const text = texts ? `, ${texts} text` : "";
   ui.fileSummary.textContent = `${info.rows} rows, ${info.columns.length} numeric columns${text}`;
 
   ui.sheetWrap.hidden = info.sheets.length < 2;
@@ -201,7 +202,8 @@ function renderPreview(all: boolean) {
   const head = el("tr", {}, el("th", { class: "text" }, "#"));
   for (const col of shown) {
     if (!numeric.has(col)) {
-      head.append(el("th", { class: "text" }, col, el("span", { class: "kind" }, "text, skipped")));
+      const kind = info.categories.includes(col) ? "text, category" : "text, skipped";
+      head.append(el("th", { class: "text" }, col, el("span", { class: "kind" }, kind)));
       continue;
     }
     const kind = readAs.get(col) ?? "number";

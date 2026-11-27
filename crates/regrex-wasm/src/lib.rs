@@ -52,6 +52,11 @@ struct Info<'a> {
     sheets: &'a [String],
     columns: Vec<ColumnInfo<'a>>,
     skipped: &'a [String],
+    /// Text columns read as categories (not in `columns`, which are the
+    /// numbers formulas are searched for).
+    categories: &'a [String],
+    /// How the table is laid out and what each column is for.
+    structure: regrex_io::report::StructureJson,
 }
 
 #[derive(Serialize)]
@@ -288,7 +293,9 @@ impl Dataset {
                 .iter()
                 .zip(&t.columns)
                 .zip(&t.decimals)
-                .map(|((name, values), decimals)| ColumnInfo {
+                .enumerate()
+                .filter(|(i, _)| !t.is_category(*i))
+                .map(|(_, ((name, values), decimals))| ColumnInfo {
                     name,
                     decimals: *decimals,
                     missing: values.iter().filter(|v| v.is_nan()).count(),
@@ -305,6 +312,8 @@ impl Dataset {
                 })
                 .collect(),
             skipped: &self.loaded.skipped,
+            categories: &self.loaded.categories,
+            structure: regrex_io::report::StructureJson::new(t),
         };
         serde_json::to_string(&info).expect("serializable")
     }

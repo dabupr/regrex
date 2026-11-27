@@ -25,8 +25,13 @@ pub struct ScanReport {
     pub rows: usize,
     /// Numeric columns.
     pub columns: Vec<String>,
-    /// Columns that were not numeric.
+    /// Text columns left out (free text, about one value per row).
     pub skipped_columns: Vec<String>,
+    /// Text columns read as categories: they tell rows apart but are not
+    /// computed with.
+    pub category_columns: Vec<String>,
+    /// How the table is laid out and what each column is for.
+    pub structure: StructureJson,
     /// Columns that were not plain numbers but were read as numbers
     /// (`true`/`false`, times, dates, numbers with a unit), and how.
     pub converted_columns: Vec<ConvertedJson>,
@@ -35,6 +40,94 @@ pub struct ScanReport {
     /// Columns that were searched without finding a formula, with the
     /// columns tried as their inputs.
     pub not_found: Vec<NotFoundJson>,
+}
+
+/// How the table is laid out (see [`regrex_core::profile`]).
+#[derive(Debug, Clone, Serialize)]
+pub struct StructureJson {
+    /// Columns that split the rows into independent sequences.
+    pub groups: Vec<String>,
+    /// The column that orders the rows within each group.
+    pub order: Option<String>,
+    /// What each column is for, in column order.
+    pub roles: Vec<RoleJson>,
+}
+
+/// What one column is for.
+#[derive(Debug, Clone, Serialize)]
+pub struct RoleJson {
+    /// The column.
+    pub column: String,
+    /// `measurement`, `regime`, `group key`, `order`, `code`,
+    /// `identifier`, `flag` or `constant`.
+    pub role: String,
+    /// Whether the column is text read as categories.
+    pub category: bool,
+    /// Different values.
+    pub distinct: usize,
+    /// Average run of equal values along the order, when there is one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mean_run: Option<f64>,
+}
+
+impl StructureJson {
+    /// The structure of `table`.
+    pub fn new(table: &regrex_core::Table) -> Self {
+        let p = regrex_core::profile(table);
+        let names = &table.names;
+        StructureJson {
+            groups: p.groups.iter().map(|&g| names[g].clone()).collect(),
+            order: p.order.map(|o| names[o].clone()),
+            roles: p
+                .columns
+                .iter()
+                .enumerate()
+                .map(|(i, c)| RoleJson {
+                    column: names[i].clone(),
+                    role: c.role.name().to_string(),
+                    category: c.category,
+                    distinct: c.distinct,
+                    mean_run: c.mean_run.map(|r| (r * 10.0).round() / 10.0),
+                })
+                .collect(),
+        }
+    }
+
+    /// One or two lines for people, such as `Rows: grouped by line, track,
+    /// in order of pk. Regimes: curve_type.`
+    pub fn summary(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(order) = &self.order {
+            if self.groups.is_empty() {
+                parts.push(format!("Rows in order of {order}."));
+            } else {
+                parts.push(format!(
+                    "Rows grouped by {}, in order of {order}.",
+                    self.groups.join(", ")
+                ));
+            }
+        }
+        // Numbers with few values are codes for the profile, but in a
+        // summary they would read as if they were not computed with.
+        let with = |role: &str| -> Vec<String> {
+            self.roles
+                .iter()
+                .filter(|r| r.role == role && (r.category || role == "regime"))
+                .map(|r| r.column.clone())
+                .collect()
+        };
+        for (role, label) in [
+            ("regime", "Regimes"),
+            ("code", "Codes"),
+            ("identifier", "Identifiers"),
+        ] {
+            let cols = with(role);
+            if !cols.is_empty() {
+                parts.push(format!("{label}: {}.", cols.join(", ")));
+            }
+        }
+        parts.join(" ")
+    }
 }
 
 /// A column searched without finding a formula.
@@ -404,6 +497,8 @@ impl ScanReport {
             rows: loaded.table.n_rows(),
             columns: names.clone(),
             skipped_columns: loaded.skipped.clone(),
+            category_columns: loaded.categories.clone(),
+            structure: StructureJson::new(&loaded.table),
             converted_columns: loaded
                 .converted
                 .iter()
@@ -461,14 +556,25 @@ impl ScanReport {
             "{}: {} rows, {} numeric columns",
             self.file,
             self.rows,
-            self.columns.len()
+            self.columns.len() - self.category_columns.len()
         );
+        if !self.category_columns.is_empty() {
+            let _ = writeln!(
+                s,
+                "Text read as categories: {}",
+                self.category_columns.join(", ")
+            );
+        }
         if !self.skipped_columns.is_empty() {
             let _ = writeln!(
                 s,
-                "Skipped (not numeric): {}",
+                "Skipped (free text): {}",
                 self.skipped_columns.join(", ")
             );
+        }
+        let summary = self.structure.summary();
+        if !summary.is_empty() {
+            let _ = writeln!(s, "{summary}");
         }
         if !self.converted_columns.is_empty() {
             let list: Vec<String> = self

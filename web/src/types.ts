@@ -19,6 +19,16 @@ export interface DatasetInfo {
   sheets: string[];
   columns: ColumnInfo[];
   skipped: string[];
+  /** Text columns read as categories: they decide which formula applies. */
+  categories: string[];
+  /** How the table is laid out and what each column is for. */
+  structure: Structure;
+}
+
+export interface Structure {
+  groups: string[];
+  order: string | null;
+  roles: { column: string; role: string; category: boolean; distinct: number; mean_run?: number }[];
 }
 
 export interface ExceptionDetail {

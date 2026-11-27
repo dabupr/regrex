@@ -35,7 +35,8 @@ fn scan_csv_finds_formulas_and_exceptions() {
     let report = scan_json("tests/invoices.csv");
     assert_eq!(report["schema_version"], 1);
     assert_eq!(report["rows"], 60);
-    assert_eq!(report["skipped_columns"][0], "product");
+    assert_eq!(report["category_columns"][0], "product");
+    assert_eq!(report["structure"]["roles"].as_array().unwrap().len(), 8);
 
     let subtotal = derived(&report, "subtotal");
     assert_eq!(subtotal["formula"], "price * quantity");
