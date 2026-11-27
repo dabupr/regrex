@@ -300,11 +300,26 @@ fn scan_keeps_the_formulas_it_came_close_to() {
         .expect("second formula kept");
     assert_eq!(other["reason"], "no_split_rule");
     // --verbose tells what each search does, on stderr.
-    assert!(stderr.contains("vat: searching 60 rows with net, qty"), "{stderr}");
-    assert!(stderr.contains("vat: best so far 0.21 * net (36/60 rows)"), "{stderr}");
-    assert!(stderr.contains("vat: no formula, 2 near misses"), "{stderr}");
+    assert!(
+        stderr.contains("vat: searching 60 rows with net, qty"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("vat: best so far 0.21 * net (36/60 rows)"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("vat: no formula, 2 near misses"),
+        "{stderr}"
+    );
 
     let (_, text, _) = regrex(&["scan", "tests/two_rules.csv"]);
-    assert!(text.contains("Almost (not reported, worth a look):"), "{text}");
-    assert!(text.contains("vat = 0.21 * net   holds on 60% of the rows, 90% needed"), "{text}");
+    assert!(
+        text.contains("Almost (not reported, worth a look):"),
+        "{text}"
+    );
+    assert!(
+        text.contains("vat = 0.21 * net   holds on 60% of the rows, 90% needed"),
+        "{text}"
+    );
 }

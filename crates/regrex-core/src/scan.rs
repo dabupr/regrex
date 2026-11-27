@@ -706,6 +706,9 @@ fn near_miss(
             return None;
         }
     }
+    if matches_by_chance(table, target, config, formula, rows, matched.len()) {
+        return None;
+    }
     let holds_when = if missed.is_empty() {
         None
     } else {
@@ -798,6 +801,61 @@ fn unusual_rows_explained(
     let explained = unusual.iter().filter(|r| !exceptions.contains(r)).count();
     Some((explained, unusual.len()))
 }
+
+/// Whether a formula would match about as many rows if its values were
+/// compared with the column's values of other rows. A formula that gives
+/// values in the right range (codes from 163 to 176, say) matches many rows
+/// of a column with few values by chance: compared with the values of rows
+/// further down, it should match far fewer, unless it is a fluke.
+fn matches_by_chance(
+    table: &Table,
+    target: usize,
+    config: &ScanConfig,
+    formula: &Expr,
+    rows: &[usize],
+    matched: usize,
+) -> bool {
+    let sample = spread(rows, CHANCE_ROWS);
+    let n = sample.len();
+    if n < 3 {
+        return false;
+    }
+    let y = &table.columns[target];
+    let tolerance = row_tolerance(table, target, config);
+    let mut row_values = vec![0.0; table.columns.len()];
+    let predicted: Vec<f64> = sample
+        .iter()
+        .map(|&r| {
+            for (c, v) in row_values.iter_mut().enumerate() {
+                *v = table.columns[c][r];
+            }
+            formula.eval_row(&row_values, &[])
+        })
+        .collect();
+    let by_chance = [n / 3, n / 2, 2 * n / 3]
+        .iter()
+        .filter(|&&k| k > 0)
+        .map(|&k| {
+            (0..n)
+                .filter(|&i| {
+                    let r = sample[(i + k) % n];
+                    predicted[i].is_finite() && (predicted[i] - y[r]).abs() <= tolerance(r)
+                })
+                .count()
+        })
+        .max()
+        .unwrap_or(0);
+    // As shares, since the sample may be smaller than the rows checked.
+    let actual = matched as f64 / rows.len() as f64;
+    by_chance as f64 / n as f64 >= CHANCE_SHARE * actual
+}
+
+/// Rows compared in [`matches_by_chance`].
+const CHANCE_ROWS: usize = 2000;
+
+/// A near miss that matches at least this share of its matches with the
+/// values of other rows is a fluke.
+const CHANCE_SHARE: f64 = 0.5;
 
 /// Rows that differ from a column's most common value needed to trust a
 /// formula for it.

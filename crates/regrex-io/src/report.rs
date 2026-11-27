@@ -529,7 +529,7 @@ impl ScanReport {
             .map(|m| NearMissJson::new(table, m))
             .collect();
         self.near_misses
-            .sort_by(|a, b| b.matched_rows.cmp(&a.matched_rows));
+            .sort_by_key(|m| std::cmp::Reverse(m.matched_rows));
         self
     }
 
