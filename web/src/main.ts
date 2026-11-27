@@ -2,7 +2,7 @@ import { dependencyGraph, scatter, scatterLegend } from "./charts";
 import { Engine } from "./engine";
 import { groups, loadChoice, saveChoice, suggestions } from "./columns";
 import { columnarFormat, readColumnar } from "./formats";
-import type { DatasetInfo, Derived, Known, NearMiss, SearchEvent } from "./types";
+import type { DatasetInfo, Derived, Known, NearMiss, SearchEvent, TextRelation } from "./types";
 import {
   ADVANCED,
   DEFAULTS,
@@ -77,6 +77,15 @@ const ui = {
   untickSuggested: $<HTMLButtonElement>("untick-suggested"),
   suggested: $("suggested"),
   columnGroups: $("column-groups"),
+  how: $("how"),
+  structure: $("structure"),
+  otherFile: $<HTMLInputElement>("other-file"),
+  addOther: $<HTMLButtonElement>("add-other"),
+  joined: $("joined"),
+  removeOther: $<HTMLButtonElement>("remove-other"),
+  textRelations: $<HTMLDetailsElement>("text-relations"),
+  textCount: $("text-count"),
+  textList: $("text-list"),
 };
 
 let settings: Settings = loadSettings();
@@ -109,6 +118,8 @@ interface State {
   suspects: Suspect[];
   /** The sheet or table being shown, when the file has several. */
   sheet?: string;
+  /** A second file whose rows are matched with this one's. */
+  other?: { name: string; bytes: ArrayBuffer };
 }
 let state: State | undefined;
 
@@ -134,26 +145,38 @@ function showError(message: string | null) {
 }
 
 /** Loads one sheet (or SQLite table) of a file into the engine. */
-async function loadSheet(name: string, bytes: ArrayBuffer, sheet?: string): Promise<DatasetInfo> {
+/** A file as the engine reads it: columnar formats are read in the page and handed over as JSON. */
+async function engineFile(name: string, bytes: ArrayBuffer, sheet?: string) {
   const format = columnarFormat(name, bytes);
-  if (!format) return engine.load(name, bytes, sheet);
+  if (!format) return { name, bytes, sheet, sheets: null as string[] | null };
   // Read in the page (the reader is loaded on demand), then handed over as JSON.
   const table = await readColumnar(format, bytes, sheet);
-  const info = await engine.load(`${name}.json`, table.json);
-  return { ...info, sheets: table.sheets };
+  return { name: `${name}.json`, bytes: table.json, sheet: undefined, sheets: table.sheets };
 }
 
-async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
+async function loadSheet(
+  name: string,
+  bytes: ArrayBuffer,
+  sheet?: string,
+  other?: { name: string; bytes: ArrayBuffer },
+): Promise<DatasetInfo> {
+  const first = await engineFile(name, bytes, sheet);
+  const second = other ? await engineFile(other.name, other.bytes) : undefined;
+  const info = await engine.load(first.name, first.bytes, first.sheet, second && { name: second.name, bytes: second.bytes });
+  return first.sheets ? { ...info, sheets: first.sheets } : info;
+}
+
+async function openFile(name: string, bytes: ArrayBuffer, sheet?: string, other?: { name: string; bytes: ArrayBuffer }) {
   showError(null);
   try {
-    let info = await loadSheet(name, bytes, sheet);
+    let info = await loadSheet(name, bytes, sheet, other);
     // Without a choice, skip sheets or tables with no numbers (a list of customers).
     if (info.columns.length === 0 && sheet === undefined) {
-      for (const other of info.sheets.slice(1)) {
-        const next = await loadSheet(name, bytes, other);
+      for (const otherSheet of info.sheets.slice(1)) {
+        const next = await loadSheet(name, bytes, otherSheet, other);
         if (next.columns.length > 0) {
           info = next;
-          sheet = other;
+          sheet = otherSheet;
           break;
         }
       }
@@ -162,10 +185,11 @@ async function openFile(name: string, bytes: ArrayBuffer, sheet?: string) {
     const suggested = suggestions(info);
     const ignored =
       loadChoice(name, info) ?? new Set([...suggested].filter(([, s]) => s.untick).map(([n]) => n));
-    state = { name, bytes, info, ignored, derived: [], nearMisses: [], suspects: [], sheet };
+    state = { name, bytes, info, ignored, derived: [], nearMisses: [], suspects: [], sheet, other };
     renderData();
   } catch (e) {
-    showError(`Could not read ${name}: ${(e as Error).message}`);
+    const what = other ? `${name} with ${other.name}` : name;
+    showError(`Could not read ${what}: ${(e as Error).message}`);
   }
 }
 
@@ -173,6 +197,7 @@ function renderData() {
   if (!state) return;
   const { info, name } = state;
   ui.start.hidden = true;
+  ui.how.hidden = true;
   ui.results.hidden = true;
   ui.suspicious.hidden = true;
   ui.data.hidden = false;
@@ -186,11 +211,53 @@ function renderData() {
   ui.sheet.replaceChildren(...info.sheets.map((s) => el("option", { value: s }, s)));
   if (state.sheet && info.sheets.includes(state.sheet)) ui.sheet.value = state.sheet;
 
+  renderStructure();
   renderPreview(false);
   renderColumnPanel();
   renderColumnChoices();
   ui.ownResult.replaceChildren();
   showOwnError(null);
+}
+
+/** What each kind of column is for, in a few words. */
+const ROLE_NAMES: Record<string, string> = {
+  constant: "constant",
+  flag: "yes / no",
+  "group key": "groups rows",
+  order: "order",
+  regime: "type",
+  code: "code",
+  identifier: "ID",
+  measurement: "measurement",
+};
+
+/** The role of each column, by name. */
+function roles(): Map<string, string> {
+  return new Map((state?.info.structure.roles ?? []).map((r) => [r.column, ROLE_NAMES[r.role] ?? r.role]));
+}
+
+/** How the table is laid out, and the second file when one is matched. */
+function renderStructure() {
+  if (!state) return;
+  const { structure, joined } = state.info;
+  const types = structure.roles.filter((r) => r.role === "regime").map((r) => r.column);
+  const chip = (label: string, value: string, tip: string) =>
+    el("li", { title: tip }, el("span", { class: "muted" }, `${label} `), el("b", {}, value));
+  const items: HTMLElement[] = [];
+  if (structure.groups.length)
+    items.push(chip("Rows grouped by", structure.groups.join(", "), "Each group is a separate sequence, such as one track of one line."));
+  if (structure.order)
+    items.push(chip("In order of", structure.order, "Formulas between consecutive rows are looked for along this column."));
+  if (types.length)
+    items.push(chip("Types", types.join(", "), "A formula may change with the value of these columns, such as a curve type."));
+  ui.structure.replaceChildren(...items);
+  ui.structure.hidden = items.length === 0;
+  ui.joined.textContent = joined
+    ? `Matched ${joined.matched} of ${joined.rows} rows with ${joined.file} on ${joined.keys.join(", ")}.` +
+      (joined.repeated ? ` ${joined.repeated} rows of ${joined.file} repeat an earlier one and were left out.` : "")
+    : "Find relations between two files that share columns such as a line and a chainage.";
+  ui.addOther.textContent = joined ? "⇄ Match with another file" : "⇄ Match with a second file";
+  ui.removeOther.hidden = !joined;
 }
 
 /** Columns of the preview shown before "Show all columns" on wide files. */
@@ -207,14 +274,17 @@ function renderPreview(all: boolean) {
   ui.previewMore.onclick = () => renderPreview(!all);
   const numeric = new Set(info.columns.map((c) => c.name));
   const readAs = new Map(info.columns.map((c) => [c.name, c.read_as]));
+  const role = roles();
   const head = el("tr", {}, el("th", { class: "text" }, "#"));
   for (const col of shown) {
     if (!numeric.has(col)) {
-      const kind = info.categories.includes(col) ? "text, category" : "text, skipped";
+      const kind = info.categories.includes(col) ? `text, ${role.get(col) ?? "category"}` : "text, skipped";
       head.append(el("th", { class: "text" }, col, el("span", { class: "kind" }, kind)));
       continue;
     }
-    const kind = readAs.get(col) ?? "number";
+    const as = readAs.get(col);
+    const r = role.get(col);
+    const kind = as ?? (r && r !== "measurement" ? `number, ${r}` : "number");
     head.append(el("th", {}, el("label", {}, columnBox(col), col), el("span", { class: "kind" }, kind)));
   }
   const rows = info.preview.map((cells, i) =>
@@ -756,7 +826,44 @@ function exportSuspects() {
 }
 
 function formulaNode(d: Derived): HTMLElement {
+  if (d.regime) {
+    return el("div", { class: "formula" }, el("b", {}, d.column), el("span", { class: "muted" }, ` depends on `), el("b", {}, d.regime.column));
+  }
   return el("div", { class: "formula" }, el("b", {}, d.column), ` = ${d.formula}`);
+}
+
+/** Badges that say what kind of formula it is. */
+function kindBadges(d: Derived): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  if (d.regime) out.push(el("span", { class: "badge kind-badge", title: "A formula for each value of a text column" }, `per ${d.regime.column}`));
+  const steps = d.between_rows || d.regime?.pieces.some((p) => p.formula.includes("slope of"));
+  if (steps) out.push(el("span", { class: "badge kind-badge", title: "Links each row to the previous one, in the order of the table" }, "between rows"));
+  if (d.within !== undefined && d.within !== null)
+    out.push(el("span", { class: "badge approx-badge", title: "Holds only to within this error" }, `≈ approximate, within ${fmt(d.within)}`));
+  return out;
+}
+
+/** One row per value of the regime column: its formula and how many rows follow it. */
+function regimeTable(d: Derived): HTMLElement {
+  const regime = d.regime as NonNullable<Derived["regime"]>;
+  const rows = regime.pieces.map((p) => {
+    const ok = p.matched_rows === p.rows;
+    const formula = p.formula.replace(/^about /, "≈ ");
+    const runs = p.per_run && p.runs ? el("span", { class: "muted" }, ` · ${p.runs} runs`) : "";
+    return el(
+      "tr",
+      {},
+      el("th", { scope: "row" }, p.value),
+      el("td", { class: "piece" }, el("code", {}, formula), runs),
+      el("td", { class: ok ? "ok num" : "warn num" }, ok ? `✓ ${p.rows}` : `${p.matched_rows} of ${p.rows}`),
+    );
+  });
+  return el(
+    "table",
+    { class: "pieces" },
+    el("thead", {}, el("tr", {}, el("th", {}, regime.column), el("th", {}, "formula"), el("th", { class: "num" }, "rows"))),
+    el("tbody", {}, ...rows),
+  );
 }
 
 /** A "Known formula" badge that opens a card about the library formula. */
@@ -815,8 +922,9 @@ function derivedCard(d: Derived): HTMLElement {
     "article",
     { class: "card", "data-column": d.column },
     formulaNode(d),
-    el("div", { class: "meta" }, status, el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
+    el("div", { class: "meta" }, status, ...kindBadges(d), el("span", { class: "muted" }, `uses ${d.inputs.join(", ")}`)),
   );
+  if (d.regime) card.append(regimeTable(d));
   if (d.known) card.append(knownNode(d.known));
   if (d.other) {
     const o = d.other;
@@ -855,6 +963,20 @@ function derivedCard(d: Derived): HTMLElement {
         el("td", { class: "muted" }, x.diagnosis ? x.diagnosis.description : ""),
       ),
     );
+    if (d.exceptions.length === 0) {
+      // A formula per type or between rows has no single expected value per row.
+      const list = d.exception_rows.slice(0, 50).join(", ") + (exceptions > 50 ? ", …" : "");
+      card.append(
+        el(
+          "details",
+          {},
+          el("summary", {}, `${exceptions === 1 ? "1 row breaks" : `${exceptions} rows break`} the rule`),
+          el("p", { class: "muted" }, `Rows ${list}.`),
+        ),
+      );
+      card.append(chartToggle(d));
+      return card;
+    }
     const more = exceptions > d.exceptions.length ? ` (first ${d.exceptions.length} shown)` : "";
     card.append(
       el(
@@ -934,6 +1056,7 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
     ...(cards.length || copies.length ? cards : [el("p", {}, "No column could be computed from the others.")]),
   );
   renderCopies(copies);
+  renderTextRelations();
   renderNearMisses(state.nearMisses);
   renderGraph(main);
   const found = new Set(state.derived.map((d) => d.column));
@@ -944,6 +1067,28 @@ function renderResults(columns: string[], stopped?: { why: "user" | "time"; skip
     notes.push(`${why} before checking: ${stopped.skipped.join(", ")}.`);
   }
   ui.independent.textContent = notes.join(" ");
+}
+
+/** Relations between text columns, as found when the file was read. */
+function renderTextRelations() {
+  const rels = state?.info.text_relations ?? [];
+  ui.textRelations.hidden = rels.length === 0;
+  ui.textCount.textContent = `(${rels.length})`;
+  const text = (r: TextRelation) => {
+    if (r.formula.startsWith("set by ")) return `each ${r.inputs[0]} has one ${r.column}`;
+    if (r.formula.startsWith("one to one with ")) return `${r.column} and ${r.inputs.join(", ")} go one to one`;
+    return `${r.column} = ${r.formula}`;
+  };
+  ui.textList.replaceChildren(
+    ...rels.map((r) =>
+      el(
+        "li",
+        {},
+        el("code", {}, text(r)),
+        r.matched_rows < r.checked_rows ? el("span", { class: "muted" }, ` (${r.matched_rows} of ${r.checked_rows} rows)`) : "",
+      ),
+    ),
+  );
 }
 
 /** One line per copied column: `a = b = c`, then `d = a + 1, e = a + 2`. */
@@ -1040,7 +1185,7 @@ document.addEventListener("paste", (e) => {
   void openFile("pasted cells", new TextEncoder().encode(text).buffer as ArrayBuffer);
 });
 ui.sheet.addEventListener("change", () => {
-  if (state) void openFile(state.name, state.bytes, ui.sheet.value);
+  if (state) void openFile(state.name, state.bytes, ui.sheet.value, state.other);
 });
 ui.scan.addEventListener("click", () => void scanAll());
 ui.columnFilter.addEventListener("input", filterColumnPanel);
@@ -1094,3 +1239,14 @@ ui.ownForm.addEventListener("submit", (e) => {
   void checkOwnFormula();
 });
 renderSettings();
+
+ui.addOther.addEventListener("click", () => ui.otherFile.click());
+ui.otherFile.addEventListener("change", async () => {
+  const file = ui.otherFile.files?.[0];
+  ui.otherFile.value = "";
+  if (!file || !state) return;
+  await openFile(state.name, state.bytes, state.sheet, { name: file.name, bytes: await file.arrayBuffer() });
+});
+ui.removeOther.addEventListener("click", () => {
+  if (state) void openFile(state.name, state.bytes, state.sheet);
+});

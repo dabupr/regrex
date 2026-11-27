@@ -29,6 +29,8 @@ interface LoadedFile {
   name: string;
   bytes: ArrayBuffer;
   sheet?: string;
+  /** A second file whose rows are matched with this one's. */
+  with?: { name: string; bytes: ArrayBuffer };
 }
 
 /** One worker and its calls in flight. */
@@ -72,8 +74,12 @@ class Slot {
     // The buffer is transferred: send a copy, the original may be needed
     // again (other workers, switching sheets).
     const copy = file.bytes.slice(0);
+    const other = file.with ? { name: file.with.name, bytes: file.with.bytes.slice(0) } : undefined;
     this.file = file;
-    const loading = this.call<T>({ kind: "load", name: file.name, bytes: copy, sheet: file.sheet }, [copy]);
+    const loading = this.call<T>(
+      { kind: "load", name: file.name, bytes: copy, sheet: file.sheet, with: other },
+      other ? [copy, other.bytes] : [copy],
+    );
     this.loading = loading;
     return loading;
   }
@@ -124,9 +130,15 @@ export class Engine {
     return this.slots[0];
   }
 
-  load(name: string, bytes: ArrayBuffer, sheet?: string): Promise<DatasetInfo> {
+  load(
+    name: string,
+    bytes: ArrayBuffer,
+    sheet?: string,
+    other?: { name: string; bytes: ArrayBuffer },
+  ): Promise<DatasetInfo> {
     // Keep a copy: the caller's buffer may be detached later.
-    this.file = { name, bytes: bytes.slice(0), sheet };
+    const withCopy = other ? { name: other.name, bytes: other.bytes.slice(0) } : undefined;
+    this.file = { name, bytes: bytes.slice(0), sheet, with: withCopy };
     // Pool workers load the new file when they are next needed.
     return this.main.load<DatasetInfo>(this.file);
   }

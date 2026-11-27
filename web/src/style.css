@@ -226,3 +226,39 @@ td.why { white-space: normal; min-width: 260px; color: var(--text); }
 .column-group label { overflow-wrap: anywhere; font-size: 13px; }
 .column-group label[hidden], .column-group[hidden] { display: none; }
 #suggested .reason { display: block; }
+
+/* What Regrex looks for (start page). */
+.how { padding: 24px 0 8px; }
+.how > h2 { text-align: center; font-size: 24px; }
+.how .lead.small { font-size: 16px; margin: 8px auto 20px; text-align: center; }
+.how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.how-grid article {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+}
+.how-grid h3 { font-size: 16px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+.how-grid p { margin: 0; font-size: 14px; color: var(--muted); }
+.how-grid code, .text-list code, .pieces code { background: var(--code); border-radius: 4px; padding: 0 4px; font-size: 13px; }
+.how-icon {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; flex: none;
+  border-radius: 8px; background: var(--code); color: var(--accent); font-weight: 700;
+}
+
+/* How the table is laid out, and the second file. */
+.structure { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 10px 0 0; font-size: 14px; }
+.structure li { background: var(--code); border-radius: 999px; padding: 3px 12px; cursor: help; }
+.join { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+.join button { font-size: 14px; }
+
+/* Formulas per type. */
+.kind-badge { background: var(--code); color: var(--accent); }
+.approx-badge { background: var(--warn-bg); color: var(--warn); }
+.card table.pieces { margin-top: 10px; width: 100%; min-width: 0; border-collapse: collapse; font-size: 14px; }
+.pieces th, .pieces td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--border); vertical-align: top; }
+.pieces thead th { border-top: 0; color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+.pieces tbody th { font-weight: 600; white-space: nowrap; }
+.pieces .piece { overflow-wrap: anywhere; }
+.pieces .num { text-align: right; white-space: nowrap; }
+
+/* Relations between text columns. */
+.text-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.text-list li { padding: 6px 0; border-top: 1px solid var(--border); font-size: 14px; }

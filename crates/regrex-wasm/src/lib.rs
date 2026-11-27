@@ -34,6 +34,8 @@ pub struct Dataset {
     /// The table without the last `ignore` list's columns, kept so that
     /// explaining each column of a wide file does not copy the whole table.
     table: RefCell<Option<(Vec<String>, Rc<regrex_core::Table>)>>,
+    /// How a second file was matched with this one, if one was given.
+    joined: Option<JoinedJson>,
 }
 
 /// See [`Dataset::copies`].
@@ -57,6 +59,25 @@ struct Info<'a> {
     categories: &'a [String],
     /// How the table is laid out and what each column is for.
     structure: regrex_io::report::StructureJson,
+    /// Relations between text columns (`key = line + "|" + track`).
+    text_relations: Vec<regrex_io::report::TextRelationJson>,
+    /// How the rows of a second file were matched, when one was given.
+    joined: Option<JoinedJson>,
+}
+
+/// How the rows of a second file were matched with the first.
+#[derive(Serialize, Clone)]
+struct JoinedJson {
+    /// Name of the second file.
+    file: String,
+    /// Columns matched on.
+    keys: Vec<String>,
+    /// Rows of the first file with a match.
+    matched: usize,
+    /// Rows of the first file.
+    rows: usize,
+    /// Rows of the second file left out because their keys repeat.
+    repeated: usize,
 }
 
 #[derive(Serialize)]
@@ -279,15 +300,42 @@ fn js_error(e: impl std::fmt::Display) -> JsError {
 
 #[wasm_bindgen]
 impl Dataset {
-    /// Loads a CSV file or a spreadsheet from its bytes.
+    /// Loads a CSV file or a spreadsheet from its bytes. With a second
+    /// file, its rows are matched with those of the first on the columns
+    /// both have (see [`regrex_io::join`]).
     #[wasm_bindgen(constructor)]
-    pub fn new(file_name: &str, bytes: &[u8], sheet: Option<String>) -> Result<Dataset, JsError> {
-        let loaded = regrex_io::load_bytes(file_name, bytes, sheet.as_deref()).map_err(js_error)?;
+    pub fn new(
+        file_name: &str,
+        bytes: &[u8],
+        sheet: Option<String>,
+        with_name: Option<String>,
+        with_bytes: Option<Vec<u8>>,
+    ) -> Result<Dataset, JsError> {
+        let mut loaded =
+            regrex_io::load_bytes(file_name, bytes, sheet.as_deref()).map_err(js_error)?;
+        let mut joined = None;
+        if let (Some(name), Some(other)) = (with_name, with_bytes) {
+            let b = regrex_io::load_bytes(&name, &other, None).map_err(js_error)?;
+            let stem = name
+                .rsplit_once('.')
+                .map_or(name.as_str(), |(s, _)| s)
+                .to_string();
+            let (j, how) = regrex_io::join(&loaded, &b, &stem).map_err(js_error)?;
+            loaded = j;
+            joined = Some(JoinedJson {
+                file: name,
+                keys: how.keys,
+                matched: how.matched,
+                rows: how.rows,
+                repeated: how.repeated,
+            });
+        }
         Ok(Dataset {
             loaded,
             found: RefCell::default(),
             copies: RefCell::default(),
             table: RefCell::default(),
+            joined,
         })
     }
 
@@ -325,6 +373,17 @@ impl Dataset {
             skipped: &self.loaded.skipped,
             categories: &self.loaded.categories,
             structure: regrex_io::report::StructureJson::new(t),
+            text_relations: regrex_io::text_relations(&self.loaded)
+                .into_iter()
+                .map(|r| regrex_io::report::TextRelationJson {
+                    column: r.column,
+                    formula: r.formula,
+                    inputs: r.inputs,
+                    matched_rows: r.matched,
+                    checked_rows: r.checked,
+                })
+                .collect(),
+            joined: self.joined.clone(),
         };
         serde_json::to_string(&info).expect("serializable")
     }
