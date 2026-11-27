@@ -107,6 +107,7 @@ pub(crate) fn explain_by_regime(
     }
     let order = Order::new(table, profile);
     let best = std::cell::OnceCell::new();
+    let ranked = std::cell::OnceCell::new();
     let mut regimes: Vec<(f64, usize, bool)> = profile
         .columns
         .iter()
@@ -139,7 +140,20 @@ pub(crate) fn explain_by_regime(
             } else {
                 None
             };
-            Some((regime_score(table, c, y, o, x), c, runs))
+            // On ranks too: a few huge values (the radius where a
+            // transition curve starts) would hide that the column follows
+            // the regime on every other row.
+            let score = match o {
+                Some(_) => regime_score(table, c, y, o, x).max(regime_score(
+                    table,
+                    c,
+                    ranked.get_or_init(|| ranks(y)),
+                    o,
+                    x,
+                )),
+                None => regime_score(table, c, y, o, x),
+            };
+            Some((score, c, runs))
         })
         .filter(|&(score, _, _)| score >= MIN_REGIME_SCORE)
         .collect();
@@ -223,6 +237,27 @@ fn regime_score(
             correlation_ratio(r, y).max(line)
         }
     }
+}
+
+/// The rank of each value of `y` (ties share their mean rank; missing
+/// values stay missing).
+fn ranks(y: &[f64]) -> Vec<f64> {
+    let mut idx: Vec<usize> = (0..y.len()).filter(|&i| y[i].is_finite()).collect();
+    idx.sort_by(|&a, &b| y[a].total_cmp(&y[b]));
+    let mut out = vec![f64::NAN; y.len()];
+    let mut i = 0;
+    while i < idx.len() {
+        let mut j = i;
+        while j + 1 < idx.len() && y[idx[j + 1]] == y[idx[i]] {
+            j += 1;
+        }
+        let rank = (i + j) as f64 / 2.0;
+        for &k in &idx[i..=j] {
+            out[k] = rank;
+        }
+        i = j + 1;
+    }
+    out
 }
 
 /// The numeric column most correlated with `y` (not `y` itself, nor a
@@ -988,6 +1023,59 @@ mod tests {
         assert!(
             found.iter().all(|d| d.target != 4),
             "noise is not explained"
+        );
+    }
+
+    #[test]
+    fn a_radius_that_is_huge_where_a_transition_curve_starts() {
+        let (mut pk, mut kind, mut radius) = (Vec::new(), Vec::new(), Vec::new());
+        let mut m = 0;
+        for curve in 0..12 {
+            let r = 300.0 + 61.0 * curve as f64;
+            // Curvature grows from almost 0 along the transition curve, so
+            // the radius starts near a million.
+            type Radius<'a> = &'a dyn Fn(f64) -> f64;
+            let pieces: [(usize, usize, Radius); 4] = [
+                (0, 30, &|_| 0.0),
+                (1, 12, &|s| r / s),
+                (2, 25, &|_| r),
+                (1, 12, &|s| r / (1.000_000_2 - s)),
+            ];
+            for (k, len, f) in pieces {
+                for i in 0..len {
+                    pk.push(m as f64);
+                    kind.push(k as f64);
+                    let s = (i as f64 + 1e-7) / len as f64;
+                    radius.push((f(s) * 1e3).round() / 1e3);
+                    m += 1;
+                }
+            }
+        }
+        let table = Table {
+            names: ["pk", "kind", "radius"].map(String::from).to_vec(),
+            columns: vec![pk, kind, radius],
+            decimals: vec![Some(0), Some(0), Some(3)],
+            labels: vec![
+                None,
+                Some(vec![
+                    "Straight".into(),
+                    "Clothoid".into(),
+                    "Circular".into(),
+                ]),
+                None,
+            ],
+            ..Table::default()
+        };
+        let found = scan(&table, &ScanConfig::default());
+        let d = found
+            .iter()
+            .find(|d| d.target == 2)
+            .expect("radius is found");
+        let g = d.regime.as_ref().expect("by kind");
+        let texts: Vec<&str> = g.pieces.iter().map(|p| p.text.as_str()).collect();
+        assert!(
+            texts.contains(&"1 / (c0 + c1 * pk), constants per run"),
+            "{texts:?}"
         );
     }
 }

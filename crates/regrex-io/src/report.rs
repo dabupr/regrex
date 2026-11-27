@@ -73,7 +73,7 @@ pub struct QuickJson {
 pub struct TextRelationJson {
     /// The column explained.
     pub column: String,
-    /// What holds, as in `line + "|" + track`.
+    /// What holds, as in `line + "|" + track` or `set by code`.
     pub formula: String,
     /// The other columns of the relation.
     pub inputs: Vec<String>,

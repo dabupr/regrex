@@ -3,6 +3,10 @@
 //! - Concatenations: `key = line + "|" + track`.
 //! - One-to-one codes: each `profile_code` has one `profile_name` and each
 //!   name one code.
+//! - Values set by another column: each `platform_code` has one
+//!   `platform_name` and one `line`, though a line has many platforms.
+//!   Only the direct ones are kept: when a circuit sets its key and the key
+//!   sets the line, the circuit setting the line is left out.
 //!
 //! Numbers hidden in text (`GIS5550` = an id − 4835) are read as columns
 //! instead when the file is loaded, so the formula search finds those.
@@ -15,8 +19,8 @@ use std::collections::HashMap;
 pub struct TextRelation {
     /// The column explained (the first of a one-to-one set).
     pub column: String,
-    /// What holds, with column names: `line + "|" + track`, or
-    /// `one to one with profile_name`.
+    /// What holds, with column names: `line + "|" + track`,
+    /// `one to one with profile_name`, or `set by platform_code`.
     pub formula: String,
     /// The other columns of the relation.
     pub inputs: Vec<String>,
@@ -34,6 +38,13 @@ const MIN_ROWS: usize = 10;
 const SAMPLE: usize = 200;
 /// A separator is short and not a letter or digit.
 const MAX_SEPARATOR: usize = 3;
+/// Values a column must have to set another: with a few values any column
+/// can look like it sets another by chance.
+const MIN_KEYS: usize = 10;
+/// Share of the rows on which a column setting another must hold: nearly
+/// all, since columns that change in stretches (a tunnel, an interlocking)
+/// line up on most rows by chance.
+const SET_SHARE: f64 = 0.999;
 
 /// Every concatenation and one-to-one pair of text columns in `loaded`.
 pub fn text_relations(loaded: &Loaded) -> Vec<TextRelation> {
@@ -56,6 +67,15 @@ pub fn text_relations(loaded: &Loaded) -> Vec<TextRelation> {
         &cell,
         header,
         &loaded.categories,
+    ));
+    let known = out.clone();
+    out.extend(set_by(
+        rows.len(),
+        &text,
+        &cell,
+        header,
+        &loaded.categories,
+        &known,
     ));
     out
 }
@@ -185,6 +205,135 @@ fn one_to_one<'a>(
         .collect()
 }
 
+/// Columns whose value is set by another column with more values: each
+/// `platform_code` has one `line`. Pairs already in `known` (a
+/// concatenation, a one-to-one set) and pairs that follow from two others
+/// are left out.
+fn set_by<'a>(
+    n_rows: usize,
+    text: &[usize],
+    cell: &impl Fn(usize, usize) -> &'a str,
+    header: &[String],
+    categories: &[String],
+    known: &[TextRelation],
+) -> Vec<TextRelation> {
+    let cats: Vec<usize> = text
+        .iter()
+        .copied()
+        .filter(|&c| categories.contains(&header[c]))
+        .collect();
+    // A one-to-one set counts as one column: its first.
+    let mut same: HashMap<&str, &str> = HashMap::new();
+    for r in known.iter().filter(|r| r.formula.starts_with("one to one")) {
+        for i in &r.inputs {
+            same.insert(i.as_str(), r.column.as_str());
+        }
+    }
+    let cats: Vec<usize> = cats
+        .into_iter()
+        .filter(|&c| !same.contains_key(header[c].as_str()))
+        .collect();
+    let implied = |a: usize, b: usize| {
+        known.iter().any(|r| {
+            r.column == header[a] && r.inputs.contains(&header[b])
+                || r.column == header[b] && r.inputs.contains(&header[a])
+        })
+    };
+    let sample = spread(n_rows, SAMPLE * 10);
+    let mut edges: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
+    let mut follows: std::collections::HashSet<(usize, usize)> = Default::default();
+    for &a in &cats {
+        for &b in &cats {
+            if a == b || implied(a, b) {
+                continue;
+            }
+            let (matched, checked, _, _) = usual(sample.iter().copied(), a, b, cell);
+            if (matched as f64) < MIN_SHARE * checked as f64 {
+                continue;
+            }
+            let (matched, checked, keys, targets) = usual(0..n_rows, a, b, cell);
+            if checked < MIN_ROWS || (matched as f64) < SET_SHARE * checked as f64 {
+                continue;
+            }
+            // Every pair that holds counts when leaving out the ones that
+            // follow from two others; only the telling ones are reported.
+            follows.insert((a, b));
+            if keys >= MIN_KEYS && keys > targets && targets >= 2 && 2 * keys <= checked {
+                edges.insert((a, b), (matched, checked));
+            }
+        }
+    }
+    // A key made of two columns sets each of them.
+    let sets_too = |a: usize, b: usize| {
+        follows.contains(&(a, b))
+            || known.iter().any(|r| {
+                !r.formula.starts_with("one to one")
+                    && r.column == header[a]
+                    && r.inputs.contains(&header[b])
+            })
+    };
+    let mut out: Vec<TextRelation> = edges
+        .iter()
+        .filter(|(&(a, b), _)| {
+            !(0..header.len()).any(|m| {
+                m != a
+                    && m != b
+                    && sets_too(a, m)
+                    && sets_too(m, b)
+                    // Not through a copy of either: then each would leave
+                    // out the other.
+                    && !follows.contains(&(m, a))
+                    && !follows.contains(&(b, m))
+            })
+        })
+        .map(|(&(a, b), &(matched, checked))| TextRelation {
+            column: header[b].clone(),
+            formula: format!("set by {}", header[a]),
+            inputs: vec![header[a].clone()],
+            matched,
+            checked,
+        })
+        .collect();
+    out.sort_by(|x, y| (&x.column, &x.formula).cmp(&(&y.column, &y.formula)));
+    out
+}
+
+/// `size` rows spread over `n_rows`.
+fn spread(n_rows: usize, size: usize) -> Vec<usize> {
+    let step = (n_rows / size.max(1)).max(1);
+    (0..n_rows).step_by(step).collect()
+}
+
+/// On `rows` where `a` and `b` are both known: how many rows have the
+/// usual `b` for their `a`, how many rows there are, and how many values
+/// `a` and `b` take. `a` sets `b` when nearly every row has the usual
+/// value, `a` has at least [`MIN_KEYS`] values, more than `b`, each on two
+/// rows on average, and `b` has two values or more.
+fn usual<'a>(
+    rows: impl Iterator<Item = usize>,
+    a: usize,
+    b: usize,
+    cell: &impl Fn(usize, usize) -> &'a str,
+) -> (usize, usize, usize, usize) {
+    let mut by: HashMap<&str, HashMap<&str, usize>> = HashMap::new();
+    let mut values: HashMap<&str, ()> = HashMap::new();
+    let mut checked = 0;
+    for r in rows {
+        let (x, y) = (cell(r, a), cell(r, b));
+        if is_missing(x) || is_missing(y) {
+            continue;
+        }
+        checked += 1;
+        *by.entry(x).or_default().entry(y).or_default() += 1;
+        values.insert(y, ());
+    }
+    let matched = by
+        .values()
+        .map(|m| m.values().max().copied().unwrap_or(0))
+        .sum();
+    (matched, checked, by.len(), values.len())
+}
+
 /// Whether each value of `a` goes with one value of `b` and back, on the
 /// rows where both are known; `(rows, rows)` when it does.
 fn maps_one_to_one<'a>(
@@ -265,5 +414,33 @@ mod tests {
             "{formulas:?}"
         );
         assert_eq!(rel.len(), 2, "{formulas:?}");
+    }
+
+    #[test]
+    fn finds_values_set_by_another_column_but_not_the_ones_that_follow() {
+        // 30 circuits, each in one of 6 interlockings, each on one of 2
+        // lines; the colour changes in stretches and sets nothing.
+        let mut rows = Vec::new();
+        for i in 0..300 {
+            let circuit = i / 10;
+            let lock = circuit / 5;
+            rows.push(vec![
+                format!("C{circuit}"),
+                format!("E{lock}"),
+                format!("L{}", lock % 2),
+                ["red", "blue"][i / 7 % 2].to_string(),
+            ]);
+        }
+        let rows: Vec<Vec<&str>> = rows
+            .iter()
+            .map(|r| r.iter().map(String::as_str).collect())
+            .collect();
+        let rows: Vec<&[&str]> = rows.iter().map(Vec::as_slice).collect();
+        let l = loaded(&["circuit", "lock", "line", "colour"], &rows);
+        let formulas: Vec<String> = text_relations(&l)
+            .iter()
+            .map(|r| format!("{} = {}", r.column, r.formula))
+            .collect();
+        assert_eq!(formulas, ["lock = set by circuit"], "{formulas:?}");
     }
 }
