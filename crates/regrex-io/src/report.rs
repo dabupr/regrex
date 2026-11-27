@@ -42,7 +42,7 @@ pub struct ScanReport {
     pub not_found: Vec<NotFoundJson>,
 }
 
-/// How the table is laid out (see [`regrex_core::profile`]).
+/// How the table is laid out (see [`mod@regrex_core::profile`]).
 #[derive(Debug, Clone, Serialize)]
 pub struct StructureJson {
     /// Columns that split the rows into independent sequences.

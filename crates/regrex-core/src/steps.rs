@@ -1,6 +1,6 @@
 //! Formulas between consecutive rows of an ordered table.
 //!
-//! In a table with an order (see [`crate::profile`]) a column can be
+//! In a table with an order (see [`mod@crate::profile`]) a column can be
 //! computed from the row before rather than from its own row:
 //!
 //! - a running total: `balance = previous balance + amount`;
