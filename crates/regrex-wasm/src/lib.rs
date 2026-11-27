@@ -8,8 +8,8 @@ mod library_search;
 
 use regrex_core::parse::{parse_expr, parse_template};
 use regrex_core::{
-    explain_column_detailed, find_copies, fit_shape, search, DerivedColumn, Explanation, NearMiss,
-    ScanConfig, ScanEvent, SearchConfig, UnaryOp,
+    check_formula, explain_column_detailed, find_copies, fit_shape, search, DerivedColumn,
+    Explanation, NearMiss, ScanConfig, ScanEvent, SearchConfig, UnaryOp,
 };
 use regrex_io::report::{DerivedJson, FitReport, NearMissJson};
 use regrex_io::Loaded;
@@ -125,6 +125,10 @@ struct ExplainOptions {
     /// on part of the file. Row numbers in the answer are still those of
     /// the file.
     rows: Option<Vec<usize>>,
+    /// Only search the rows where this formula for the column (written with
+    /// column names, as a near miss gives it) does not hold: what the rest
+    /// of the rows follow.
+    failing: Option<String>,
 }
 
 impl ExplainOptions {
@@ -362,7 +366,7 @@ impl Dataset {
         let full = self.table_keeping(&options.ignore, column);
         // Searching part of the rows: a table of those rows, whose row
         // numbers are mapped back to the file's at the end.
-        let wanted: Option<Vec<usize>> = options.rows.as_ref().map(|rows| {
+        let mut wanted: Option<Vec<usize>> = options.rows.as_ref().map(|rows| {
             let mut rows: Vec<usize> = rows
                 .iter()
                 .filter_map(|r| r.checked_sub(1))
@@ -372,6 +376,19 @@ impl Dataset {
             rows.dedup();
             rows
         });
+        if let Some(formula) = &options.failing {
+            let names: Vec<&str> = full.names.iter().map(String::as_str).collect();
+            let expr = parse_expr(formula, &names).map_err(js_error)?;
+            let target = index_of(&full, column)?;
+            let failing = check_formula(&full, target, &expr, &options.scan_config()?).exceptions;
+            wanted = Some(match wanted {
+                Some(rows) => rows
+                    .into_iter()
+                    .filter(|r| failing.binary_search(r).is_ok())
+                    .collect(),
+                None => failing,
+            });
+        }
         let part = wanted.as_ref().map(|rows| rows_of(&full, rows));
         let table = part.as_ref().unwrap_or(&full);
         let target = index_of(table, column)?;
@@ -791,6 +808,42 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["formula"], "price * qty");
         assert_eq!(d.explain("id", r#"{"ignore":["id"]}"#).unwrap(), "null");
+    }
+
+    /// `vat = 0.21 * net` on rows 1 to 14, `0.1 * net` on rows 15 to 30,
+    /// except row 20, typed by hand.
+    fn two_rates() -> String {
+        let mut csv = String::from("net,vat\n");
+        for i in 1..=30 {
+            let net = 10.0 * i as f64 + 3.0;
+            let vat = match i {
+                20 => 99.0,
+                1..=14 => net * 0.21,
+                _ => net * 0.1,
+            };
+            csv += &format!("{net},{vat:.2}\n");
+        }
+        csv
+    }
+
+    #[test]
+    fn explain_searches_the_rows_a_formula_misses() {
+        let d = Dataset::new("a.csv", two_rates().as_bytes(), None).unwrap();
+        let events = RefCell::new(Vec::new());
+        let options = r#"{"failing":"0.21 * net"}"#;
+        let (found, _) = d
+            .explain_with("vat", options, &|e| events.borrow_mut().push(e))
+            .unwrap();
+        let v: serde_json::Value = serde_json::from_str(&found).unwrap();
+        assert_eq!(v["formula"], "0.1 * net");
+        assert_eq!(v["checked_rows"], 16);
+        assert_eq!(v["exception_rows"], serde_json::json!([20]));
+        let events = events.into_inner();
+        assert!(events[0].contains(r#""kind":"started""#), "{events:?}");
+        assert!(
+            events.last().unwrap().contains(r#""kind":"done""#),
+            "{events:?}"
+        );
     }
 
     #[test]

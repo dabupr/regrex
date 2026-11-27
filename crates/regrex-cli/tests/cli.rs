@@ -275,3 +275,36 @@ fn scan_json_lists_the_inputs_tried_for_columns_without_formula() {
     // Derived columns are not listed.
     assert!(missing.iter().all(|m| m["column"] != "delay_min"));
 }
+
+/// `vat = 0.21 * net` on 36 rows and `net * qty / 50` on 24 that no column
+/// tells apart: no formula is reported, both are near misses.
+#[test]
+fn scan_keeps_the_formulas_it_came_close_to() {
+    let (ok, stdout, stderr) = regrex(&["scan", "tests/two_rules.csv", "--json", "--verbose"]);
+    assert!(ok, "{stderr}");
+    let report: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    assert_eq!(report["derived"].as_array().unwrap().len(), 0);
+    let misses = report["near_misses"].as_array().unwrap();
+    let vat = misses
+        .iter()
+        .find(|m| m["formula"] == "0.21 * net")
+        .expect("0.21 * net kept");
+    assert_eq!(vat["column"], "vat");
+    assert_eq!(vat["reason"], "coverage");
+    assert_eq!(vat["matched_rows"], 36);
+    assert_eq!(vat["missed_count"], 24);
+    assert_eq!(vat["missed_rows"][0], 3);
+    let other = misses
+        .iter()
+        .find(|m| m["formula"] == "0.02 * net * qty")
+        .expect("second formula kept");
+    assert_eq!(other["reason"], "no_split_rule");
+    // --verbose tells what each search does, on stderr.
+    assert!(stderr.contains("vat: searching 60 rows with net, qty"), "{stderr}");
+    assert!(stderr.contains("vat: best so far 0.21 * net (36/60 rows)"), "{stderr}");
+    assert!(stderr.contains("vat: no formula, 2 near misses"), "{stderr}");
+
+    let (_, text, _) = regrex(&["scan", "tests/two_rules.csv"]);
+    assert!(text.contains("Almost (not reported, worth a look):"), "{text}");
+    assert!(text.contains("vat = 0.21 * net   holds on 60% of the rows, 90% needed"), "{text}");
+}

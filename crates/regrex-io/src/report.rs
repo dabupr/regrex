@@ -96,10 +96,10 @@ impl NearMissJson {
             Rejection::UsualValue => {
                 "right mostly where the column has its most common value".to_string()
             }
-            Rejection::NoSplitRule => {
-                "fits the rows that break the column's formula, but no other column tells them apart"
-                    .to_string()
-            }
+            Rejection::NoSplitRule { main } => format!(
+                "fits the rows that break {} = {main}, but no other column tells them apart",
+                names[m.target]
+            ),
         };
         NearMissJson {
             column: names[m.target].clone(),
@@ -529,7 +529,7 @@ impl ScanReport {
             .map(|m| NearMissJson::new(table, m))
             .collect();
         self.near_misses
-            .sort_by(|a, b| b.match_ratio.total_cmp(&a.match_ratio));
+            .sort_by(|a, b| b.matched_rows.cmp(&a.matched_rows));
         self
     }
 

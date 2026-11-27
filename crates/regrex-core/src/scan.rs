@@ -491,8 +491,8 @@ fn explain_column_events(
     let mut near_misses = Vec::new();
     let found = explain_column_inner(table, target, config, skip, on_event, &mut near_misses);
     near_misses.sort_by(|a: &NearMiss, b: &NearMiss| {
-        b.match_ratio()
-            .total_cmp(&a.match_ratio())
+        b.matched
+            .cmp(&a.matched)
             .then(a.complexity.cmp(&b.complexity))
     });
     near_misses.truncate(MAX_NEAR_MISSES);
@@ -596,7 +596,9 @@ fn explain_column_inner(
                     &other,
                     &found.exceptions,
                     &other_rows,
-                    Rejection::NoSplitRule,
+                    Rejection::NoSplitRule {
+                        main: found.formula_text.clone(),
+                    },
                 ));
             }
         }

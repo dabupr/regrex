@@ -102,6 +102,51 @@ export interface Derived {
   copy_of?: string | null;
 }
 
+/**
+ * A formula the search found but did not report: it holds on too few rows,
+ * or only where another column has some values. Where to look next.
+ */
+export interface NearMiss {
+  column: string;
+  formula: string;
+  inputs: string[];
+  complexity: number;
+  matched_rows: number;
+  checked_rows: number;
+  match_ratio: number;
+  /** `coverage`, `usual_value` or `no_split_rule`. */
+  reason: string;
+  reason_text: string;
+  /** A rule on another column that picks out the rows where it holds. */
+  holds_when: { column: string; rule: string; accuracy: number } | null;
+  /** The regime (value of a regime column) it was searched within, if any. */
+  regime: string | null;
+  missed_count: number;
+  /** The first rows (numbered from 1) where it does not hold. */
+  missed_rows: number[];
+}
+
+/** What the search for one column is doing, sent while it runs. */
+export type SearchEvent =
+  | { kind: "started"; column: string; inputs: string[]; rows: number }
+  | {
+      kind: "best";
+      column: string;
+      formula: string;
+      matched: number;
+      checked: number;
+      /** Rows of the table, when the search only checked a sample of them. */
+      rows_total?: number;
+    }
+  | { kind: "second_formula"; column: string; rows: number }
+  | { kind: "done"; column: string; found: boolean; near_misses: number };
+
+/** The answer to an `explain` request. */
+export interface Explained {
+  found: Derived | null;
+  near_misses: NearMiss[];
+}
+
 export interface Candidate {
   formula: string;
   complexity: number;
@@ -132,6 +177,8 @@ export interface ExplainOptions {
   deepen_to?: number;
   library_only?: boolean;
   domain?: string;
+  /** Only search these rows (numbered from 1). */
+  rows?: number[];
 }
 
 /** A column's values and a formula's, for every row (null when missing). */
@@ -159,4 +206,6 @@ export type Request =
 
 export type Response =
   | { id: number; ok: true; value: unknown }
-  | { id: number; ok: false; error: string };
+  | { id: number; ok: false; error: string }
+  /** Sent while a request runs, before its answer. */
+  | { id: number; event: SearchEvent };

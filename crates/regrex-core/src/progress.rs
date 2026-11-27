@@ -25,10 +25,14 @@ pub enum Rejection {
     /// It is right on the rows holding the column's most common value
     /// (often 0) but not on enough of the others, so it explains little.
     UsualValue,
-    /// It fits most of the rows that break the column's formula, but it is
-    /// more complex than that formula and no rule on another column tells
-    /// its rows apart, so it may be a fluke.
-    NoSplitRule,
+    /// It fits most of the rows that break the column's formula (`main`,
+    /// written with column names), but it is more complex than that formula
+    /// and no rule on another column tells its rows apart, so it may be a
+    /// fluke.
+    NoSplitRule {
+        /// The formula whose broken rows it fits.
+        main: String,
+    },
 }
 
 impl Rejection {
@@ -38,7 +42,7 @@ impl Rejection {
         match self {
             Rejection::Coverage { .. } => "coverage",
             Rejection::UsualValue => "usual_value",
-            Rejection::NoSplitRule => "no_split_rule",
+            Rejection::NoSplitRule { .. } => "no_split_rule",
         }
     }
 }

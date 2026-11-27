@@ -4,7 +4,25 @@
 // column, so `explain` calls are spread over a pool of workers that each
 // load the file once, the first time they are needed.
 
-import type { DatasetInfo, Derived, Domain, ExplainOptions, FitReport, Request, Response, Values } from "./types";
+import type {
+  DatasetInfo,
+  Derived,
+  Domain,
+  Explained,
+  ExplainOptions,
+  FitReport,
+  Request,
+  Response,
+  SearchEvent,
+  Values,
+} from "./types";
+
+/** A call in flight: how to answer it, and who wants its events. */
+interface Pending {
+  resolve: (v: unknown) => void;
+  reject: (e: Error) => void;
+  onEvent?: (e: SearchEvent) => void;
+}
 
 /** The file loaded last, so pool workers (and new ones) can load it too. */
 interface LoadedFile {
@@ -17,7 +35,7 @@ interface LoadedFile {
 class Slot {
   readonly worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
   private next = 0;
-  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  private pending = new Map<number, Pending>();
   /** The file this worker holds, or is loading. */
   file?: LoadedFile;
   loading?: Promise<unknown>;
@@ -27,6 +45,10 @@ class Slot {
       const res = event.data;
       const p = this.pending.get(res.id);
       if (!p) return;
+      if ("event" in res) {
+        p.onEvent?.(res.event);
+        return;
+      }
       this.pending.delete(res.id);
       if (res.ok) p.resolve(res.value);
       else p.reject(new Error(res.error));
@@ -38,10 +60,10 @@ class Slot {
     return this.pending.size;
   }
 
-  call<T>(req: Request, transfer: Transferable[] = []): Promise<T> {
+  call<T>(req: Request, transfer: Transferable[] = [], onEvent?: (e: SearchEvent) => void): Promise<T> {
     const id = this.next++;
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject });
+      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onEvent });
       this.worker.postMessage({ id, req }, transfer);
     });
   }
@@ -111,15 +133,20 @@ export class Engine {
 
   /**
    * Looks for a formula for `column`, on the least busy worker. Several
-   * calls run at the same time on different workers.
+   * calls run at the same time on different workers. `onEvent` hears what
+   * the search is doing while it runs.
    */
-  async explain(column: string, options: ExplainOptions): Promise<Derived | null> {
+  async explain(
+    column: string,
+    options: ExplainOptions,
+    onEvent?: (e: SearchEvent) => void,
+  ): Promise<Explained> {
     const file = this.file;
     if (!file) throw new Error("no file loaded");
     if (this.slots.length < this.size && this.slots.every((s) => s.busy > 0)) this.slots.push(new Slot());
     const slot = this.slots.reduce((a, b) => (b.busy < a.busy ? b : a));
     await slot.ensure(file);
-    return slot.call({ kind: "explain", column, options });
+    return slot.call({ kind: "explain", column, options }, [], onEvent);
   }
 
   /** Checks a formula written by the user; names that are not columns are fitted constants. */
