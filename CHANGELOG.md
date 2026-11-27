@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-28
+
 ### Added
 
 - The scan works out what each column is for, without AI: group keys (line, track), the column that orders the rows (a chainage, a time), text columns read as categories (types, names, codes), identifiers and measurements, shown in the text report and in `structure` in the JSON report (`regrex_core::profile`). Text columns are no longer skipped: their values can decide which formula applies ([#98](https://github.com/dabupr/regrex/issues/98)).

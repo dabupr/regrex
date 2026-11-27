@@ -1,6 +1,6 @@
 # JSON output
 
-`regrex scan --json`, `regrex fit --json`, the Python package and the MCP server all return the same JSON. Every report has a `schema_version`; it is `1` today. Within a version, fields may be added but existing fields keep their name and meaning, so programs can rely on them.
+`regrex scan --json`, `regrex fit --json`, the Python package and the MCP server all return the same JSON. Every report has a `schema_version`; it is `1` today. Within a version, fields may be added but existing fields keep their name and meaning, so programs can rely on them. Version 1 is the same in 0.1.0 and 0.2.0: 0.2.0 only adds fields (`structure`, `category_columns`, `converted_columns`, `derived[].regime`, `between_rows`, `within`, `copy_of`, `text_relations`, `near_misses`, `not_found`, `quick`).
 
 Rows are counted from 1, starting at the first row after the header, as a spreadsheet user would count data rows. Numbers that are not finite are written as `null`.
 
