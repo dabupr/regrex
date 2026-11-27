@@ -263,7 +263,9 @@ def scan_file(
     ``with_`` is a second file whose rows are matched with those of the
     first on the columns both have (text or whole numbers, such as a line,
     a track and a chainage), so relations between the two files are found;
-    the report's ``joined`` tells how the rows were matched.
+    without such columns, files that both give coordinates (``x`` and
+    ``y``, or a WKT point) are matched on the nearest point. The report's
+    ``joined`` tells how the rows were matched.
 
     ``quick=True`` searches every column on a sample of ``sample`` rows
     (default: 5% of the rows, at least 2000) and confirms on all rows only

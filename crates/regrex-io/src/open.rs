@@ -17,22 +17,29 @@ pub struct Opened {
 
 /// How the rows of a second file were matched with those of the first (see
 /// [`crate::join()`]), as the reports give it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct JoinedJson {
     /// The second file.
     pub file: String,
-    /// Its columns are named `<name>.<column>` when the first file has a
-    /// column with the same name.
+    /// Its name: a column of it whose name the first file also has is
+    /// called `<column> (<name>)`.
     pub name: String,
-    /// The columns both files have, matched on.
+    /// The columns both files have, matched on; for a match on the nearest
+    /// point, also the coordinates of each file, as
+    /// `(x, y) ~ (geom#x, geom#y)`.
     pub keys: Vec<String>,
-    /// Rows of the first file with a match in the second.
+    /// Rows matched.
     pub matched_rows: usize,
-    /// Rows of the first file.
+    /// Rows of the first file, or for a match on the nearest point, rows
+    /// of the smaller file, each matched to the nearest point of the other.
     pub rows: usize,
     /// Rows of the second file left out because their keys repeat an
     /// earlier row.
     pub repeated_rows: usize,
+    /// For a match on the nearest point, the median distance between the
+    /// matched points.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub median_distance: Option<f64>,
 }
 
 impl JoinedJson {
@@ -45,11 +52,21 @@ impl JoinedJson {
             matched_rows: j.matched,
             rows: j.rows,
             repeated_rows: j.repeated,
+            median_distance: j.median_distance,
         }
     }
 
     /// One sentence, such as `Matched 90 of 100 rows with b on line, pk.`
     pub fn summary(&self) -> String {
+        if let Some(d) = self.median_distance {
+            return format!(
+                "Matched {} of {} rows to the nearest point of the other file on {}, median distance {}.",
+                self.matched_rows,
+                self.rows,
+                self.keys.join(", "),
+                regrex_core::expr::format_number(d)
+            );
+        }
         let mut s = format!(
             "Matched {} of {} rows with {} on {}.",
             self.matched_rows,

@@ -119,7 +119,7 @@ fn tools() -> Value {
     let file = json!({
         "path": { "type": "string", "description": "Path to a CSV file or a spreadsheet (.xlsx, .xls, .ods) with column names in the first row, a JSON file (.json, .ndjson, .jsonl) with one object per row, a Parquet or Arrow file (.parquet, .arrow, .feather), or a SQLite database (.sqlite, .db). Units can be written in headers, as in \"time (s)\"." },
         "sheet": { "type": "string", "description": "Sheet of a spreadsheet, or table of a SQLite database, to read (default: the first one)." },
-        "with": { "type": "string", "description": "Optional path to a second file whose rows are matched with those of the first on the columns both have (text or whole numbers, such as a line, a track and a chainage), so relations between the two files are found. Its columns get the file name as a prefix when the first file has a column with the same name. How the rows were matched is in `joined`." },
+        "with": { "type": "string", "description": "Optional path to a second file whose rows are matched with those of the first on the columns both have (text or whole numbers, such as a line, a track and a chainage), so relations between the two files are found. When they share no such column but both give coordinates (x and y columns, or a WKT POINT), each row of the smaller file is matched to the nearest point of the other (switches to the track they sit on). A column whose name is in both files gets the second file's name after it. How the rows were matched is in `joined`." },
         "ignore": { "type": "array", "items": { "type": "string" }, "description": "Columns to ignore, for example IDs." },
     });
     let with_file = |extra: Value| {

@@ -29,6 +29,8 @@ struct Relation {
 
 struct Case {
     path: String,
+    /// A second file matched with the first, as `regrex scan --with`.
+    with: Option<String>,
     ignore: Vec<String>,
     relations: Vec<Relation>,
     false_positives: usize,
@@ -72,10 +74,18 @@ fn main() -> ExitCode {
                 continue;
             }
         };
-        let name = Path::new(&case.path)
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or(&case.path);
+        let stem = |p: &str| {
+            Path::new(p)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(p)
+                .to_string()
+        };
+        let name = match &case.with {
+            Some(w) => format!("{} + {}", stem(&case.path), stem(w)),
+            None => stem(&case.path),
+        };
+        let name = name.as_str();
         let mut found_cell = Vec::new();
         for (rel, &ok) in case.relations.iter().zip(&outcome.found) {
             found_cell.push(format!("{} `{}`", if ok { "✓" } else { "✗" }, rel.formula));
@@ -168,17 +178,9 @@ fn main() -> ExitCode {
 
 /// Scans one file and classifies every reported formula.
 fn run(base: &Path, case: &Case) -> Result<Outcome, String> {
-    let mut loaded =
-        regrex_io::load_path(&base.join(&case.path), None).map_err(|e| e.to_string())?;
-    for name in &case.ignore {
-        let i = loaded
-            .table
-            .names
-            .iter()
-            .position(|n| n == name)
-            .ok_or_else(|| format!("no column {name:?} to ignore"))?;
-        loaded.table.remove_column(i);
-    }
+    let with = case.with.as_ref().map(|w| base.join(w));
+    let loaded =
+        regrex_io::open(&base.join(&case.path), None, with.as_deref(), &case.ignore)?.loaded;
     let names = loaded.table.names.clone();
     // Text columns the reader skips can still belong to a relation (one
     // that is not found yet).
@@ -296,6 +298,7 @@ fn read_cases(path: &Path) -> Result<Vec<Case>, String> {
                 .unwrap_or(0) as usize;
             Ok(Case {
                 ignore: strings(f.get("ignore"))?,
+                with: f.get("with").and_then(|w| w.as_str()).map(str::to_string),
                 path,
                 relations,
                 false_positives,

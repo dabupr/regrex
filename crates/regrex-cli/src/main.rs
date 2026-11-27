@@ -94,7 +94,9 @@ struct FileArgs {
     sheet: Option<String>,
     /// A second file whose rows are matched with those of the first on the
     /// columns both have (a line, a track and a chainage), to find the
-    /// relations between the two files.
+    /// relations between the two files. Without such columns, files that
+    /// both give coordinates (x and y, or a WKT point) are matched on the
+    /// nearest point.
     #[arg(long, value_name = "FILE")]
     with: Option<PathBuf>,
     /// Columns to ignore (comma separated), for example IDs.

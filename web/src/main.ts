@@ -255,10 +255,13 @@ function renderStructure() {
     items.push(chip("Types", types.join(", "), "A formula may change with the value of these columns, such as a curve type."));
   ui.structure.replaceChildren(...items);
   ui.structure.hidden = items.length === 0;
-  ui.joined.textContent = joined
-    ? `Matched ${joined.matched} of ${joined.rows} rows with ${joined.file} on ${joined.keys.join(", ")}.` +
-      (joined.repeated ? ` ${joined.repeated} rows of ${joined.file} repeat an earlier one and were left out.` : "")
-    : "Find relations between two files that share columns such as a line and a chainage.";
+  ui.joined.textContent = !joined
+    ? "Find relations between two files that share columns such as a line and a chainage, or that both give coordinates."
+    : joined.median_distance != null
+      ? `Matched ${joined.matched} of ${joined.rows} rows to the nearest point of the other file on ` +
+        `${joined.keys.join(", ")}, median distance ${fmt(joined.median_distance)}.`
+      : `Matched ${joined.matched} of ${joined.rows} rows with ${joined.file} on ${joined.keys.join(", ")}.` +
+        (joined.repeated ? ` ${joined.repeated} rows of ${joined.file} repeat an earlier one and were left out.` : "");
   ui.addOther.textContent = joined ? "⇄ Match with another file" : "⇄ Match with a second file";
   ui.removeOther.hidden = !joined;
 }

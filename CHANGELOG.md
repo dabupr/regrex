@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--with` (and the web app's second file, MCP `with`, Python `with_`) also matches files that share no key column but both give coordinates: each row of the smaller file gets the nearest point of the other, among rows with the same text keys (a line, a track), found with a k-d tree. Switches given only as `POINT (x y)` get the track and chainage they sit on; `joined` gives the coordinates matched and the median distance. The scan benchmark gets a switches file for the synthetic track, and its relations are found ([#114](https://github.com/dabupr/regrex/issues/114)).
 - For AI agents and scripts, the MCP server and the Python package do what the command line does ([#113](https://github.com/dabupr/regrex/issues/113)):
   - a second file matched on the columns both have (MCP `with`, Python `scan_file(..., with_=...)`);
   - a quick scan on a sample confirmed on all rows (MCP `quick` and `sample`, Python `quick=True`);

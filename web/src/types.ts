@@ -44,6 +44,8 @@ export interface Joined {
   matched: number;
   rows: number;
   repeated: number;
+  /** For a match on the nearest point, the median distance between the points. */
+  median_distance: number | null;
 }
 
 /** A formula per value of a text column, such as a curve type. */
