@@ -108,12 +108,13 @@ fn scan_json(
         sheets: Vec::new(),
         converted: Vec::new(),
     };
-    Ok(run_scan(py, &loaded, &source, min_match, max_size))
+    Ok(run_scan(py, &loaded, &source, min_match, max_size).to_json())
 }
 
-/// scan_file(path, sheet, ignore, min_match, max_size) -> JSON
+/// scan_file(path, sheet, ignore, min_match, max_size, with_path, quick, sample) -> JSON
 #[pyfunction]
-#[pyo3(signature = (path, sheet=None, ignore=Vec::new(), min_match=0.9, max_size=5))]
+#[pyo3(signature = (path, sheet=None, ignore=Vec::new(), min_match=0.9, max_size=5, with_path=None, quick=false, sample=None))]
+#[allow(clippy::too_many_arguments)]
 fn scan_file_json(
     py: Python<'_>,
     path: std::path::PathBuf,
@@ -121,24 +122,53 @@ fn scan_file_json(
     ignore: Vec<String>,
     min_match: f64,
     max_size: usize,
+    with_path: Option<std::path::PathBuf>,
+    quick: bool,
+    sample: Option<usize>,
 ) -> PyResult<String> {
-    let mut loaded = regrex_io::load_path(&path, sheet.as_deref()).map_err(value_error)?;
-    for name in &ignore {
-        let i = loaded
-            .table
-            .names
-            .iter()
-            .position(|n| n == name)
-            .ok_or_else(|| value_error(format!("no numeric column named {name:?}")))?;
-        loaded.table.remove_column(i);
+    let opened = regrex_io::open(&path, sheet.as_deref(), with_path.as_deref(), &ignore)
+        .map_err(value_error)?;
+    let loaded = &opened.loaded;
+    let source = path.display().to_string();
+    if !quick {
+        let report = run_scan(py, loaded, &source, min_match, max_size);
+        return Ok(report.with_join(opened.joined.as_ref()).to_json());
     }
-    Ok(run_scan(
-        py,
-        &loaded,
-        &path.display().to_string(),
+    let table = &loaded.table;
+    let config = scan_config(min_match, max_size);
+    let sample = sample.unwrap_or_else(|| regrex_io::open::default_sample(table.n_rows()));
+    let q = py.detach(|| regrex_core::scan_quick(table, &config, sample, |_, _| {}));
+    Ok(ScanReport::new(&source, loaded, &q.derived)
+        .with_quick(table, &q)
+        .with_join(opened.joined.as_ref())
+        .to_json())
+}
+
+/// describe_file(path, sheet, with_path) -> JSON
+#[pyfunction]
+#[pyo3(signature = (path, sheet=None, with_path=None))]
+fn describe_file_json(
+    py: Python<'_>,
+    path: std::path::PathBuf,
+    sheet: Option<String>,
+    with_path: Option<std::path::PathBuf>,
+) -> PyResult<String> {
+    let opened =
+        regrex_io::open(&path, sheet.as_deref(), with_path.as_deref(), &[]).map_err(value_error)?;
+    let source = path.display().to_string();
+    Ok(py.detach(|| {
+        regrex_io::describe::Description::new(&source, &opened.loaded, opened.joined.as_ref())
+            .to_json()
+    }))
+}
+
+fn scan_config(min_match: f64, max_size: usize) -> ScanConfig {
+    let mut config = ScanConfig {
         min_match,
-        max_size,
-    ))
+        ..ScanConfig::default()
+    };
+    config.search.max_size = max_size;
+    config
 }
 
 fn run_scan(
@@ -147,16 +177,11 @@ fn run_scan(
     source: &str,
     min_match: f64,
     max_size: usize,
-) -> String {
-    let mut config = ScanConfig {
-        min_match,
-        ..ScanConfig::default()
-    };
-    config.search.max_size = max_size;
+) -> ScanReport {
+    let config = scan_config(min_match, max_size);
     let found = py.detach(|| scan_detailed(&loaded.table, &config, &|_| {}));
     ScanReport::new(source, loaded, &found.derived)
         .with_near_misses(&loaded.table, &found.near_misses)
-        .to_json()
 }
 
 #[pymodule]
@@ -165,5 +190,6 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(search_json, m)?)?;
     m.add_function(wrap_pyfunction!(scan_json, m)?)?;
     m.add_function(wrap_pyfunction!(scan_file_json, m)?)?;
+    m.add_function(wrap_pyfunction!(describe_file_json, m)?)?;
     Ok(())
 }

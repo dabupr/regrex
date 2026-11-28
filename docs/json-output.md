@@ -1,6 +1,6 @@
 # JSON output
 
-`regrex scan --json`, `regrex fit --json`, the Python package and the MCP server all return the same JSON. Every report has a `schema_version`; it is `1` today. Within a version, fields may be added but existing fields keep their name and meaning, so programs can rely on them.
+`regrex scan --json`, `regrex fit --json`, the Python package and the MCP server all return the same JSON. Every report has a `schema_version`; it is `1` today. Within a version, fields may be added but existing fields keep their name and meaning, so programs can rely on them. Version 1 is the same in 0.1.0 and 0.2.0: 0.2.0 only adds fields (`structure`, `category_columns`, `converted_columns`, `derived[].regime`, `between_rows`, `within`, `copy_of`, `text_relations`, `near_misses`, `not_found`, `quick`, `joined`).
 
 Rows are counted from 1, starting at the first row after the header, as a spreadsheet user would count data rows. Numbers that are not finite are written as `null`.
 
@@ -91,6 +91,7 @@ Returned by `regrex scan --json`, `regrex.scan()`, `regrex.scan_file()` and the 
 | `derived[].within` | For an approximate relation, the largest error on the matched rows: a gradient given with 4 decimals next to heights computed with 15 holds only to within about 1% of its usual size, and the formula then starts with `about`. Absent when the formula holds exactly, up to rounding. |
 | `text_relations[]` | Relations between text columns, found on the cells as written: `column`, `formula` (`line + "|" + track`, `one to one with name`, or `set by code` when each value of `code` goes with one value of `column`, as each platform code with one line; pairs that follow from two others are left out), `inputs`, `matched_rows`, `checked_rows`. Absent when there are none. Numbers inside text (`GIS5550`, `1/8,5`, `POINT (x y)`, lists) are read as columns of their own named `column#num`, `column#ratio`, `column#x`/`#y`/`#z` and `column#count`, listed in `converted_columns`, and are searched like any other column. |
 | `quick` | Only for a quick scan (`--quick`): `sample_rows` (rows every column was searched on), `max_broken_share` (with 95% confidence, a formula that matched every sampled row is broken by less than this share of all rows: 3 / `sample_rows`), `not_searched` (columns without a formula on the sample, not searched on all rows, and so not in `not_found`) and `dropped` (formulas found on the sample that did not hold on all rows). Every formula in `derived` was confirmed on all rows. |
+| `joined` | Only when a second file was given (`--with`, MCP `with`, Python `with_`): its `file` and `name` (a column of it whose name the first file also has is called `column (name)`), the `keys` matched on, `matched_rows` of `rows`, and `repeated_rows`, rows of the second file left out because their keys repeat an earlier row. When the files share no key but both give coordinates, each row of the smaller file is matched to the nearest point of the other one (among rows with the same shared text columns): `keys` then ends with the coordinates, as `(x, y) ~ (geom#x, geom#y)`, `rows` counts the rows of the smaller file and `median_distance` gives the median distance between matched points. |
 | `near_misses[]` | Formulas the scan found but did not report, most rows matched first (at most 3 per column): where to look next. Each has `column`, `formula`, `inputs`, `complexity`, `matched_rows`, `checked_rows`, `match_ratio`; `reason`, why it was not reported: `coverage` (too few rows match), `usual_value` (right mostly where the column has its most common value, often 0) `no_split_rule` (it fits the rows that break the column's first formula, but no other column tells them apart) or `other_values` (the column holds one value, often 0, on most rows, and the formula is for the other rows: `checked_rows` counts only those); `reason_text`, the same in words; `holds_when`, a rule on another column that picks out the rows where it holds (`column`, `rule`, `accuracy`) or `null`; `regime`, the regime it was searched within, or `null`; `missed_count`, the checked rows where it fails, and `missed_rows`, the first 20 of them. Only formulas that hold on at least half of the rows they were checked on (and of the rows that differ from the column's most common value) are kept. |
 | `not_found[]` | Each column that was searched without finding a formula: `column`, and `inputs_tried`, the columns tried as its inputs (the ones that predict it best, at most 5 and sometimes one more). A formula over any other column cannot have been found. Constants, flags (two values) and copies are not searched, so they are not listed. |
 | `derived[].known` | The formula from the [library of known formulas](https://dabupr.github.io/regrex/library.html) that the column follows, or `null`. |
@@ -113,11 +114,22 @@ Returned by `regrex scan --agent` and the `scan_dataset` tool with `"format": "a
 
 | Field | Meaning |
 | --- | --- |
+| `structure`, `text_relations`, `joined`, `quick` | As in the scan report. With `quick`, columns without a formula on the sample have `not_searched: "not_on_sample"` and are not in `unexplained`. |
 | `columns[]` | Every column of the file, in order: `name`; `kind`, `number` or `text`; `read_as` when the cells were converted (`times as minutes`); `distinct` values (counted up to 1000); `missing` cells; `min` and `max` for numbers; `increasing` (a row number, an ID or a distance along a line); `searched`, and `not_searched` when it was not: `text`, `constant`, `flag` (two values), `copy` or `not_requested`. |
 | `found[]` | Each formula: `column`, `formula`, `inputs`, `complexity`, `matched_rows`, `checked_rows`; `exact`, whether it gives the exact values rather than values within rounding; `max_error` and `median_error`, the largest and median absolute difference on the matched rows; `copy_of`; `known`, the id of the library formula it is; `other`, a second formula with its number of `rows` and the rule (`when`) that picks them out; `wrong_count`, the rows that follow neither, and `wrong`, the first 10 with `actual`, `expected` and the `likely` mistake. |
 | `near_misses[]` | As in the scan report, with `holds_when` as the rule's text and at most 10 `missed_rows`. |
 | `unexplained[]` | Columns searched without a formula, with the `inputs_tried`. |
 | `notes` | A few sentences on how to read the report. |
+
+## Table description
+
+Returned by `regrex describe --json`, the MCP tool `describe_table` and Python's `describe_file`. Nothing is searched: it tells an agent what the table holds, so it can decide what to scan. It has its own `describe_schema_version` (`1` today).
+
+| Field | Meaning |
+| --- | --- |
+| `file`, `rows` | The file and its data rows. |
+| `columns[]` | As in the agent report; `searched` tells whether a scan would search the column, and `not_searched` why not. |
+| `structure`, `converted_columns`, `text_relations`, `joined` | As in the scan report. |
 
 ## Fit report
 
@@ -152,3 +164,5 @@ Returned by `regrex fit --json` and the `fit_formula` and `fit_values` tools; `r
 ## Formula syntax
 
 Formulas use `+ - * / ^`, parentheses, `sqrt`, `exp`, `log` (natural logarithm, also `ln`), `sin`, `cos`, the integer division `div` (also `//`, and `floor(a / b)`) and the remainder `mod` (also `%`), and the constants `pi` (`π`) and `e`. `x^2` is also written `x²`. `-x^2` means `-(x^2)`. The same syntax is accepted by `check_formula` and `check_units`.
+
+A fitted constant that is a known number is written as one when the formula with it still matches every row it matched: `1 / (4 * π)` instead of `0.0795775`, `1 / sqrt(2 * π)` instead of `0.398942`, `2 / 3` instead of `0.666667`. The known numbers are small fractions times or divided by `π`, `π^2`, `sqrt(π)`, `sqrt(2)`, `sqrt(3)`, `sqrt(2 * π)` or `e`. Constants with up to four significant digits (`0.21`, `9.81`) are kept as written.

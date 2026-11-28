@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
 test("finds derived columns in the example invoices", async ({ page }) => {
@@ -417,4 +418,15 @@ test("a large file gets a quick look on a sample first, then every formula is ch
   await expect(sum).toContainText("all 6000 rows", { timeout: 45_000 });
   await expect(sum).not.toHaveClass(/provisional/);
   await expect(page.locator("#progress")).toBeHidden({ timeout: 45_000 });
+});
+
+test("switches given as points are matched to the nearest point of the track", async ({ page }) => {
+  await page.goto("./");
+  const data = new URL("../../benchmarks/data/", import.meta.url);
+  await page.locator("#file").setInputFiles(fileURLToPath(new URL("track.csv", data)));
+  await expect(page.locator("#add-other")).toBeVisible();
+  await page.locator("#other-file").setInputFiles(fileURLToPath(new URL("switches.csv", data)));
+  await expect(page.locator("#joined")).toContainText(
+    "Matched 40 of 40 rows to the nearest point of the other file on (x, y) ~ (geom#x, geom#y), median distance 0.12",
+  );
 });

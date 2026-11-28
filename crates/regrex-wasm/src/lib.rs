@@ -85,6 +85,8 @@ struct JoinedJson {
     rows: usize,
     /// Rows of the second file left out because their keys repeat.
     repeated: usize,
+    /// For a match on the nearest point, the median distance.
+    median_distance: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -345,6 +347,7 @@ impl Dataset {
                 matched: how.matched,
                 rows: how.rows,
                 repeated: how.repeated,
+                median_distance: how.median_distance,
             });
         }
         Ok(Dataset {

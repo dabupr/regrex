@@ -373,6 +373,7 @@ fn binding(e: &Expr) -> u8 {
         Expr::Binary(op, _, _) => op.precedence(),
         Expr::Unary(UnaryOp::Neg, _) => 2,
         Expr::Const(c) if *c < 0.0 => 2,
+        Expr::Const(c) => crate::constants::symbolic(*c).map_or(5, |(_, b)| b),
         _ => 5,
     }
 }
@@ -398,7 +399,10 @@ fn write_expr(f: &mut fmt::Formatter<'_>, e: &Expr, names: Option<&[String]>) ->
             Some(name) => write!(f, "{name}"),
             None => write!(f, "x{i}"),
         },
-        Expr::Const(c) => write!(f, "{}", format_number(*c)),
+        Expr::Const(c) => match crate::constants::symbolic(*c) {
+            Some((text, _)) => write!(f, "{text}"),
+            None => write!(f, "{}", format_number(*c)),
+        },
         Expr::Param(i) => write!(f, "c{i}"),
         Expr::Unary(UnaryOp::Neg, a) => {
             write!(f, "-")?;
@@ -494,8 +498,11 @@ pub fn format_number(c: f64) -> String {
     }
     let decimals = (5 - magnitude).clamp(0, 12) as usize;
     let s = format!("{c:.decimals$}");
-    let s = s.trim_end_matches('0').trim_end_matches('.');
-    s.to_string()
+    if !s.contains('.') {
+        // 437029.8 rounds to 437030: its zeros are digits, not padding.
+        return s;
+    }
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
 #[cfg(test)]
@@ -504,6 +511,14 @@ mod tests {
 
     fn v(i: usize) -> Expr {
         Expr::Var(i)
+    }
+
+    #[test]
+    fn rounding_to_a_whole_number_keeps_its_zeros() {
+        assert_eq!(format_number(437029.8), "437030");
+        assert_eq!(format_number(99999.96), "100000");
+        assert_eq!(format_number(2.50), "2.5");
+        assert_eq!(format_number(0.0795775), "0.0795775");
     }
 
     #[test]

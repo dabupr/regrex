@@ -699,6 +699,13 @@ fn explain_column_inner(
     if !enough(&formula, &matched) {
         return None;
     }
+    let formula = crate::constants::snap(
+        table,
+        target,
+        formula,
+        &matched,
+        &row_tolerance(table, target, config),
+    );
     let mut found = derived(table, target, formula, &rows, &matched);
     // Rows that break the formula may follow another one: a second tax rate,
     // another product. Look for it when there are enough of them.

@@ -255,10 +255,13 @@ function renderStructure() {
     items.push(chip("Types", types.join(", "), "A formula may change with the value of these columns, such as a curve type."));
   ui.structure.replaceChildren(...items);
   ui.structure.hidden = items.length === 0;
-  ui.joined.textContent = joined
-    ? `Matched ${joined.matched} of ${joined.rows} rows with ${joined.file} on ${joined.keys.join(", ")}.` +
-      (joined.repeated ? ` ${joined.repeated} rows of ${joined.file} repeat an earlier one and were left out.` : "")
-    : "Find relations between two files that share columns such as a line and a chainage.";
+  ui.joined.textContent = !joined
+    ? "Find relations between two files that share columns such as a line and a chainage, or that both give coordinates."
+    : joined.median_distance != null
+      ? `Matched ${joined.matched} of ${joined.rows} rows to the nearest point of the other file on ` +
+        `${joined.keys.join(", ")}, median distance ${fmt(joined.median_distance)}.`
+      : `Matched ${joined.matched} of ${joined.rows} rows with ${joined.file} on ${joined.keys.join(", ")}.` +
+        (joined.repeated ? ` ${joined.repeated} rows of ${joined.file} repeat an earlier one and were left out.` : "");
   ui.addOther.textContent = joined ? "⇄ Match with another file" : "⇄ Match with a second file";
   ui.removeOther.hidden = !joined;
 }
@@ -534,7 +537,6 @@ async function scanAll() {
   const done = new Set<string>();
   const dropped = new Set<string>();
   const running = new Set<string>();
-  let phase: "look" | "check" = sample ? "look" : "check";
   // What each running column's search is doing, from its events, redrawn
   // at most once per frame.
   const doing = new Map<string, SearchEvent>();
@@ -553,7 +555,7 @@ async function scanAll() {
           const formula = (d: Derived) => (d.regime ? ["depends on ", columnName(d.regime.column, "span")] : [el("code", {}, ...painted(d.formula))]);
           if (running.has(c)) {
             const e = doing.get(c);
-            const li = state("running", "", ...(e ? describeEvent(e) : [phase === "check" && provisional.has(c) ? "checking on all rows" : "waiting for a worker"]));
+            const li = state("running", "", ...(e ? describeEvent(e) : [provisional.has(c) ? "checking on all rows" : "waiting for a worker"]));
             return li;
           }
           const d = found.get(c);
@@ -569,49 +571,30 @@ async function scanAll() {
   };
   ui.progressLive.replaceChildren();
   const started = performance.now();
-  let queue: string[] = columns;
-  let next = 0;
-  let finished = 0;
+  // Two queues share the workers: quick looks on the sample first, and each
+  // formula a look found is checked on all rows as soon as a worker is
+  // free, without waiting for the other looks. A check runs on the worker
+  // that found the formula when that one is free (it skips searching the
+  // sample again), else on any other.
+  const looks: string[] = sample ? [...columns] : [];
+  const checks: string[] = sample ? [] : [...columns];
+  let looked = 0;
+  let checked = 0;
   const progress = () => {
     const names = [...running].slice(0, 3).join(", ") + (running.size > 3 ? "…" : "");
-    const left = timeLeft(performance.now() - started, finished, queue.length);
-    const what =
-      phase === "look"
-        ? `Quick look on ${sample.toLocaleString()} of ${state!.info.rows.toLocaleString()} rows: ${finished} of ${queue.length} columns`
-        : sample
-          ? `Checking on all ${state!.info.rows.toLocaleString()} rows: ${finished} of ${queue.length} formulas`
-          : `Checked ${finished} of ${queue.length} columns`;
+    const rows = state!.info.rows.toLocaleString();
+    const total = sample ? columns.length + provisional.size : columns.length;
+    const left = timeLeft(performance.now() - started, looked + checked, total);
+    const what = sample
+      ? `Quick look on ${sample.toLocaleString()} of ${rows} rows: ${looked} of ${columns.length} columns` +
+        (provisional.size ? ` · checked on all rows: ${checked} of ${provisional.size} formulas` : "")
+      : `Checked ${checked} of ${columns.length} columns`;
     ui.progressText.textContent = `${what}${left ? ` · ${left}` : ""}${names ? ` · now ${names}` : ""}…`;
-    const share = queue.length ? finished / queue.length : 1;
-    ui.meter.style.width = `${sample ? (phase === "look" ? 50 * share : 50 + 50 * share) : 100 * share}%`;
+    ui.meter.style.width = `${(100 * (looked + checked)) / Math.max(1, total)}%`;
   };
   const live = liveResults(columns);
   // The worker that took a quick look at each column, to check it there.
   const slots = new Map<string, number | undefined>();
-  const run = async (opts: ExplainOptions, onResult: (column: string, d: Derived | null, misses: NearMiss[]) => void) => {
-    while (next < queue.length && !stopped) {
-      const column = queue[next++];
-      running.add(column);
-      progress();
-      drawLive();
-      const onEvent = (e: SearchEvent) => {
-        if (e.kind === "done") return;
-        doing.set(column, e);
-        drawLive();
-      };
-      const where = { slot: slots.get(column) };
-      const { found: d, near_misses } = await engine.explain(column, opts, onEvent, where);
-      slots.set(column, where.slot);
-      running.delete(column);
-      doing.delete(column);
-      if (!stopped) onResult(column, d, near_misses);
-      finished++;
-      drawLive();
-      progress();
-    }
-  };
-  const pass = (opts: ExplainOptions, onResult: Parameters<typeof run>[1]) =>
-    Promise.all(Array.from({ length: Math.min(engine.workers, queue.length) }, () => run(opts, onResult)));
   // In column order, whatever order they were found in.
   const inOrder = () => columns.filter((c) => found.has(c)).map((c) => found.get(c) as Derived);
   const nearInOrder = () =>
@@ -621,25 +604,37 @@ async function scanAll() {
     near.set(column, misses);
     renderNearMisses(nearInOrder());
   };
-  try {
+  const search = async (column: string, look: boolean) => {
+    running.add(column);
     progress();
-    if (sample) {
-      await pass({ ...options, sample_only: true }, (column, d, misses) => {
-        keepMisses(column, misses);
-        if (!d) return done.add(column), undefined;
+    drawLive();
+    const onEvent = (e: SearchEvent) => {
+      if (e.kind === "done") return;
+      doing.set(column, e);
+      drawLive();
+    };
+    const pinned = slots.get(column);
+    const where = { slot: !look && engine.idle(pinned) ? pinned : undefined };
+    const opts = look ? { ...options, sample_only: true } : options;
+    const { found: d, near_misses } = await engine.explain(column, opts, onEvent, where);
+    slots.set(column, where.slot);
+    running.delete(column);
+    doing.delete(column);
+    if (stopped) return;
+    if (look) {
+      looked++;
+      keepMisses(column, near_misses);
+      if (d) {
         provisional.set(column, d);
         live.add({ ...d, provisional: true }, [...provisional.values()]);
-      });
-      phase = "check";
-      queue = columns.filter((c) => provisional.has(c));
-      next = 0;
-      finished = 0;
-      progress();
-      drawLive();
-    }
-    await pass(options, (column, d, misses) => {
+        checks.push(column);
+      } else {
+        done.add(column);
+      }
+    } else {
+      checked++;
       done.add(column);
-      if (!sample) keepMisses(column, misses);
+      if (!sample) keepMisses(column, near_misses);
       if (d) {
         found.set(column, d);
         live.add(d, inOrder());
@@ -647,7 +642,35 @@ async function scanAll() {
         dropped.add(column);
         live.remove(column);
       }
+    }
+    drawLive();
+    progress();
+  };
+  // Hands out work until both queues are empty and nothing is running.
+  const runAll = () =>
+    new Promise<void>((resolve, reject) => {
+      let active = 0;
+      const pump = () => {
+        while (!stopped && active < engine.workers && (looks.length || checks.length)) {
+          // Quick looks first, so every column gets a first answer soon.
+          const look = looks.length > 0;
+          const column = (look ? looks.shift() : checks.shift()) as string;
+          active++;
+          search(column, look).then(
+            () => {
+              active--;
+              pump();
+            },
+            reject,
+          );
+        }
+        if (active === 0) resolve();
+      };
+      pump();
     });
+  try {
+    progress();
+    await runAll();
     ui.meter.style.width = "100%";
     state.derived = inOrder();
     state.nearMisses = nearInOrder();

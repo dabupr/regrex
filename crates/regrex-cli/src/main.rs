@@ -6,7 +6,7 @@ use regrex_core::{
     SearchConfig, Table,
 };
 use regrex_io::report as output;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 mod mcp;
@@ -40,7 +40,7 @@ enum Command {
         /// confirm on all rows only the formulas found there. Much faster on
         /// large files; columns without a formula on the sample are not
         /// searched again.
-        #[arg(long, conflicts_with_all = ["columns", "agent"])]
+        #[arg(long, conflicts_with = "columns")]
         quick: bool,
         /// Rows in the sample of --quick (default: 2000 or 5% of the rows,
         /// whichever is larger).
@@ -73,6 +73,13 @@ enum Command {
         #[arg(long, default_value_t = 10)]
         results: usize,
     },
+    /// Tell what a table holds without searching for formulas: every
+    /// column with its role (group key, order, category, code, measurement),
+    /// values and range, and the relations between text columns.
+    Describe {
+        #[command(flatten)]
+        file: FileArgs,
+    },
     /// Run a Model Context Protocol server on stdin/stdout, so AI assistants
     /// can scan datasets and fit formulas.
     Mcp,
@@ -87,7 +94,9 @@ struct FileArgs {
     sheet: Option<String>,
     /// A second file whose rows are matched with those of the first on the
     /// columns both have (a line, a track and a chainage), to find the
-    /// relations between the two files.
+    /// relations between the two files. Without such columns, files that
+    /// both give coordinates (x and y, or a WKT point) are matched on the
+    /// nearest point.
     #[arg(long, value_name = "FILE")]
     with: Option<PathBuf>,
     /// Columns to ignore (comma separated), for example IDs.
@@ -108,87 +117,22 @@ fn main() -> ExitCode {
     }
 }
 
-fn load(file: &FileArgs) -> Result<regrex_io::Loaded, String> {
-    let Some(other) = &file.with else {
-        return load_file(&file.file, file.sheet.as_deref(), &file.ignore);
-    };
-    let a = regrex_io::load_path(&file.file, file.sheet.as_deref()).map_err(|e| e.to_string())?;
-    let b = regrex_io::load_path(other, None).map_err(|e| e.to_string())?;
-    let name = other.file_stem().map_or_else(
-        || "second file".to_string(),
-        |s| s.to_string_lossy().into_owned(),
-    );
-    let (mut loaded, how) = regrex_io::join(&a, &b, &name).map_err(|e| e.to_string())?;
-    eprintln!(
-        "Matched {} of {} rows with {} on {}{}.",
-        how.matched,
-        how.rows,
-        name,
-        how.keys.join(", "),
-        if how.repeated > 0 {
-            format!(
-                " ({} rows of {name} repeat an earlier one and were left out)",
-                how.repeated
-            )
-        } else {
-            String::new()
-        }
-    );
-    for n in &file.ignore {
-        let index = column_index(&loaded.table, n)?;
-        loaded.table.remove_column(index);
+/// Reads the file (and the `--with` file), telling on stderr how the rows
+/// of the two files were matched.
+fn load(file: &FileArgs) -> Result<regrex_io::Opened, String> {
+    let opened = regrex_io::open(
+        &file.file,
+        file.sheet.as_deref(),
+        file.with.as_deref(),
+        &file.ignore,
+    )?;
+    if let Some(j) = &opened.joined {
+        eprintln!("{}", j.summary());
     }
-    Ok(loaded)
+    Ok(opened)
 }
 
-/// Reads a data file and drops the `ignore`d columns.
-pub(crate) fn load_file(
-    path: &Path,
-    sheet: Option<&str>,
-    ignore: &[String],
-) -> Result<regrex_io::Loaded, String> {
-    let mut loaded = regrex_io::load_path(path, sheet).map_err(|e| e.to_string())?;
-    for name in ignore {
-        let index = column_index(&loaded.table, name)?;
-        loaded.table.remove_column(index);
-    }
-    if loaded.table.columns.is_empty() {
-        let others: Vec<&str> = loaded
-            .sheets
-            .iter()
-            .map(String::as_str)
-            .filter(|s| Some(*s) != sheet)
-            .collect();
-        if sheet.is_none() && others.len() > 1 {
-            return Err(format!(
-                "no numeric columns found in {:?}; choose another sheet or table with --sheet: {}",
-                others[0],
-                others[1..].join(", ")
-            ));
-        }
-        return Err("no numeric columns found".into());
-    }
-    Ok(loaded)
-}
-
-pub(crate) fn column_index(table: &regrex_core::Table, name: &str) -> Result<usize, String> {
-    table
-        .names
-        .iter()
-        .position(|n| n == name)
-        .or_else(|| {
-            table
-                .names
-                .iter()
-                .position(|n| n.eq_ignore_ascii_case(name))
-        })
-        .ok_or_else(|| {
-            format!(
-                "no numeric column named {name:?} (columns: {})",
-                table.names.join(", ")
-            )
-        })
-}
+pub(crate) use regrex_io::open::column_index;
 
 /// Runs a scan of every column, or of the given ones, telling `on_event`
 /// what the search is doing.
@@ -334,7 +278,8 @@ fn run(cli: Cli) -> Result<(), String> {
             agent,
             verbose,
         } => {
-            let loaded = load(&file)?;
+            let opened = load(&file)?;
+            let loaded = &opened.loaded;
             let table = &loaded.table;
             let name = file.file.display().to_string();
             let mut report = if quick {
@@ -343,8 +288,7 @@ fn run(cli: Cli) -> Result<(), String> {
                     ..ScanConfig::default()
                 };
                 config.search.max_size = max_size;
-                let rows = table.n_rows();
-                let size = sample.unwrap_or((rows / 20).max(2000));
+                let size = sample.unwrap_or(regrex_io::open::default_sample(table.n_rows()));
                 let q = regrex_core::scan_quick(table, &config, size, |d, confirmed| {
                     let stage = if confirmed {
                         "confirmed"
@@ -353,28 +297,38 @@ fn run(cli: Cli) -> Result<(), String> {
                     };
                     eprintln!("{stage}: {} = {}", table.names[d.target], d.formula_text);
                 });
-                output::ScanReport::new(&name, &loaded, &q.derived).with_quick(table, &q)
+                if agent {
+                    let report =
+                        regrex_io::agent::AgentReport::new(&name, loaded, &q.derived, &[], &[])
+                            .with_join(opened.joined.as_ref())
+                            .with_quick(table, &q);
+                    println!("{}", report.to_json());
+                    return Ok(());
+                }
+                output::ScanReport::new(&name, loaded, &q.derived).with_quick(table, &q)
             } else {
                 let on_event = |e: ScanEvent| {
                     if verbose {
                         print_event(table, &e);
                     }
                 };
-                let found = scan_columns(&loaded, &columns, min_match, max_size, &on_event)?;
+                let found = scan_columns(loaded, &columns, min_match, max_size, &on_event)?;
                 if agent {
                     let report = regrex_io::agent::AgentReport::new(
                         &name,
-                        &loaded,
+                        loaded,
                         &found.derived,
                         &found.near_misses,
                         &columns,
-                    );
+                    )
+                    .with_join(opened.joined.as_ref());
                     println!("{}", report.to_json());
                     return Ok(());
                 }
-                output::ScanReport::new(&name, &loaded, &found.derived)
+                output::ScanReport::new(&name, loaded, &found.derived)
                     .with_near_misses(table, &found.near_misses)
             };
+            report = report.with_join(opened.joined.as_ref());
             if !columns.is_empty() {
                 report = report.only_columns(&columns);
             }
@@ -394,12 +348,26 @@ fn run(cli: Cli) -> Result<(), String> {
             max_size,
             results,
         } => {
-            let loaded = load(&file)?;
-            let report = fit_column(&loaded, &target, &inputs, max_size, results)?;
+            let opened = load(&file)?;
+            let report = fit_column(&opened.loaded, &target, &inputs, max_size, results)?;
             if file.json {
                 println!("{}", report.to_json());
             } else {
                 print!("{}", report.to_text());
+            }
+            Ok(())
+        }
+        Command::Describe { file } => {
+            let opened = load(&file)?;
+            let d = regrex_io::describe::Description::new(
+                &file.file.display().to_string(),
+                &opened.loaded,
+                opened.joined.as_ref(),
+            );
+            if file.json {
+                println!("{}", d.to_json());
+            } else {
+                print!("{}", d.to_text());
             }
             Ok(())
         }

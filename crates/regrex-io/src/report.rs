@@ -48,6 +48,9 @@ pub struct ScanReport {
     /// For a quick scan (`--quick`), what was searched on a sample only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quick: Option<QuickJson>,
+    /// When a second file was given (`--with`), how its rows were matched.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub joined: Option<crate::JoinedJson>,
     /// Formulas the scan found but did not report, because they hold on too
     /// few rows or only within a group: where to look next. Most rows
     /// matched first.
@@ -68,6 +71,23 @@ pub struct QuickJson {
     pub dropped: Vec<String>,
 }
 
+impl QuickJson {
+    /// What the quick scan `q` of `table` searched on its sample only.
+    pub fn new(table: &Table, q: &regrex_core::QuickScan) -> Self {
+        let names = &table.names;
+        QuickJson {
+            sample_rows: q.sample_rows,
+            max_broken_share: q.sample_bound(),
+            not_searched: q.not_searched.iter().map(|&c| names[c].clone()).collect(),
+            dropped: q
+                .dropped
+                .iter()
+                .map(|d| format!("{} = {}", names[d.target], d.formula_text))
+                .collect(),
+        }
+    }
+}
+
 /// A relation between text columns (see [`crate::text_relations()`]).
 #[derive(Debug, Clone, Serialize)]
 pub struct TextRelationJson {
@@ -81,6 +101,22 @@ pub struct TextRelationJson {
     pub matched_rows: usize,
     /// Rows where every column of the relation has a value.
     pub checked_rows: usize,
+}
+
+impl TextRelationJson {
+    /// The relations between the text columns of `loaded`.
+    pub fn all(loaded: &Loaded) -> Vec<Self> {
+        crate::text_relations(loaded)
+            .into_iter()
+            .map(|r| TextRelationJson {
+                column: r.column,
+                formula: r.formula,
+                inputs: r.inputs,
+                matched_rows: r.matched,
+                checked_rows: r.checked,
+            })
+            .collect()
+    }
 }
 
 /// How the table is laid out (see [`mod@regrex_core::profile`]).
@@ -728,37 +764,26 @@ impl ScanReport {
                 .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
                 .collect(),
             not_found: not_found(&loaded.table, derived),
-            text_relations: crate::text_relations(loaded)
-                .into_iter()
-                .map(|r| TextRelationJson {
-                    column: r.column,
-                    formula: r.formula,
-                    inputs: r.inputs,
-                    matched_rows: r.matched,
-                    checked_rows: r.checked,
-                })
-                .collect(),
+            text_relations: TextRelationJson::all(loaded),
             quick: None,
+            joined: None,
             near_misses: Vec::new(),
         }
+    }
+
+    /// Adds how the rows of a second file were matched.
+    pub fn with_join(mut self, joined: Option<&crate::JoinedJson>) -> Self {
+        self.joined = joined.cloned();
+        self
     }
 
     /// Adds what a quick scan left out; the columns not searched on all
     /// rows are not listed as searched without a formula.
     pub fn with_quick(mut self, table: &regrex_core::Table, q: &regrex_core::QuickScan) -> Self {
-        let names = &table.names;
-        let not_searched: Vec<String> = q.not_searched.iter().map(|&c| names[c].clone()).collect();
-        self.not_found.retain(|m| !not_searched.contains(&m.column));
-        self.quick = Some(QuickJson {
-            sample_rows: q.sample_rows,
-            max_broken_share: q.sample_bound(),
-            not_searched,
-            dropped: q
-                .dropped
-                .iter()
-                .map(|d| format!("{} = {}", names[d.target], d.formula_text))
-                .collect(),
-        });
+        let quick = QuickJson::new(table, q);
+        self.not_found
+            .retain(|m| !quick.not_searched.contains(&m.column));
+        self.quick = Some(quick);
         self
     }
 

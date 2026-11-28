@@ -136,3 +136,17 @@ relations = [
   { columns = ["profile_code", "profile_name"], formula = "one name per code" },
   { columns = ["asset_code", "asset_id"], formula = "asset_code = \"SIG\" + (asset_id - 4835)" },
 ]
+
+# Switches given only as WKT points (benchmarks/scripts/switches.py), matched
+# to the nearest point of the track: their track and chainage are found
+# (#114).
+
+[[file]]
+path = "data/track.csv"
+with = "data/switches.csv"
+relations = [
+  { columns = ["pk", "pk_catalogue"], formula = "pk_catalogue = pk of the nearest track point" },
+  { columns = ["track_key", "key", "line", "track"], formula = "track_key = key of the nearest track point" },
+  { columns = ["x", "y", "geom"], formula = "the point is the track point, within a few cm" },
+  { columns = ["profile_code", "profile_name"], formula = "one name per code" },
+]
