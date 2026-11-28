@@ -11,7 +11,7 @@ use regrex_core::{
     check_formula, explain_column_detailed, find_copies, fit_shape, search, DerivedColumn,
     Explanation, NearMiss, ScanConfig, ScanEvent, SearchConfig, UnaryOp,
 };
-use regrex_io::report::{DerivedJson, FitReport, NearMissJson};
+use regrex_io::report::{relations, DerivedJson, EquivalentJson, FitReport, NearMissJson};
 use regrex_io::Loaded;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -696,7 +696,8 @@ impl Dataset {
     /// With `derived` in the options (derived columns as [`Dataset::explain`]
     /// returns them, found by any worker), those are diagnosed together
     /// instead, and the result has one entry per given column, in the same
-    /// order (`null` for one whose formula no longer reads).
+    /// order (`null` for one whose formula no longer reads). The form of a
+    /// relation to show lists the others in `equivalent`.
     pub fn review(&self, options_json: &str) -> Result<String, JsError> {
         let options: ReviewOptions = parse_options(options_json)?;
         let table = self.table_without(&options.ignore, None);
@@ -704,11 +705,22 @@ impl Dataset {
             let rebuilt: Vec<Option<DerivedColumn>> =
                 items.iter().map(|item| item.rebuild(&table)).collect();
             let all: Vec<DerivedColumn> = rebuilt.iter().flatten().cloned().collect();
+            // The other forms of each relation go with the form shown.
+            let mut equivalent: Vec<Vec<EquivalentJson>> = vec![Vec::new(); all.len()];
+            for (i, forms) in relations(&table, &all) {
+                equivalent[i] = forms;
+            }
+            let mut index = 0;
             let json: Vec<Option<DerivedJson>> = rebuilt
                 .iter()
                 .map(|d| {
-                    d.as_ref()
-                        .map(|d| DerivedJson::with_context(&table, d, &all))
+                    d.as_ref().map(|d| {
+                        index += 1;
+                        DerivedJson {
+                            equivalent: std::mem::take(&mut equivalent[index - 1]),
+                            ..DerivedJson::with_context(&table, d, &all)
+                        }
+                    })
                 })
                 .collect();
             return serde_json::to_string(&json).map_err(js_error);

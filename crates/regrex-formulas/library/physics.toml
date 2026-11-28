@@ -354,6 +354,20 @@ source = { title = "Gravitational energy (Wikipedia)", url = "https://en.wikiped
 checks = [{ inputs = [1, 10], output = 98.0665 }]
 
 [[formula]]
+id = "gravitational_potential_energy_g"
+name = "Gravitational potential energy (with g given)"
+expr = "m * g * h"
+output = { symbol = "E_p", name = "potential energy", unit = "J", aliases = ["potential_energy", "energy"] }
+variables = [
+  { symbol = "m", name = "mass", unit = "kg", aliases = ["mass"] },
+  { symbol = "g", name = "gravitational acceleration", unit = "m/s^2", aliases = ["gravity"] },
+  { symbol = "h", name = "height", unit = "m", aliases = ["height", "z", "altitude", "elevation"] },
+]
+tags = ["mechanics", "energy", "gravity"]
+source = { title = "Gravitational energy (Wikipedia)", url = "https://en.wikipedia.org/wiki/Gravitational_energy" }
+checks = [{ inputs = [2, 9.81, 10], output = 196.2 }]
+
+[[formula]]
 id = "work"
 name = "Work done by a constant force"
 expr = "F * d * cos(θ)"

@@ -334,6 +334,39 @@ pub struct DerivedJson {
     /// absent when the formula holds exactly, up to rounding.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub within: Option<f64>,
+    /// The same relation solved for its other columns (`m = target / (g *
+    /// z)` next to `target = m * g * z`), which are not listed apart; see
+    /// [`regrex_core::same_relations`].
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub equivalent: Vec<EquivalentJson>,
+}
+
+/// Another form of the relation of a [`DerivedJson`].
+#[derive(Debug, Clone, Serialize)]
+pub struct EquivalentJson {
+    /// The column it is solved for.
+    pub column: String,
+    /// The formula, with column names.
+    pub formula: String,
+}
+
+/// The formulas of `derived` to list, each with the other forms of its
+/// relation (see [`regrex_core::same_relations`]), by index in `derived`.
+pub fn relations(table: &Table, derived: &[DerivedColumn]) -> Vec<(usize, Vec<EquivalentJson>)> {
+    let same = regrex_core::same_relations(table, derived, &ScanConfig::default());
+    (0..derived.len())
+        .filter(|&i| same[i].is_none())
+        .map(|i| {
+            let forms = (0..derived.len())
+                .filter(|&j| same[j] == Some(i))
+                .map(|j| EquivalentJson {
+                    column: table.names[derived[j].target].clone(),
+                    formula: derived[j].formula_text.clone(),
+                })
+                .collect();
+            (i, forms)
+        })
+        .collect()
 }
 
 /// A formula per value of a regime column.
@@ -663,6 +696,7 @@ impl DerivedJson {
             }),
             between_rows: d.steps,
             within: d.within,
+            equivalent: Vec::new(),
         }
     }
 }
@@ -723,9 +757,12 @@ impl ScanReport {
                     read_as: read_as.clone(),
                 })
                 .collect(),
-            derived: derived
-                .iter()
-                .map(|d| DerivedJson::with_context(&loaded.table, d, derived))
+            derived: relations(&loaded.table, derived)
+                .into_iter()
+                .map(|(i, equivalent)| DerivedJson {
+                    equivalent,
+                    ..DerivedJson::with_context(&loaded.table, &derived[i], derived)
+                })
                 .collect(),
             not_found: not_found(&loaded.table, derived),
             text_relations: crate::text_relations(loaded)
@@ -920,6 +957,14 @@ impl ScanReport {
                 .unwrap_or_default();
             if let Some(o) = &d.other {
                 let _ = write!(known, "\n  {:width$}   other rows: {}", "", o.summary());
+            }
+            if !d.equivalent.is_empty() {
+                let forms: Vec<String> = d
+                    .equivalent
+                    .iter()
+                    .map(|e| format!("{} = {}", e.column, e.formula))
+                    .collect();
+                let _ = write!(known, "\n  {:width$}   also: {}", "", forms.join(", "));
             }
             let why = |x: &ExceptionJson| {
                 x.diagnosis

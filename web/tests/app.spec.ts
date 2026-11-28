@@ -17,6 +17,11 @@ test("finds derived columns in the example invoices", async ({ page }) => {
   await expect(vat.locator("tbody tr")).toHaveText(["4229.9762.937used 0.1 instead of 0.21"]);
 
   await expect(page.locator('article[data-column="subtotal"]')).toContainText("✓ all 60 rows");
+  // One card per relation: net = total - vat goes with total = net + vat.
+  const total = page.locator('article[data-column="total"]');
+  await total.getByText("Also 1 other form of the same relation").click();
+  await expect(total.locator(".equivalent")).toContainText("net = total - vat");
+  await expect(page.locator('article[data-column="net"]')).toHaveCount(0);
 
   // VAT is a known formula, with the tax rate read from the data.
   await vat.getByText("Known formula").click();
@@ -351,8 +356,9 @@ test("draws how the columns depend on each other and each formula against the fi
   const graph = page.locator("#graph svg");
   await expect(graph).toBeVisible({ timeout: 45_000 });
   await expect(graph.locator('.node.derived[data-column="vat"]')).toBeVisible();
-  // net and total are computed from each other: one arrow with two heads.
-  await expect(graph.locator(".edge.both")).not.toHaveCount(0);
+  // net = total - vat is the same relation as total = net + vat: one card, no arrow back.
+  await expect(graph.locator('.node.derived[data-column="total"]')).toBeVisible();
+  await expect(graph.locator('.node.derived[data-column="net"]')).toHaveCount(0);
   await graph.locator('.node.derived[data-column="vat"]').click();
   await expect(page.locator('#cards article[data-column="vat"]')).toHaveClass(/flash/);
 

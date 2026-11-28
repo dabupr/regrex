@@ -355,33 +355,49 @@ fn replace_constant(e: &Expr, id: &str, value: f64) -> Expr {
 }
 
 /// Whether a match is likely to be meaningful rather than a numerical
-/// coincidence. Partial matches can turn many formulas into the candidate
-/// (a trapezoid's area with `h = 2` is a plain sum), so they need column
-/// names that agree with the formula.
+/// coincidence. A shape alone says little: `target / (g * z)` has the shape
+/// of a payback period and `m * g * z` that of the heat to warm a body. So
+/// every match needs column names that agree with the formula, and more of
+/// them the more common its shape.
 fn plausible(m: &Match<'_>) -> bool {
+    let inputs = m
+        .variables
+        .iter()
+        .filter(|b| matches!(b, Binding::Input(_)))
+        .count();
     if let Some(c) = &m.changed_constant {
         let ratio = c.value / c.library_value;
         return m.name_score >= 1 && (0.5..=2.0).contains(&ratio);
     }
     if !m.is_exact() {
+        // A fixed value turns any product law into `c * a * b`: every input
+        // and the output must be named like the formula's (`vat = 0.21 *
+        // net` is a tax amount), not `target = 0.159155 * n * h` a compute
+        // cost because `n` and `h` are its symbols.
         let positive = m.variables.iter().all(|b| match b {
             Binding::Value(v) => *v > 0.0,
             Binding::Input(_) => true,
         });
-        return m.name_score >= 2 && positive;
+        return m.name_score >= (inputs + 1).max(2) && positive;
     }
     if is_generic(m.formula) {
-        // `a + b` is everywhere: one shared word such as "total" is not
-        // enough to call it "capacitors in parallel".
-        return m.name_score >= 2;
+        // `a + b` and `a * b / c` are everywhere: one shared word such as
+        // "total" is not enough to call it "capacitors in parallel", and
+        // each column of a product of three must be named like the
+        // formula's.
+        return m.name_score >= inputs.max(2);
     }
-    m.name_score >= 1 || m.formula.operators().len() >= 2
+    m.name_score >= 1
 }
 
-/// A formula with a single operation and no constants or numbers, such as
-/// `a * b` or `a / b`: too common to name without a hint from column names.
+/// A formula of sums, products and quotients of its variables, with no
+/// constants or numbers, such as `a * b` or `c / (a * m)`: too common to
+/// name without hints from column names.
 fn is_generic(formula: &Formula) -> bool {
-    formula.operators().len() <= 1
+    formula
+        .operators()
+        .iter()
+        .all(|op| ["+", "-", "*", "/", "neg"].contains(op))
         && formula.expr.constants().is_empty()
         && !has_number(&formula.expr)
 }
@@ -538,6 +554,41 @@ mod tests {
             "{:?}",
             found.iter().map(|m| &m.formula.id).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn a_shape_alone_gives_no_name() {
+        // From the Feynman datasets: none of these is about payback periods,
+        // compute costs or the rotation of the Earth.
+        let none = |f: &dyn Fn(&[f64]) -> f64, inputs: &[&str], output| {
+            let found = lib().identify(f, inputs, Some(output));
+            assert!(
+                found.is_empty(),
+                "{inputs:?} -> {output}: {:?}",
+                found.iter().map(|m| &m.formula.id).collect::<Vec<_>>()
+            );
+        };
+        none(&|x| x[0] / (x[1] * x[2]), &["target", "m", "z"], "g");
+        none(&|x| x[0] / (x[1] * x[2]), &["target", "g", "z"], "m");
+        none(&|x| x[0] * x[1] * x[2], &["mob", "T", "kb"], "target");
+        none(&|x| 0.159155 * x[0] * x[1], &["n", "h"], "target");
+        none(
+            &|x| std::f64::consts::TAU * x[0] / x[1],
+            &["target", "h"],
+            "n",
+        );
+    }
+
+    #[test]
+    fn column_names_pick_the_formula() {
+        let found = lib().identify(&|x| x[0] * x[1] * x[2], &["m", "g", "z"], Some("target"));
+        assert_eq!(found[0].formula.id, "gravitational_potential_energy_g");
+        let found = lib().identify(
+            &|x| 100.0 - 100.0 * x[0] / x[1],
+            &["net", "subtotal"],
+            Some("discount_pct"),
+        );
+        assert_eq!(found[0].formula.id, "discount_percent");
     }
 
     #[test]

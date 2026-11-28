@@ -114,6 +114,10 @@ pub struct AgentFormula {
     /// The first of them (1 = first row after the header), with what is
     /// likely wrong when Regrex could reproduce the mistake.
     pub wrong: Vec<AgentWrongRow>,
+    /// The same relation solved for its other columns, as `m = target / (g
+    /// * z)`; those columns are not listed apart.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub equivalent: Vec<String>,
 }
 
 /// The second formula of a column, see [`AgentFormula::other`].
@@ -266,7 +270,16 @@ impl AgentReport {
                 }
             });
         }
-        let found = derived.iter().map(|d| formula(table, d, derived)).collect();
+        let found = crate::report::relations(table, derived)
+            .into_iter()
+            .map(|(i, forms)| AgentFormula {
+                equivalent: forms
+                    .into_iter()
+                    .map(|e| format!("{} = {}", e.column, e.formula))
+                    .collect(),
+                ..formula(table, &derived[i], derived)
+            })
+            .collect();
         let mut misses: Vec<AgentNearMiss> = near_misses
             .iter()
             .map(|m| {
@@ -411,5 +424,6 @@ fn formula(table: &Table, d: &DerivedColumn, all: &[DerivedColumn]) -> AgentForm
         }),
         wrong_count: wrong_rows.len(),
         wrong,
+        equivalent: Vec::new(),
     }
 }

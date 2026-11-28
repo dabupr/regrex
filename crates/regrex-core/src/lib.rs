@@ -44,6 +44,7 @@ pub mod profile;
 pub mod progress;
 pub mod progressive;
 pub mod regime;
+pub mod relations;
 pub mod scan;
 pub mod search;
 pub mod simplify;
@@ -55,6 +56,7 @@ pub use expr::{BinaryOp, Expr, UnaryOp};
 pub use profile::{profile, ColumnProfile, Profile, Role};
 pub use progress::{Explanation, NearMiss, Rejection, ScanEvent};
 pub use progressive::{confirm, sample_rows, scan_quick, sub_table, QuickScan};
+pub use relations::same_relations;
 pub use scan::{
     check_formula, diagnose_exception, explain_column, explain_column_detailed,
     explain_column_detailed_in, explain_column_in, explain_column_with_copies, find_copies,

@@ -90,10 +90,9 @@ relations = [{ columns = ["depth", "x", "y", "z"], formula = "200 * z / (x + y)"
 [[file]]
 path = "data/exercise.csv"
 # The first column is the row number and `id` the subject (3 rows each).
-# The two other formulas reported today fit the row order with odd
-# exponents (`time^(-0.25)`); held-out validation (#65) should drop them.
+# Formulas that only stay within rounding of the row number, or of `time`
+# (three values), are flukes and are dropped (#65).
 relations = [{ columns = ["column1", "id"], formula = "id = 1 + column1 div 3" }]
-false_positives = 2
 
 [[file]]
 path = "data/iris.csv"

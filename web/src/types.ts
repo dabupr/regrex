@@ -153,6 +153,8 @@ export interface Derived {
   between_rows?: boolean;
   /** For an approximate relation, its largest error. */
   within?: number;
+  /** The same relation solved for its other columns, which get no card of their own. */
+  equivalent?: { column: string; formula: string }[];
 }
 
 /**
